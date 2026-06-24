@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.next
+**/coverage
+.git
+.superpowers
+**/.env
+**/.env.*
+!**/.env.example
+# Not needed by the API image (keeps context small); apps/web stays so the
+# pnpm workspace --frozen-lockfile install resolves all members.
+design
+docs
