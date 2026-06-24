@@ -54,9 +54,9 @@ export class VaultService {
 
   /**
    * Build a withdraw transaction XDR.
-   * Returns the unsigned XDR string for the caller to sign and submit.
+   * Returns { xdr } for the caller to sign and submit.
    */
-  async buildWithdraw(caller: string, amount: bigint): Promise<string> {
+  async buildWithdraw(caller: string, amount: bigint): Promise<{ xdr: string }> {
     const response = await this.sdk.withdrawFromVault(
       this.vaultAddress,
       {
@@ -71,7 +71,7 @@ export class VaultService {
       throw new Error('withdrawFromVault returned null xdr');
     }
 
-    return response.xdr;
+    return { xdr: response.xdr };
   }
 
   /**

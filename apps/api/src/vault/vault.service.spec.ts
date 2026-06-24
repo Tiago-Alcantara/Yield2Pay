@@ -83,7 +83,7 @@ describe('VaultService', () => {
         { amounts: [2_000_000], caller: CALLER, slippageBps: 50 },
         SupportedNetworks.TESTNET,
       );
-      expect(result).toBe('AAAAWITHDRAW==');
+      expect(result).toEqual({ xdr: 'AAAAWITHDRAW==' });
     });
 
     it('throws when SDK returns null xdr', async () => {
