@@ -20,57 +20,51 @@ enum BillType {
 // ── Models ─────────────────────────────────────────────────────────────────────
 
 model Company {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  privyUserId String   @unique @map("privy_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  wallets        Wallet[]
-  deposits       Deposit[]
-  recurringBills RecurringBill[]
-  yieldSnapshots YieldSnapshot[]
+  wallet    Wallet?
+  deposits  Deposit[]
+  snapshots YieldSnapshot[]
+  bills     RecurringBill[]
 
   @@map("companies")
 }
 
 model Wallet {
-  id        String   @id @default(uuid())
-  companyId String   @map("company_id")
-  address   String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(cuid())
+  companyId      String   @unique @map("company_id")
+  stellarAddress String   @unique @map("stellar_address")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  company  Company   @relation(fields: [companyId], references: [id])
-  deposits Deposit[]
+  company Company @relation(fields: [companyId], references: [id])
 
   @@map("wallets")
 }
 
 model Deposit {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   companyId String   @map("company_id")
-  walletId  String   @map("wallet_id")
   /// USDC amount in base units (7 decimal places)
   amount    BigInt
-  txHash    String?  @map("tx_hash")
+  txHash    String   @unique @map("tx_hash")
   createdAt DateTime @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id])
-  wallet  Wallet  @relation(fields: [walletId], references: [id])
 
   @@map("deposits")
 }
 
 model RecurringBill {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   companyId   String   @map("company_id")
-  name        String
-  billType    BillType @map("bill_type")
+  vendor      String
   /// USDC amount in base units (7 decimal places)
-  amountDue   BigInt   @map("amount_due")
-  dueDayOfMonth Int    @map("due_day_of_month")
+  monthlyCost BigInt   @map("monthly_cost")
+  type        BillType @default(software)
+  status      String   @default("active")
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
 
   company Company @relation(fields: [companyId], references: [id])
 
@@ -78,14 +72,18 @@ model RecurringBill {
 }
 
 model YieldSnapshot {
-  id        String   @id @default(uuid())
-  companyId String   @map("company_id")
-  /// Yield balance in base units (7 decimal places)
-  balance   BigInt
-  apy       Decimal  @db.Decimal(10, 8)
-  snapshotAt DateTime @default(now()) @map("snapshot_at")
+  id         String   @id @default(cuid())
+  companyId  String   @map("company_id")
+  /// Vault value in base units (7 decimal places)
+  vaultValue BigInt   @map("vault_value")
+  /// Principal in base units (7 decimal places)
+  principal  BigInt
+  /// Spendable yield in base units (7 decimal places)
+  spendable  BigInt
+  createdAt  DateTime @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id])
 
+  @@index([companyId, createdAt])
   @@map("yield_snapshots")
 }
