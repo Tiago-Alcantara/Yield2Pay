@@ -31,6 +31,9 @@ vi.mock('next/navigation', () => ({
 
 import DashboardPage from './page';
 
+// Localized strings used in assertions (mirror the page's EN dictionary).
+const T_ERROR = 'Error loading dashboard.';
+
 const DASHBOARD_DATA = {
   vaultValue: '10750000',
   principal: '10000000',
@@ -71,32 +74,66 @@ describe('Dashboard page', () => {
 
   it('renders spendable via formatUsdc after data loads', async () => {
     setup();
-    // formatUsdc('750000') = '0.075'
+    // formatUsdc('750000') = '0.075'. With the default data, monthly returns
+    // (vaultValue − principal) also equals 750000, so the value can appear
+    // in more than one panel — assert at least one occurrence.
     await waitFor(() => {
-      expect(screen.getByText('0.075')).toBeInTheDocument();
+      expect(screen.getAllByText('0.075').length).toBeGreaterThan(0);
     });
   });
 
   it('renders apyPercent as percentage after data loads', async () => {
     setup();
+    // APY now appears in the returns-chart badge ("Annual yield: 7.50%")
     await waitFor(() => {
-      expect(screen.getByText('7.50%')).toBeInTheDocument();
+      expect(screen.getByText(/7\.50%/)).toBeInTheDocument();
     });
   });
 
   it('renders bill vendor name after data loads', async () => {
     setup();
     await waitFor(() => {
-      expect(screen.getByText('OpenAI')).toBeInTheDocument();
+      // vendor appears in both the subscriptions grid and the virtual-card list
+      expect(screen.getAllByText('OpenAI').length).toBeGreaterThan(0);
     });
   });
 
-  it('shows error state when getDashboard rejects', async () => {
+  it('renders monthly returns = vaultValue − principal via formatUsdc', async () => {
+    // vaultValue 10750000 − principal 10000000 = 750000 → formatUsdc = '0.075'
+    mockGetDashboard.mockResolvedValue({
+      vaultValue: '20000000',
+      principal: '10000000',
+      spendable: '5000000',
+      apyPercent: '7.50',
+    });
+    mockListBills.mockResolvedValue([]);
+    render(<DashboardPage />);
+    // 20000000 − 10000000 = 10000000 → formatUsdc('10000000') = '1'
+    // Appears in the "Monthly returns" stat card and the bar legend total.
+    await waitFor(() => {
+      expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('renders committed = BigInt sum of bill monthlyCost via formatUsdc', async () => {
+    mockGetDashboard.mockResolvedValue(DASHBOARD_DATA);
+    mockListBills.mockResolvedValue([
+      { id: 'b1', vendor: 'OpenAI', monthlyCost: '2000000', type: 'software', status: 'active' },
+      { id: 'b2', vendor: 'Notion', monthlyCost: '3000000', type: 'software', status: 'active' },
+    ]);
+    render(<DashboardPage />);
+    // committed = 2000000 + 3000000 = 5000000 → formatUsdc('5000000') = '0.5'
+    await waitFor(() => {
+      expect(screen.getByText('0.5')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error state with the localized message when getDashboard rejects', async () => {
     mockGetDashboard.mockRejectedValue(new Error('Server error'));
     mockListBills.mockResolvedValue([]);
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getAllByText(/error/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(T_ERROR)).toBeInTheDocument();
     });
   });
 });
