@@ -10,6 +10,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@fixearn/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -122,6 +125,8 @@ importers:
       typescript-eslint:
         specifier: ^8.20.0
         version: 8.62.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/shared: {}
 
 packages:
 

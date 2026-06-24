@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrivyClient } from '@privy-io/server-auth';
 import { APP_CONFIG } from '../config/config.module';
-import { Env } from '../config/env';
+import type { Env } from '../config/env';
 
 @Injectable()
 export class PrivyService {
