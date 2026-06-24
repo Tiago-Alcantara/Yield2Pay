@@ -8,9 +8,10 @@ import { LedgerModule } from './ledger/ledger.module';
 import { StellarModule } from './stellar/stellar.module';
 import { DepositModule } from './deposit/deposit.module';
 import { WithdrawModule } from './withdraw/withdraw.module';
+import { BillsModule } from './bills/bills.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, WalletModule, VaultModule, LedgerModule, StellarModule, DepositModule, WithdrawModule],
+  imports: [AppConfigModule, PrismaModule, WalletModule, VaultModule, LedgerModule, StellarModule, DepositModule, WithdrawModule, BillsModule],
   controllers: [HealthController],
   providers: [],
 })
