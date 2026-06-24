@@ -1,13 +1,13 @@
 /* Typography — Hanken Grotesk (display/body) + Geist Mono (data/labels).
-   These are the real faces used on the FixEarn site, served from Google Fonts.
-   @import must come first in this file. */
-@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap");
+   Fonts are self-hosted and loaded via next/font/google in layout.tsx, which
+   injects the CSS variables --font-hanken-grotesk / --font-geist-mono. The
+   family tokens below reference those variables (with system fallbacks). */
 
 :root {
   /* families */
-  --fx-font-display: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
-  --fx-font-body: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
-  --fx-font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --fx-font-display: var(--font-hanken-grotesk), system-ui, -apple-system, sans-serif;
+  --fx-font-body: var(--font-hanken-grotesk), system-ui, -apple-system, sans-serif;
+  --fx-font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* weights */
   --fx-weight-regular: 400;

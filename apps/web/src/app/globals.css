@@ -7,30 +7,16 @@
 @import "./tokens/motion.css";
 @import "./tokens/base.css";
 
-/* ── Global resets & helmet-level CSS ─────────────────────────────────────── */
+/* ── Global resets & helmet-level CSS ─────────────────────────────────────────
+   Body reset, ::selection and :focus-visible live in tokens/base.css (imported
+   above). Here we keep only what base.css does not cover plus the shared
+   brushed-metal / sweep / shine effect classes and their keyframes. */
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-body {
-  margin: 0;
-  background: #0c0d0f;
-  color: #EDEFF1;
-  font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-::selection { background: rgba(192, 194, 197, .25); color: #fff; }
-
 h1, h2 {
   text-shadow: 0 1px 0 rgba(255, 255, 255, .13), 0 -1px 1px rgba(0, 0, 0, .6);
-}
-
-:focus-visible {
-  outline: 2px solid #C0C2C5;
-  outline-offset: 3px;
-  border-radius: 4px;
 }
 
 /* ── Brushed metal surface ─────────────────────────────────────────────────── */
