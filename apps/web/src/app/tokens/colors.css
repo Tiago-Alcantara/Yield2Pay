@@ -1,0 +1,51 @@
+/* Colors — monochrome black + silver. No vibrant hues; the system lives on
+   contrast between near-black ink and polished silver, plus brushed-metal surfaces. */
+:root {
+  /* ---- base ink / page ---- */
+  --fx-bg: #0c0d0f;            /* page background, near-black */
+  --fx-surface-1: #131417;    /* faint raised surface */
+  --fx-surface-2: #16181b;    /* control wells (lang toggle) */
+  --fx-surface-3: #1b1d21;    /* deepest brushed stop */
+
+  /* ---- brushed metal ---- */
+  --fx-metal-1: #3c3f44;
+  --fx-metal-2: #26282c;
+  --fx-metal-3: #16181b;
+  --fx-metal-4: #303338;
+  --fx-metal-5: #1b1d21;
+  /* the canonical brushed-metal surface fill */
+  --fx-metal: linear-gradient(135deg, #3c3f44 0%, #26282c 26%, #16181b 52%, #303338 74%, #1b1d21 100%);
+  /* fine brushed striping overlay (apply as a layered background or ::after) */
+  --fx-metal-grain: repeating-linear-gradient(118deg, rgba(255,255,255,.04) 0, rgba(255,255,255,.04) 1px, transparent 1px, transparent 4px);
+  /* moving highlight used by the light-sweep animation */
+  --fx-sweep: linear-gradient(90deg, transparent, rgba(255,255,255,.26), transparent);
+
+  /* ---- silver / chrome ---- */
+  --fx-silver: #C0C2C5;          /* default silver accent / icon stroke */
+  --fx-silver-bright: #D4D6D9;   /* engraved highlights, active dot */
+  --fx-chrome: linear-gradient(180deg, #E6E8EA, #A8AAAD); /* polished silver button */
+  --fx-chrome-ink: #0E0F11;      /* text/icon on chrome buttons */
+
+  /* ---- borders ---- */
+  --fx-border: #2A2D31;          /* default hairline on dark */
+  --fx-border-strong: #3a3d42;   /* card edge */
+  --fx-border-metal: #4a4d52;    /* metal panel edge / focus-adjacent */
+  --fx-border-faint: rgba(255,255,255,.06); /* footer / divider */
+
+  /* ---- text ---- */
+  --fx-text: #EDEFF1;            /* primary on dark */
+  --fx-text-strong: #F2F3F4;     /* numeric / emphasis */
+  --fx-text-2: #9A9DA1;          /* secondary / body-muted */
+  --fx-text-3: #8a8d91;          /* tertiary labels */
+  --fx-text-4: #7E8186;          /* footer copyright */
+  --fx-text-disabled: #5F6266;
+
+  /* ---- semantic aliases ---- */
+  --fx-text-body: var(--fx-text-2);
+  --fx-text-heading: var(--fx-text);
+  --fx-surface-card: var(--fx-metal);
+  --fx-surface-well: var(--fx-surface-2);
+  --fx-accent: var(--fx-silver);
+  --fx-focus: var(--fx-silver);
+  --fx-selection-bg: rgba(192,194,197,.25);
+}

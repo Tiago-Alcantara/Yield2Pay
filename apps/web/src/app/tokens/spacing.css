@@ -1,0 +1,26 @@
+/* Spacing — 4px base grid. Generous vertical rhythm is core to the "private bank"
+   feel: sections breathe at 120px+ on desktop, content caps at 1200px. */
+:root {
+  --fx-space-1: 4px;
+  --fx-space-2: 8px;
+  --fx-space-3: 12px;
+  --fx-space-4: 16px;
+  --fx-space-5: 20px;
+  --fx-space-6: 24px;
+  --fx-space-8: 32px;
+  --fx-space-10: 40px;
+  --fx-space-12: 48px;
+  --fx-space-14: 56px;
+  --fx-space-18: 72px;
+  --fx-space-24: 96px;
+
+  /* layout */
+  --fx-container: 1200px;       /* max content width, centered */
+  --fx-gutter: 24px;            /* page side padding */
+  --fx-section-y: clamp(86px, 11vw, 128px);  /* vertical padding between sections */
+  --fx-grid-gap: 20px;          /* default card grid gap */
+
+  /* common component padding */
+  --fx-pad-card: 30px;
+  --fx-pad-panel: clamp(48px, 7vw, 72px);
+}

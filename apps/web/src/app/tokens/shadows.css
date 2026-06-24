@@ -1,0 +1,24 @@
+/* Elevation — deep, soft drop shadows on near-black, paired with a 1px inner
+   top-highlight that reads as light catching a metal edge. */
+:root {
+  /* drop shadows */
+  --fx-shadow-card: 0 18px 44px rgba(0, 0, 0, 0.4);
+  --fx-shadow-panel: 0 22px 54px rgba(0, 0, 0, 0.42);
+  --fx-shadow-hero: 0 44px 96px rgba(0, 0, 0, 0.62);
+  --fx-shadow-button: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* inner highlights (metal edge catching light) */
+  --fx-inset-edge: 0 2px 0 rgba(255, 255, 255, 0.12) inset;
+  --fx-inset-edge-soft: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+  --fx-inset-chrome: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+
+  /* composed: metal hero panel */
+  --fx-elev-hero: 0 44px 96px rgba(0, 0, 0, 0.62), 0 2px 0 rgba(255, 255, 255, 0.12) inset;
+  /* composed: chrome button at rest */
+  --fx-elev-chrome: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 8px 24px rgba(0, 0, 0, 0.4);
+  /* composed: chrome button hover glow */
+  --fx-elev-chrome-hover: 0 0 0 1px rgba(192, 194, 197, 0.5), 0 10px 34px rgba(192, 194, 197, 0.2), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+
+  /* silver glow (active dot, focus accents) */
+  --fx-glow-silver: 0 0 8px rgba(212, 214, 217, 0.7);
+}

@@ -1,0 +1,46 @@
+/* Typography — Hanken Grotesk (display/body) + Geist Mono (data/labels).
+   These are the real faces used on the FixEarn site, served from Google Fonts.
+   @import must come first in this file. */
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* families */
+  --fx-font-display: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --fx-font-body: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --fx-font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* weights */
+  --fx-weight-regular: 400;
+  --fx-weight-medium: 500;
+  --fx-weight-semibold: 600;
+  --fx-weight-bold: 700;
+  --fx-weight-black: 800;
+
+  /* display / heading scale (fluid) */
+  --fx-text-hero: clamp(38px, 5.6vw, 66px);   /* hero h1 */
+  --fx-text-h2: clamp(30px, 3.4vw, 40px);     /* section title */
+  --fx-text-h3: 20px;                          /* card title */
+  --fx-text-lg: clamp(16px, 1.4vw, 19px);      /* lead / subtitle */
+  --fx-text-body: 16px;
+  --fx-text-sm: 14.5px;
+  --fx-text-xs: 13px;
+
+  /* mono / labels */
+  --fx-mono-label: 12px;       /* eyebrow / section kicker */
+  --fx-mono-sm: 11px;          /* footer kicker, card meta */
+  --fx-mono-data: 33px;        /* big numeric (balance) */
+
+  /* line-heights */
+  --fx-leading-tight: 1.06;    /* display */
+  --fx-leading-snug: 1.2;
+  --fx-leading-body: 1.6;
+
+  /* tracking */
+  --fx-tracking-display: -0.025em;  /* tight on large display */
+  --fx-tracking-label: 0.16em;      /* mono eyebrows */
+  --fx-tracking-label-wide: 0.2em;  /* hero eyebrow */
+  --fx-tracking-data: 0.01em;
+
+  /* embossed heading shadow — the signature metal text treatment */
+  --fx-emboss: 0 1px 0 rgba(255, 255, 255, 0.13), 0 -1px 1px rgba(0, 0, 0, 0.6);
+}

@@ -1,0 +1,26 @@
+/* Base resets / element defaults wired to the tokens.
+   Optional for consumers, but keeps specimens and kits consistent. */
+:root {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--fx-bg);
+  color: var(--fx-text);
+  font-family: var(--fx-font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection {
+  background: var(--fx-selection-bg);
+  color: #fff;
+}
+:focus-visible {
+  outline: 2px solid var(--fx-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* the embossed metal heading treatment */
+.fx-emboss {
+  text-shadow: var(--fx-emboss);
+}

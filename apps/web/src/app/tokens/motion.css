@@ -1,0 +1,35 @@
+/* Motion — restrained and premium. Entrances fade (no big vertical travel);
+   life comes from light sweeping across metal and a slow float, never from
+   busy backgrounds. Always gate ambient motion behind prefers-reduced-motion. */
+:root {
+  --fx-ease: cubic-bezier(0.2, 0.65, 0.2, 1);   /* standard ease-out */
+  --fx-ease-metal: cubic-bezier(0.2, 0.7, 0.25, 1); /* card 3D entrance */
+
+  --fx-dur-fast: 0.25s;     /* hover / micro */
+  --fx-dur-reveal: 0.85s;   /* scroll fade-in */
+  --fx-dur-sweep: 6.5s;     /* light sweep loop across metal */
+  --fx-dur-float: 7s;       /* hero panel float loop */
+  --fx-dur-marquee: 36s;    /* logo carousel loop */
+}
+
+/* Signature keyframes — copy alongside these tokens when you need the effect. */
+@keyframes fx-sweep {
+  0% { transform: translateX(-130%) skewX(-12deg); }
+  55%, 100% { transform: translateX(130%) skewX(-12deg); }
+}
+@keyframes fx-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes fx-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fx-card-in {
+  from { opacity: 0; transform: perspective(1300px) rotateX(8deg) rotateY(-14deg) scale(0.95); }
+  to { opacity: 1; transform: perspective(1300px) rotateX(0) rotateY(0) scale(1); }
+}
+@keyframes fx-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}

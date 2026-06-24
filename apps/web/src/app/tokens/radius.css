@@ -1,0 +1,10 @@
+/* Corner radii — soft on small chrome, generous on metal panels, pill on actions. */
+:root {
+  --fx-radius-sm: 5px;     /* card chip / engraved detail */
+  --fx-radius-md: 12px;    /* icon tiles */
+  --fx-radius-lg: 14px;    /* marquee chips, small surfaces */
+  --fx-radius-xl: 18px;    /* standard cards */
+  --fx-radius-2xl: 22px;   /* hero panel / large surfaces */
+  --fx-radius-3xl: 26px;   /* final CTA slab */
+  --fx-radius-pill: 999px; /* buttons, toggles, status pills */
+}
