@@ -145,6 +145,28 @@ React de produção, mantendo os tokens (`--fx-*`), o material metal escovado e 
 - **APY/valorização do DeFindex:** confirmar como o SDK expõe valor atual vs principal por
   carteira para o cálculo de gastável.
 
+### 10.1. Backend MVP — status e tickets de fase 2
+
+O backend do Ciclo 1 está implementado (NestJS 11 + Prisma 7, 13 tarefas, suíte unit verde,
+app sobe). Itens deliberadamente adiados, a fechar antes de ir a produção/mainnet:
+
+- **3 pontos de integração não fixados** (sem credenciais ainda; testes `*.integration-spec.ts`
+  guardados por `RUN_INTEGRATION=1`):
+  1. `verifyAuthToken` da Privy — campo `.userId` confirmado para `@privy-io/server-auth@1.32.5`.
+  2. **Conversão shares→USDC do DeFindex** — `VaultService.getPositionValue` hoje retorna `dfTokens`
+     (shares) como **placeholder**; candidato real `underlyingBalance[0]`. `getPositionValue` lança
+     erro se `STELLAR_NETWORK=public`, pra placeholder nunca virar valor real em mainnet.
+  3. **Submit Soroban** — `attachAndSubmit` pode precisar de `prepareTransaction`; `sendTransaction`
+     volta `PENDING`, precisa de polling `getTransaction` antes de registrar o depósito.
+- **TICKET I1 — confiança no `POST /deposit/submit`:** hoje `amount` e `txHash` vêm do cliente e são
+  gravados sem reconciliar com o XDR que o backend montou. Risco de `principal` errado (corrompe
+  `gastável`). Fase 2: vincular o valor gravado ao XDR construído no `build` (persistir por hash),
+  não confiar no echo do cliente.
+- **TICKET — reconciliação de saque no principal:** saque não baixa o `principal` (soma de depósitos);
+  após saque real, `principal` fica inflado e `gastável` subestima. Definir tratamento.
+- **Hardening pré-deploy:** `ValidationPipe` global já adicionado + parsing de dinheiro com
+  `BadRequestException`; falta endurecer schemas de DTO (class-validator) e polling de finalidade.
+
 ---
 
 ## 11. Sequência de fases
