@@ -10,6 +10,7 @@ export class AuthGuard implements CanActivate {
     const header: string | undefined = req.headers['authorization'];
     if (!header?.startsWith('Bearer ')) throw new UnauthorizedException('missing bearer token');
     const token = header.slice('Bearer '.length);
+    if (!token) throw new UnauthorizedException('missing bearer token');
     let claims: { privyUserId: string };
     try { claims = await this.privy.verify(token); }
     catch { throw new UnauthorizedException('invalid token'); }

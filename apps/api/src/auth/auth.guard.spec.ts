@@ -10,6 +10,23 @@ it('rejects when no bearer token', async () => {
   await expect(guard.canActivate(ctx({}))).rejects.toBeInstanceOf(UnauthorizedException);
 });
 
+it('rejects when bearer token is empty', async () => {
+  const guard = new AuthGuard({ verify: jest.fn() } as any, { findOrCreate: jest.fn() } as any);
+  await expect(
+    guard.canActivate(ctx({ authorization: 'Bearer ' })),
+  ).rejects.toBeInstanceOf(UnauthorizedException);
+});
+
+it('rejects when verify throws', async () => {
+  const privy = { verify: jest.fn().mockRejectedValue(new Error('expired')) };
+  const guard = new AuthGuard(privy as any, { findOrCreate: jest.fn() } as any);
+  const req: any = { headers: { authorization: 'Bearer badtoken' } };
+  await expect(
+    guard.canActivate({ switchToHttp: () => ({ getRequest: () => req }) } as any)
+  ).rejects.toBeInstanceOf(UnauthorizedException);
+  expect(req.companyId).toBeUndefined();
+});
+
 it('verifies token and attaches companyId', async () => {
   const privy = { verify: jest.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }) };
   const company = { findOrCreate: jest.fn().mockResolvedValue({ id: 'co_9' }) };
