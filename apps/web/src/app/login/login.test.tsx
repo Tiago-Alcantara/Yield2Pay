@@ -27,15 +27,6 @@ vi.mock('@privy-io/react-auth', () => ({
     user: null,
     getAccessToken: vi.fn().mockResolvedValue(null),
   })),
-  useCreateWallet: vi.fn(() => ({ createWallet: vi.fn() })),
-}));
-
-vi.mock('@privy-io/react-auth/extended-chains', () => ({
-  useCreateWallet: vi.fn(() => ({ createWallet: vi.fn() })),
-}));
-
-vi.mock('@/lib/useWallet', () => ({
-  useWallet: vi.fn(() => ({ address: null, ensureWallet: vi.fn() })),
 }));
 
 // ── Component under test ───────────────────────────────────────────────────────

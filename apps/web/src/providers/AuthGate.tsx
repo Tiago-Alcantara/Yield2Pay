@@ -37,9 +37,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     // but the underlying Privy state drives it).
   }, [ready, authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show nothing while Privy initialises (avoids flicker).
-  if (!ready) return null;
+  // Render children only once Privy is ready AND the user is authenticated.
+  // Guarding on `authenticated` (not just `ready`) prevents a one-render flash
+  // of protected content while the redirect effect runs asynchronously.
+  if (!ready || !authenticated) return null;
 
-  // Authenticated — render children.
   return <>{children}</>;
 }

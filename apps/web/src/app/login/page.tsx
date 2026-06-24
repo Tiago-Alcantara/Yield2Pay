@@ -152,7 +152,6 @@ export default function LoginPage() {
   const [lang, setLang] = useState<Lang>('en');
   const [mode, setMode] = useState<Mode>('login');
   const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [agree, setAgree] = useState(false);
   const [values, setValues] = useState<Partial<Record<FieldKey, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
@@ -169,7 +168,6 @@ export default function LoginPage() {
     setMode((prev) => (prev === 'login' ? 'signup' : 'login'));
     setSubmitted(false);
     setTouched({});
-    setLoading(false);
   }
 
   function setVal(key: FieldKey, val: string) {
@@ -227,7 +225,7 @@ export default function LoginPage() {
     border: 'none',
     borderRadius: 12,
     padding: 15,
-    cursor: loading ? 'default' : 'pointer',
+    cursor: 'pointer',
     marginTop: 4,
     display: 'flex',
     alignItems: 'center',
@@ -237,7 +235,7 @@ export default function LoginPage() {
     width: '100%',
     boxShadow: '0 1px 0 rgba(255,255,255,.5) inset, 0 8px 24px rgba(0,0,0,.4)',
     transition: 'transform .25s ease, box-shadow .25s ease, filter .25s ease',
-    opacity: loading ? 0.85 : 1,
+    opacity: 1,
   };
 
   // ── Global CSS injection for animations ──────────────────────────────────
@@ -259,7 +257,6 @@ export default function LoginPage() {
     .fx-btn-shine:hover::before{transform:translateX(135%)}
     @keyframes fxMetalShift{0%{background-position:100% 0%}50%{background-position:0% 100%}100%{background-position:100% 0%}}
     @keyframes fxBrandSweep{0%{transform:skewX(-12deg) translateX(-160%)}58%,100%{transform:skewX(-12deg) translateX(280%)}}
-    @keyframes fxSpin{to{transform:rotate(360deg)}}
     @keyframes fxFade{from{transform:translateY(7px)}to{transform:translateY(0)}}
     @media (prefers-reduced-motion:reduce){.fx-metal::before,.fx-sweep,.fx-form{animation:none}}
   `;
@@ -409,7 +406,7 @@ export default function LoginPage() {
                         <button
                           type="button"
                           onClick={() => setShow((s) => !s)}
-                          aria-label={show ? t.showPw.includes('Hide') || lang === 'en' ? t.hidePw : t.hidePw : t.showPw}
+                          aria-label={show ? t.hidePw : t.showPw}
                           style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9A9DA1', padding: 6, display: 'flex', alignItems: 'center' }}
                         >
                           {show ? <EyeOpen /> : <EyeClosed />}
@@ -495,12 +492,8 @@ export default function LoginPage() {
               )}
 
               {/* Submit CTA */}
-              <button type="submit" className="fx-btn-shine" disabled={loading} style={primaryStyle}>
-                {loading ? (
-                  <span aria-hidden="true" style={{ width: 16, height: 16, border: '2px solid rgba(14,15,17,.3)', borderTopColor: '#0E0F11', borderRadius: '50%', display: 'inline-block', animation: 'fxSpin .7s linear infinite' }} />
-                ) : (
-                  m.cta
-                )}
+              <button type="submit" className="fx-btn-shine" style={primaryStyle}>
+                {m.cta}
               </button>
             </form>
 
