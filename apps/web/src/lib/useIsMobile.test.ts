@@ -1,18 +1,19 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useIsMobile } from './useIsMobile';
 
 describe('useIsMobile', () => {
   beforeEach(() => {
     // Reset matchMedia mock before each test
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+    (window.matchMedia as ReturnType<typeof vi.fn>).mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     }));
   });
 
@@ -22,15 +23,15 @@ describe('useIsMobile', () => {
   });
 
   it('returns true when matchMedia reports a match', () => {
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+    (window.matchMedia as ReturnType<typeof vi.fn>).mockImplementation((query: string) => ({
       matches: true,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     }));
 
     const { result } = renderHook(() => useIsMobile());
@@ -38,15 +39,15 @@ describe('useIsMobile', () => {
   });
 
   it('returns false when matchMedia does not match', () => {
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+    (window.matchMedia as ReturnType<typeof vi.fn>).mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     }));
 
     const { result } = renderHook(() => useIsMobile());
@@ -59,16 +60,16 @@ describe('useIsMobile', () => {
       matches: false,
       media: '(max-width: 767px)',
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn((_event: string, handler: (e: MediaQueryListEvent) => void) => {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn((_event: string, handler: (e: MediaQueryListEvent) => void) => {
         changeHandler = handler;
       }),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     };
 
-    (window.matchMedia as jest.Mock).mockReturnValue(mockMql);
+    (window.matchMedia as ReturnType<typeof vi.fn>).mockReturnValue(mockMql);
 
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(false);
@@ -83,16 +84,16 @@ describe('useIsMobile', () => {
   });
 
   it('cleans up event listener on unmount', () => {
-    const removeEventListener = jest.fn();
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+    const removeEventListener = vi.fn();
+    (window.matchMedia as ReturnType<typeof vi.fn>).mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
       removeEventListener,
-      dispatchEvent: jest.fn(),
+      dispatchEvent: vi.fn(),
     }));
 
     const { unmount } = renderHook(() => useIsMobile());
