@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { createApi } from '@/lib/api';
 import { toBaseUnits, formatUsdc } from '@/lib/money';
@@ -11,6 +11,15 @@ import type { Bill, BillType } from '@fixearn/shared';
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 const BILL_TYPES: BillType[] = ['software', 'utility', 'other'];
+
+export interface BillsProps {
+  /** Bills list owned by the parent (dashboard). */
+  bills: Bill[];
+  /** Called after a successful createBill or deleteBill so the parent can refetch. */
+  onBillsChanged: () => void;
+  /** Active category filter ('all' | 'software' | 'utility' | 'other'). Defaults to 'all'. */
+  tab?: string;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -29,12 +38,10 @@ function validateCost(raw: string): string | null {
 
 // ── Bills component ────────────────────────────────────────────────────────────
 
-export default function Bills() {
+export default function Bills({ bills, onBillsChanged, tab = 'all' }: BillsProps) {
   const { getAccessToken } = usePrivy();
   const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
 
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Form state
@@ -45,32 +52,11 @@ export default function Bills() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Load bills on mount
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .listBills()
-      .then((list) => {
-        if (!cancelled) {
-          setBills(list);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const costError = validateCost(cost);
   const isValid = vendor.trim().length > 0 && costError === null;
+
+  // Filter bills by tab
+  const visibleBills = tab === 'all' ? bills : bills.filter((b) => b.type === tab);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,12 +65,12 @@ export default function Bills() {
     setFormError(null);
     try {
       const monthlyCost = toBaseUnits(cost);
-      const newBill = await api.createBill({ vendor: vendor.trim(), monthlyCost, type });
-      setBills((prev) => [...prev, newBill]);
+      await api.createBill({ vendor: vendor.trim(), monthlyCost, type });
       setVendor('');
       setCost('');
       setType('software');
       setCostTouched(false);
+      onBillsChanged();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add bill');
     } finally {
@@ -95,7 +81,7 @@ export default function Bills() {
   async function handleDelete(id: string) {
     try {
       await api.deleteBill(id);
-      setBills((prev) => prev.filter((b) => b.id !== id));
+      onBillsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete bill');
     }
@@ -253,19 +239,16 @@ export default function Bills() {
           Your bills
         </h3>
 
-        {loading && (
-          <p style={{ color: '#9A9DA1', fontFamily: mono, fontSize: 13 }}>Loading…</p>
-        )}
         {error && (
           <p style={{ color: '#ff6b6b', fontFamily: mono, fontSize: 13 }}>{error}</p>
         )}
-        {!loading && !error && bills.length === 0 && (
+        {visibleBills.length === 0 && (
           <p style={{ color: '#9A9DA1', fontSize: 14 }}>No bills yet. Add one above.</p>
         )}
 
-        {!loading && bills.length > 0 && (
+        {visibleBills.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {bills.map((bill, i) => (
+            {visibleBills.map((bill, i) => (
               <div
                 key={bill.id}
                 style={{
@@ -273,7 +256,7 @@ export default function Bills() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '14px 0',
-                  borderBottom: i < bills.length - 1 ? '1px solid #2A2D31' : 'none',
+                  borderBottom: i < visibleBills.length - 1 ? '1px solid #2A2D31' : 'none',
                 }}
               >
                 {/* Left: avatar + vendor info */}

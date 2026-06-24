@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import { createApi } from '@/lib/api';
@@ -15,6 +15,7 @@ const T = {
     nav: {
       overview: 'Overview',
       deposit: 'My deposit',
+      withdraw: 'Withdraw',
       services: 'Services',
       card: 'Virtual card',
       transactions: 'Transactions',
@@ -72,6 +73,7 @@ const T = {
     nav: {
       overview: 'Visão geral',
       deposit: 'Meu aporte',
+      withdraw: 'Sacar',
       services: 'Serviços',
       card: 'Cartão virtual',
       transactions: 'Transações',
@@ -147,6 +149,15 @@ function IconDeposit() {
       <path d="M12 3v10" />
       <path d="M8 9l4 4 4-4" />
       <path d="M4 19h16" />
+    </svg>
+  );
+}
+function IconWithdraw() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21V11" />
+      <path d="M8 15l4-4 4 4" />
+      <path d="M4 5h16" />
     </svg>
   );
 }
@@ -250,6 +261,7 @@ const TASK_ICONS: Record<string, React.ReactNode> = {
 const NAV_ITEMS: Array<{ id: string; icon: React.ReactNode; key: keyof typeof T['en']['nav'] }> = [
   { id: 'overview', icon: <IconOverview />, key: 'overview' },
   { id: 'deposit', icon: <IconDeposit />, key: 'deposit' },
+  { id: 'withdraw', icon: <IconWithdraw />, key: 'withdraw' },
   { id: 'services', icon: <IconServices />, key: 'services' },
   { id: 'card', icon: <IconCard />, key: 'card' },
   { id: 'transactions', icon: <IconTransactions />, key: 'transactions' },
@@ -323,7 +335,7 @@ function StatCard({
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { getAccessToken } = usePrivy();
+  const { getAccessToken, logout } = usePrivy();
   const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
 
   const [lang, setLang] = useState<Lang>('en');
@@ -337,27 +349,35 @@ export default function DashboardPage() {
 
   const t = T[lang];
 
+  const fetchData = useCallback(
+    (initial = false) => {
+      if (initial) setLoading(true);
+      setError(null);
+      Promise.all([api.getDashboard(), api.listBills()])
+        .then(([dash, billList]) => {
+          setDashboard(dash);
+          setBills(billList);
+          if (initial) setLoading(false);
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+          if (initial) setLoading(false);
+        });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all([api.getDashboard(), api.listBills()])
-      .then(([dash, billList]) => {
-        if (cancelled) return;
-        setDashboard(dash);
-        setBills(billList);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        setLoading(false);
-      });
-
-    return () => { cancelled = true; };
+    fetchData(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Called by <Bills/> after a successful create/delete so this page refetches both
+   *  the bills list AND the dashboard (spendable/committed totals stay in sync). */
+  const handleBillsChanged = useCallback(() => {
+    fetchData(false);
+  }, [fetchData]);
 
   const isEn = lang === 'en';
 
@@ -526,10 +546,19 @@ export default function DashboardPage() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {NAV_ITEMS.map((item) => {
             const on = nav === item.id;
+            function handleNavClick() {
+              if (item.id === 'deposit') {
+                router.push('/deposit');
+              } else if (item.id === 'withdraw') {
+                router.push('/withdraw');
+              } else {
+                setNav(item.id);
+              }
+            }
             return (
               <button
                 key={item.id}
-                onClick={() => setNav(item.id)}
+                onClick={handleNavClick}
                 style={{
                   position: 'relative',
                   display: 'flex',
@@ -623,6 +652,7 @@ export default function DashboardPage() {
           </span>
           <button
             aria-label={t.logout}
+            onClick={() => logout()}
             style={{
               background: 'none',
               border: 'none',
@@ -1323,7 +1353,7 @@ export default function DashboardPage() {
 
             {/* Bills management: add form + list + per-bill delete */}
             <div style={{ marginTop: 20 }}>
-              <Bills />
+              <Bills bills={bills} onBillsChanged={handleBillsChanged} tab={tab} />
             </div>
           </div>
 

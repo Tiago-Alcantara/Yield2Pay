@@ -1,6 +1,7 @@
 /**
  * bills.test.tsx
  * Behavior tests for the Bills management section.
+ * Bills now receives bills + onBillsChanged as props (no internal fetch).
  * Mocks @/lib/api — no real network.
  */
 import React from 'react';
@@ -10,13 +11,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // --- mock @/lib/api ---
 const mockCreateBill = vi.fn();
-const mockListBills = vi.fn();
 const mockDeleteBill = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   createApi: () => ({
     createBill: mockCreateBill,
-    listBills: mockListBills,
     deleteBill: mockDeleteBill,
   }),
 }));
@@ -27,48 +26,39 @@ vi.mock('@privy-io/react-auth', () => ({
 }));
 
 import Bills from './Bills';
+import type { Bill } from '@fixearn/shared';
 
-const EXISTING_BILLS = [
+const EXISTING_BILLS: Bill[] = [
   { id: 'b1', vendor: 'Notion', monthlyCost: '1600000', type: 'software', status: 'active' },
 ];
 
-function setup() {
-  mockListBills.mockResolvedValue(EXISTING_BILLS);
+function setup(bills: Bill[] = EXISTING_BILLS, onBillsChanged = vi.fn()) {
   mockCreateBill.mockResolvedValue({ id: 'b2', vendor: 'OpenAI', monthlyCost: '20000000', type: 'software', status: 'active' });
   mockDeleteBill.mockResolvedValue(undefined);
-  return render(<Bills />);
+  return { onBillsChanged, ...render(<Bills bills={bills} onBillsChanged={onBillsChanged} />) };
 }
 
 describe('Bills management', () => {
   beforeEach(() => {
     mockCreateBill.mockReset();
-    mockListBills.mockReset();
     mockDeleteBill.mockReset();
   });
 
-  it('renders the add bill form with vendor, cost, type, and submit button', async () => {
+  it('renders the add bill form with vendor, cost, type, and submit button', () => {
     setup();
-    await waitFor(() => {
-      expect(screen.getByLabelText(/vendor/i)).toBeInTheDocument();
-    });
+    expect(screen.getByLabelText(/vendor/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/monthly cost/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add bill/i })).toBeInTheDocument();
   });
 
-  it('defaults the type select to "software"', async () => {
+  it('defaults the type select to "software"', () => {
     setup();
-    await waitFor(() => {
-      expect(screen.getByLabelText(/vendor/i)).toBeInTheDocument();
-    });
     const typeSelect = screen.getByLabelText(/type/i) as HTMLSelectElement;
     expect(typeSelect.value).toBe('software');
   });
 
-  it('calls createBill with correct args when the form is submitted', async () => {
-    setup();
-    await waitFor(() => {
-      expect(screen.getByLabelText(/vendor/i)).toBeInTheDocument();
-    });
+  it('calls createBill with correct args and then onBillsChanged when the form is submitted', async () => {
+    const { onBillsChanged } = setup();
 
     const vendorInput = screen.getByLabelText(/vendor/i);
     const costInput = screen.getByLabelText(/monthly cost/i);
@@ -78,7 +68,6 @@ describe('Bills management', () => {
     await userEvent.clear(costInput);
     await userEvent.type(costInput, '2');
 
-    // type is already 'software' by default
     fireEvent.click(screen.getByRole('button', { name: /add bill/i }));
 
     await waitFor(() => {
@@ -89,24 +78,23 @@ describe('Bills management', () => {
         type: 'software',
       });
     });
+
+    await waitFor(() => {
+      expect(onBillsChanged).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('lists existing bills with vendor name, formatted cost, and type', async () => {
+  it('lists bills passed via props with vendor name, formatted cost, and type', () => {
     setup();
-    await waitFor(() => {
-      expect(screen.getByText('Notion')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Notion')).toBeInTheDocument();
     // formatUsdc('1600000') = '0.16'
     expect(screen.getByText(/0\.16/)).toBeInTheDocument();
     // 'software' appears in the type option AND the bill type label — at least one should be in doc
     expect(screen.getAllByText('software').length).toBeGreaterThan(0);
   });
 
-  it('calls deleteBill with the bill id when delete is clicked', async () => {
-    setup();
-    await waitFor(() => {
-      expect(screen.getByText('Notion')).toBeInTheDocument();
-    });
+  it('calls deleteBill with the bill id and then onBillsChanged when delete is clicked', async () => {
+    const { onBillsChanged } = setup();
 
     const deleteBtn = screen.getByRole('button', { name: /delete notion/i });
     fireEvent.click(deleteBtn);
@@ -114,5 +102,24 @@ describe('Bills management', () => {
     await waitFor(() => {
       expect(mockDeleteBill).toHaveBeenCalledWith('b1');
     });
+
+    await waitFor(() => {
+      expect(onBillsChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('filters bills by tab prop when tab is not "all"', () => {
+    const mixedBills: Bill[] = [
+      { id: 'b1', vendor: 'Notion', monthlyCost: '1600000', type: 'software', status: 'active' },
+      { id: 'b2', vendor: 'Electricity', monthlyCost: '5000000', type: 'utility', status: 'active' },
+    ];
+    render(<Bills bills={mixedBills} onBillsChanged={vi.fn()} tab="software" />);
+    expect(screen.getByText('Notion')).toBeInTheDocument();
+    expect(screen.queryByText('Electricity')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state when no bills match the tab filter', () => {
+    render(<Bills bills={EXISTING_BILLS} onBillsChanged={vi.fn()} tab="utility" />);
+    expect(screen.getByText(/no bills yet/i)).toBeInTheDocument();
   });
 });
