@@ -6,15 +6,15 @@ const USDC_ADDR = 'CUSDCADDRESS';
 const CALLER = 'GCALLERADDRESS';
 
 /**
- * Build a mock SDK whose methods are jest.fn() stubs returning the
+ * Build a mock SDK whose methods are vi.fn() stubs returning the
  * shapes that the REAL @defindex/sdk v0.3.0 returns.
  */
 function makeSdkMock() {
   return {
-    depositToVault: jest.fn(),
-    withdrawFromVault: jest.fn(),
-    getVaultAPY: jest.fn(),
-    getVaultBalance: jest.fn(),
+    depositToVault: vi.fn(),
+    withdrawFromVault: vi.fn(),
+    getVaultAPY: vi.fn(),
+    getVaultBalance: vi.fn(),
   };
 }
 
@@ -32,7 +32,10 @@ describe('VaultService', () => {
   describe('buildDeposit', () => {
     it('calls depositToVault with correct args and returns xdr (testnet)', async () => {
       const sdk = makeSdkMock();
-      sdk.depositToVault.mockResolvedValue({ xdr: 'AAAAADEPOSIT==', simulationResponse: {} });
+      sdk.depositToVault.mockResolvedValue({
+        xdr: 'AAAAADEPOSIT==',
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig('testnet'));
 
       const result = await svc.buildDeposit(CALLER, 5_000_000n);
@@ -47,7 +50,10 @@ describe('VaultService', () => {
 
     it('calls depositToVault with MAINNET when stellarNetwork=public', async () => {
       const sdk = makeSdkMock();
-      sdk.depositToVault.mockResolvedValue({ xdr: 'AAAAAMAINNETDEPOSIT==', simulationResponse: {} });
+      sdk.depositToVault.mockResolvedValue({
+        xdr: 'AAAAAMAINNETDEPOSIT==',
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig('public'));
 
       await svc.buildDeposit(CALLER, 1_000_000n);
@@ -61,7 +67,10 @@ describe('VaultService', () => {
 
     it('throws when SDK returns null xdr', async () => {
       const sdk = makeSdkMock();
-      sdk.depositToVault.mockResolvedValue({ xdr: null, simulationResponse: {} });
+      sdk.depositToVault.mockResolvedValue({
+        xdr: null,
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig());
 
       await expect(svc.buildDeposit(CALLER, 1_000_000n)).rejects.toThrow(
@@ -73,7 +82,10 @@ describe('VaultService', () => {
   describe('buildWithdraw', () => {
     it('calls withdrawFromVault with correct args and returns xdr', async () => {
       const sdk = makeSdkMock();
-      sdk.withdrawFromVault.mockResolvedValue({ xdr: 'AAAAWITHDRAW==', simulationResponse: {} });
+      sdk.withdrawFromVault.mockResolvedValue({
+        xdr: 'AAAAWITHDRAW==',
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig('testnet'));
 
       const result = await svc.buildWithdraw(CALLER, 2_000_000n);
@@ -88,7 +100,10 @@ describe('VaultService', () => {
 
     it('throws when SDK returns null xdr', async () => {
       const sdk = makeSdkMock();
-      sdk.withdrawFromVault.mockResolvedValue({ xdr: null, simulationResponse: {} });
+      sdk.withdrawFromVault.mockResolvedValue({
+        xdr: null,
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig());
 
       await expect(svc.buildWithdraw(CALLER, 1_000_000n)).rejects.toThrow(
@@ -105,7 +120,10 @@ describe('VaultService', () => {
 
       const apy = await svc.getApyPercent();
 
-      expect(sdk.getVaultAPY).toHaveBeenCalledWith(VAULT_ADDR, SupportedNetworks.TESTNET);
+      expect(sdk.getVaultAPY).toHaveBeenCalledWith(
+        VAULT_ADDR,
+        SupportedNetworks.TESTNET,
+      );
       expect(apy).toBe('7.25');
     });
   });
@@ -114,7 +132,10 @@ describe('VaultService', () => {
     it('returns dfTokens as bigint on testnet (PLACEHOLDER — raw shares, not underlying USDC)', async () => {
       const sdk = makeSdkMock();
       // dfTokens is number per VaultBalanceResponse
-      sdk.getVaultBalance.mockResolvedValue({ dfTokens: 123456, underlyingBalance: [123456] });
+      sdk.getVaultBalance.mockResolvedValue({
+        dfTokens: 123456,
+        underlyingBalance: [123456],
+      });
       const svc = new VaultService(sdk as any, makeConfig('testnet'));
 
       const result = await svc.getPositionValue('GUSER...');
@@ -165,10 +186,15 @@ describe('VaultService', () => {
 
     it('does NOT throw at exactly MAX_SAFE_INTEGER', async () => {
       const sdk = makeSdkMock();
-      sdk.depositToVault.mockResolvedValue({ xdr: 'XDROK', simulationResponse: {} });
+      sdk.depositToVault.mockResolvedValue({
+        xdr: 'XDROK',
+        simulationResponse: {},
+      });
       const svc = new VaultService(sdk as any, makeConfig('testnet'));
 
-      await expect(svc.buildDeposit(CALLER, BigInt(Number.MAX_SAFE_INTEGER))).resolves.toBeDefined();
+      await expect(
+        svc.buildDeposit(CALLER, BigInt(Number.MAX_SAFE_INTEGER)),
+      ).resolves.toBeDefined();
     });
   });
 });

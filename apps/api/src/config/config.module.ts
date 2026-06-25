@@ -5,7 +5,9 @@ export const APP_CONFIG = 'APP_CONFIG';
 
 @Global()
 @Module({
-  providers: [{ provide: APP_CONFIG, useFactory: (): Env => loadEnv(process.env) }],
+  providers: [
+    { provide: APP_CONFIG, useFactory: (): Env => loadEnv(process.env) },
+  ],
   exports: [APP_CONFIG],
 })
 export class AppConfigModule {}

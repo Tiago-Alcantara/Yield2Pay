@@ -1,10 +1,16 @@
 import { config } from 'dotenv';
-import { join } from 'path';
 
-// Load apps/api/.env into process.env before tests run so jest can reach the
-// local Postgres without requiring the developer to export env vars manually.
-config({ path: join(__dirname, '..', '.env'), quiet: true });
+// Carrega apps/api/.env (o cwd dos testes) em process.env antes dos testes, para
+// alcançar o Postgres local sem exportar variáveis manualmente.
+config({ quiet: true });
 
-// JSON cannot serialize BigInt; encode as decimal string at the boundary.
-// Must mirror the shim in main.ts so tests exercise the same behaviour.
-(BigInt.prototype as any).toJSON = function () { return this.toString(); };
+// JSON não serializa BigInt; codifica como string decimal na borda.
+// Espelha o shim de main.ts para os testes exercitarem o mesmo comportamento.
+declare global {
+  interface BigInt {
+    toJSON(): string;
+  }
+}
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};

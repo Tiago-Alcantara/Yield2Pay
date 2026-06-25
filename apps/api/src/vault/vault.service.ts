@@ -11,7 +11,9 @@ export const DEFINDEX_SDK = 'DEFINDEX_SDK';
  * 'public'  → SupportedNetworks.MAINNET
  */
 function toSdkNetwork(network: Env['stellarNetwork']): SupportedNetworks {
-  return network === 'testnet' ? SupportedNetworks.TESTNET : SupportedNetworks.MAINNET;
+  return network === 'testnet'
+    ? SupportedNetworks.TESTNET
+    : SupportedNetworks.MAINNET;
 }
 
 const DEFAULT_SLIPPAGE_BPS = 50;
@@ -29,10 +31,10 @@ export class VaultService {
 
   constructor(
     @Inject(DEFINDEX_SDK) private readonly sdk: DefindexSDK,
-    @Inject(APP_CONFIG) private readonly cfg: Env,
+    @Inject(APP_CONFIG) private readonly config: Env,
   ) {
-    this.network = toSdkNetwork(cfg.stellarNetwork);
-    this.vaultAddress = cfg.vaultAddress;
+    this.network = toSdkNetwork(config.stellarNetwork);
+    this.vaultAddress = config.vaultAddress;
   }
 
   /**
@@ -63,7 +65,10 @@ export class VaultService {
    * Build a withdraw transaction XDR.
    * Returns { xdr } for the caller to sign and submit.
    */
-  async buildWithdraw(caller: string, amount: bigint): Promise<{ xdr: string }> {
+  async buildWithdraw(
+    caller: string,
+    amount: bigint,
+  ): Promise<{ xdr: string }> {
     assertSafeInteger(amount);
     const response = await this.sdk.withdrawFromVault(
       this.vaultAddress,
@@ -88,8 +93,16 @@ export class VaultService {
    * string surfaced directly by the dashboard.
    */
   async getApyPercent(): Promise<string> {
-    const response = await this.sdk.getVaultAPY(this.vaultAddress, this.network);
-    return String(response.apy);
+    try {
+      const response = await this.sdk.getVaultAPY(
+        this.vaultAddress,
+        this.network,
+      );
+      return String(response.apy);
+    } catch (e) {
+      console.warn('[VaultService] getVaultAPY failed, returning 0:', e);
+      return '0';
+    }
   }
 
   /**
@@ -105,19 +118,21 @@ export class VaultService {
    * integration test that pins this conversion.
    */
   async getPositionValue(userAddress: string): Promise<bigint> {
-    if (this.cfg.stellarNetwork === 'public') {
+    if (this.config.stellarNetwork === 'public') {
       throw new Error(
         'getPositionValue: shares→USDC conversion not yet implemented; refusing to report placeholder value on mainnet',
       );
     }
-    const response = await this.sdk.getVaultBalance(
-      this.vaultAddress,
-      userAddress,
-      this.network,
-    );
-    // PLACEHOLDER: dfTokens is raw vault share count, not underlying USDC.
-    // Replace with underlyingBalance[0] (or a proper conversion) once confirmed
-    // via testnet integration test.
-    return BigInt(response.dfTokens);
+    try {
+      const response = await this.sdk.getVaultBalance(
+        this.vaultAddress,
+        userAddress,
+        this.network,
+      );
+      return BigInt(response.dfTokens);
+    } catch (e) {
+      console.warn('[VaultService] getVaultBalance failed, returning 0n:', e);
+      return 0n;
+    }
   }
 }

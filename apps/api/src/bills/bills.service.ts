@@ -9,7 +9,12 @@ export class BillsService {
 
   create(companyId: string, dto: CreateBillDto) {
     return this.prisma.recurringBill.create({
-      data: { companyId, vendor: dto.vendor, monthlyCost: parseBaseUnits(dto.monthlyCost), type: dto.type },
+      data: {
+        companyId,
+        vendor: dto.vendor,
+        monthlyCost: parseBaseUnits(dto.monthlyCost),
+        type: dto.type,
+      },
     });
   }
 

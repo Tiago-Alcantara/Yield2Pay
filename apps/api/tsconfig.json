@@ -11,6 +11,7 @@
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2023",
+    "types": ["node", "reflect-metadata", "vitest/globals"],
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",

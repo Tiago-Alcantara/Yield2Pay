@@ -22,9 +22,20 @@ export class DepositService {
     return { xdr, hash };
   }
 
-  async submit(companyId: string, dto: SubmitTxDto): Promise<{ txHash: string }> {
-    const { txHash } = await this.stellar.attachAndSubmit(dto.xdr, dto.stellarAddress, dto.signatureHex);
-    await this.ledger.recordDeposit(companyId, parseBaseUnits(dto.amount), txHash);
+  async submit(
+    companyId: string,
+    dto: SubmitTxDto,
+  ): Promise<{ txHash: string }> {
+    const { txHash } = await this.stellar.attachAndSubmit(
+      dto.xdr,
+      dto.stellarAddress,
+      dto.signatureHex,
+    );
+    await this.ledger.recordDeposit(
+      companyId,
+      parseBaseUnits(dto.amount),
+      txHash,
+    );
     return { txHash };
   }
 }

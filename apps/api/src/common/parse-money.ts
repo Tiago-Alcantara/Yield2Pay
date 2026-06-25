@@ -16,7 +16,9 @@ export function parseBaseUnits(raw: string | undefined | null): bigint {
   }
 
   if (!/^\d+$/.test(raw)) {
-    throw new BadRequestException('amount must be a non-negative integer string (base units)');
+    throw new BadRequestException(
+      'amount must be a non-negative integer string (base units)',
+    );
   }
 
   const value = BigInt(raw);

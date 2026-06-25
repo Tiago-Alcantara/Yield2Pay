@@ -6,7 +6,9 @@ import { AppModule } from '../src/app.module';
 describe('Health', () => {
   let app: INestApplication;
   beforeAll(async () => {
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = mod.createNestApplication();
     await app.init();
   });

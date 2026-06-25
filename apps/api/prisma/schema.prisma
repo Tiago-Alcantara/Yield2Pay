@@ -53,6 +53,8 @@ model Deposit {
 
   company Company @relation(fields: [companyId], references: [id])
 
+  // principal() agrega deposits por companyId; índice evita full-scan.
+  @@index([companyId])
   @@map("deposits")
 }
 

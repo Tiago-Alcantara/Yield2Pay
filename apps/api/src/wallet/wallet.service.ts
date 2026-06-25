@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { StrKey } from '@stellar/stellar-sdk';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -18,8 +22,10 @@ export class WalletService {
   }
 
   async getAddress(companyId: string): Promise<string> {
-    const w = await this.prisma.wallet.findUnique({ where: { companyId } });
-    if (!w) throw new NotFoundException('wallet not registered');
-    return w.stellarAddress;
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { companyId },
+    });
+    if (!wallet) throw new NotFoundException('wallet not registered');
+    return wallet.stellarAddress;
   }
 }

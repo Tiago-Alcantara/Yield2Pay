@@ -13,7 +13,19 @@ import { BillsModule } from './bills/bills.module';
 import { JobsModule } from './jobs/jobs.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), AppConfigModule, PrismaModule, WalletModule, VaultModule, LedgerModule, StellarModule, DepositModule, WithdrawModule, BillsModule, JobsModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    AppConfigModule,
+    PrismaModule,
+    WalletModule,
+    VaultModule,
+    LedgerModule,
+    StellarModule,
+    DepositModule,
+    WithdrawModule,
+    BillsModule,
+    JobsModule,
+  ],
   controllers: [HealthController],
   providers: [],
 })

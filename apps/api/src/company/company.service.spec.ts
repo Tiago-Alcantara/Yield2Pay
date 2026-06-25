@@ -2,7 +2,7 @@ import { CompanyService } from './company.service';
 
 const prisma = {
   company: {
-    upsert: jest.fn().mockResolvedValue({ id: 'co_1' }),
+    upsert: vi.fn().mockResolvedValue({ id: 'co_1' }),
   },
 } as any;
 

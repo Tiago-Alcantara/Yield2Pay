@@ -9,7 +9,10 @@ import { Env } from '../config/env';
     {
       provide: DEFINDEX_SDK,
       useFactory: (cfg: Env) =>
-        new DefindexSDK({ apiKey: cfg.defindexApiKey, baseUrl: cfg.defindexBaseUrl }),
+        new DefindexSDK({
+          apiKey: cfg.defindexApiKey,
+          baseUrl: cfg.defindexBaseUrl,
+        }),
       inject: [APP_CONFIG],
     },
     VaultService,

@@ -19,7 +19,14 @@ export class WithdrawService {
     return { xdr, hash };
   }
 
-  async submit(_companyId: string, dto: SubmitTxDto): Promise<{ txHash: string }> {
-    return this.stellar.attachAndSubmit(dto.xdr, dto.stellarAddress, dto.signatureHex);
+  async submit(
+    _companyId: string,
+    dto: SubmitTxDto,
+  ): Promise<{ txHash: string }> {
+    return this.stellar.attachAndSubmit(
+      dto.xdr,
+      dto.stellarAddress,
+      dto.signatureHex,
+    );
   }
 }

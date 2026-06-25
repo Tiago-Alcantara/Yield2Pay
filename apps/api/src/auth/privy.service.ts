@@ -6,8 +6,8 @@ import type { Env } from '../config/env';
 @Injectable()
 export class PrivyService {
   private client: PrivyClient;
-  constructor(@Inject(APP_CONFIG) cfg: Env) {
-    this.client = new PrivyClient(cfg.privyAppId, cfg.privyAppSecret);
+  constructor(@Inject(APP_CONFIG) config: Env) {
+    this.client = new PrivyClient(config.privyAppId, config.privyAppSecret);
   }
   async verify(token: string): Promise<{ privyUserId: string }> {
     const claims = await this.client.verifyAuthToken(token);
