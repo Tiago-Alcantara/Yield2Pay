@@ -351,34 +351,31 @@ export default function DashboardPage() {
 
   const t = T[lang];
 
-  const fetchData = useCallback(
-    (initial = false) => {
-      if (initial) setLoading(true);
-      setError(null);
-      Promise.all([api.getDashboard(), api.listBills()])
-        .then(([dash, billList]) => {
-          setDashboard(dash);
-          setBills(billList);
-          if (initial) setLoading(false);
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-          if (initial) setLoading(false);
-        });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  // Todos os setState ficam dentro do .then/.catch (assíncronos), para o effect
+  // de mount não disparar setState síncrono (evita render em cascata).
+  // `loading` já inicia true via useState, então não precisa setLoading(true) aqui.
+  const fetchData = useCallback(() => {
+    return Promise.all([api.getDashboard(), api.listBills()])
+      .then(([dash, billList]) => {
+        setDashboard(dash);
+        setBills(billList);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setLoading(false);
+      });
+  }, [api]);
 
   useEffect(() => {
-    fetchData(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void fetchData();
+  }, [fetchData]);
 
   /** Called by <Bills/> after a successful create/delete so this page refetches both
    *  the bills list AND the dashboard (spendable/committed totals stay in sync). */
   const handleBillsChanged = useCallback(() => {
-    fetchData(false);
+    void fetchData();
   }, [fetchData]);
 
   const isEn = lang === 'en';

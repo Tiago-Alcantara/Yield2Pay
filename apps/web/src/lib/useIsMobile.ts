@@ -1,16 +1,32 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
+// SSR: assume desktop até hidratar (matchMedia não existe no servidor).
+const getServerSnapshot = () => false;
+
+/**
+ * True quando a viewport está abaixo de `breakpoint` (default 768px).
+ *
+ * Usa useSyncExternalStore para manter o valor em sincronia com matchMedia sem
+ * chamar setState dentro de um effect (evita render em cascata) e de forma
+ * SSR-safe — o servidor sempre lê false e o cliente reconcilia na hidratação.
+ */
 export function useIsMobile(breakpoint: number = 768): boolean {
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const query = `(max-width: ${breakpoint - 1}px)`;
 
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mql.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [breakpoint]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onStoreChange);
+      return () => mql.removeEventListener('change', onStoreChange);
+    },
+    [query],
+  );
 
-  return isMobile;
+  const getSnapshot = useCallback(
+    () => window.matchMedia(query).matches,
+    [query],
+  );
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

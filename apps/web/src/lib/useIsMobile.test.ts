@@ -75,6 +75,8 @@ describe('useIsMobile', () => {
     expect(result.current).toBe(false);
 
     act(() => {
+      // matchMedia agora reporta match; getSnapshot relê mql.matches no re-render
+      mockMql.matches = true;
       if (changeHandler) {
         changeHandler({ matches: true } as MediaQueryListEvent);
       }
