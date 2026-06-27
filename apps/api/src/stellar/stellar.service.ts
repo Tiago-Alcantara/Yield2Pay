@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   TransactionBuilder,
   Transaction,
@@ -21,7 +21,7 @@ export class StellarService {
   private readonly server: rpc.Server;
   private readonly sponsor: Keypair;
 
-  constructor(@Inject(APP_CONFIG) config: Env, server?: rpc.Server) {
+  constructor(@Inject(APP_CONFIG) config: Env, @Optional() server?: rpc.Server) {
     this.passphrase =
       config.stellarNetwork === 'public' ? Networks.PUBLIC : Networks.TESTNET;
     this.server = server ?? new rpc.Server(config.sorobanRpcUrl);
