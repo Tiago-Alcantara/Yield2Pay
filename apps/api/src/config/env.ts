@@ -10,6 +10,7 @@ const schema = z.object({
   USDC_ADDRESS: z.string().min(1),
   STELLAR_NETWORK: z.enum(['testnet', 'public']),
   SOROBAN_RPC_URL: z.string().url(),
+  FEE_SPONSOR_SECRET_KEY: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
 });
 
@@ -23,6 +24,7 @@ export type Env = {
   usdcAddress: string;
   stellarNetwork: 'testnet' | 'public';
   sorobanRpcUrl: string;
+  feeSponsorSecretKey: string;
   port: number;
 };
 
@@ -38,6 +40,7 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     usdcAddress: parsed.USDC_ADDRESS,
     stellarNetwork: parsed.STELLAR_NETWORK,
     sorobanRpcUrl: parsed.SOROBAN_RPC_URL,
+    feeSponsorSecretKey: parsed.FEE_SPONSOR_SECRET_KEY,
     port: parsed.PORT,
   };
 }
