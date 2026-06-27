@@ -84,12 +84,19 @@ it('throws when the createAccount tx is not confirmed', async () => {
       .mockRejectedValueOnce(new Error('Account not found'))
       .mockResolvedValueOnce(new Account(SPONSOR_KP.publicKey(), '42')),
     sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'h2' }),
-    pollTransaction: vi.fn().mockResolvedValue({ status: rpc.Api.GetTransactionStatus.FAILED }),
+    pollTransaction: vi.fn().mockResolvedValue({
+      status: rpc.Api.GetTransactionStatus.FAILED,
+      resultXdr: {
+        result: () => ({
+          switch: () => ({ name: 'txFailed' }),
+        }),
+      },
+    }),
   } as unknown as rpc.Server;
 
   await expect(
     new StellarService(cfg, server).ensureAccountFunded(Keypair.random().publicKey()),
-  ).rejects.toThrow('not confirmed');
+  ).rejects.toThrow('failed on-chain');
 });
 
 // ── attachAndSubmit (fee bump) ────────────────────────────────────────────────
@@ -97,7 +104,6 @@ it('throws when the createAccount tx is not confirmed', async () => {
 it('wraps the inner tx in a sponsor-signed fee bump and submits it', async () => {
   const { xdr, address, kp } = sampleTx();
   const inner = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
-  inner.sign(kp);
   const signatureHex = '0x' + kp.sign(inner.hash()).toString('hex');
 
   const server = {

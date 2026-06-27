@@ -98,8 +98,15 @@ export class StellarService {
       throw new Error('submit throttled by RPC (TRY_AGAIN_LATER); retry later');
     }
     const final = await this.server.pollTransaction(sent.hash, { attempts: 30 });
-    if (final.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
-      throw new Error(`tx ${sent.hash} not confirmed (status: ${final.status})`);
+    if (final.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
+      throw new Error(
+        `tx ${sent.hash} not confirmed after polling — still pending on-chain`,
+      );
+    }
+    if (final.status === rpc.Api.GetTransactionStatus.FAILED) {
+      throw new Error(
+        `tx ${sent.hash} failed on-chain: ${final.resultXdr.result().switch().name}`,
+      );
     }
     return sent.hash;
   }
