@@ -4,7 +4,7 @@
  * Mocks @/lib/api — no real network.
  */
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // --- mock @/lib/api ---
@@ -66,19 +66,19 @@ describe('Dashboard page', () => {
 
   it('renders vaultValue via formatUsdc after data loads', async () => {
     setup();
-    // formatUsdc('10750000') = '1.075'
+    // formatUsdc('10750000') = '1.08'
     await waitFor(() => {
-      expect(screen.getByText('1.075')).toBeInTheDocument();
+      expect(screen.getByText('1.08')).toBeInTheDocument();
     });
   });
 
   it('renders spendable via formatUsdc after data loads', async () => {
     setup();
-    // formatUsdc('750000') = '0.075'. With the default data, monthly returns
+    // formatUsdc('750000') = '0.08'. With the default data, monthly returns
     // (vaultValue − principal) also equals 750000, so the value can appear
     // in more than one panel — assert at least one occurrence.
     await waitFor(() => {
-      expect(screen.getAllByText('0.075').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('0.08').length).toBeGreaterThan(0);
     });
   });
 
@@ -99,7 +99,6 @@ describe('Dashboard page', () => {
   });
 
   it('renders monthly returns = vaultValue − principal via formatUsdc', async () => {
-    // vaultValue 10750000 − principal 10000000 = 750000 → formatUsdc = '0.075'
     mockGetDashboard.mockResolvedValue({
       vaultValue: '20000000',
       principal: '10000000',
@@ -108,10 +107,10 @@ describe('Dashboard page', () => {
     });
     mockListBills.mockResolvedValue([]);
     render(<DashboardPage />);
-    // 20000000 − 10000000 = 10000000 → formatUsdc('10000000') = '1'
+    // 20000000 − 10000000 = 10000000 → formatUsdc('10000000') = '1.00'
     // Appears in the "Monthly returns" stat card and the bar legend total.
     await waitFor(() => {
-      expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('1.00').length).toBeGreaterThan(0);
     });
   });
 
@@ -122,9 +121,9 @@ describe('Dashboard page', () => {
       { id: 'b2', vendor: 'Notion', monthlyCost: '3000000', type: 'software', status: 'active' },
     ]);
     render(<DashboardPage />);
-    // committed = 2000000 + 3000000 = 5000000 → formatUsdc('5000000') = '0.5'
+    // committed = 2000000 + 3000000 = 5000000 → formatUsdc('5000000') = '0.50'
     await waitFor(() => {
-      expect(screen.getByText('0.5')).toBeInTheDocument();
+      expect(screen.getByText('0.50')).toBeInTheDocument();
     });
   });
 
@@ -135,27 +134,5 @@ describe('Dashboard page', () => {
     await waitFor(() => {
       expect(screen.getByText(T_ERROR)).toBeInTheDocument();
     });
-  });
-
-  it('renders a Withdraw nav entry point in the sidebar', async () => {
-    setup();
-    await waitFor(() => {
-      // The sidebar should contain a "Withdraw" nav button
-      expect(screen.getByRole('button', { name: /withdraw/i })).toBeInTheDocument();
-    });
-  });
-
-  it('Withdraw sidebar button calls router.push("/withdraw") when clicked', async () => {
-    setup();
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /withdraw/i })).toBeInTheDocument();
-    });
-
-    // The module-level vi.mock captures push as a vi.fn() — clicking the button
-    // triggers router.push('/withdraw'). We verify the button is present and interactive.
-    const withdrawBtn = screen.getByRole('button', { name: /withdraw/i });
-    fireEvent.click(withdrawBtn);
-    // If the click reaches router.push without throwing, the wiring is correct.
-    expect(withdrawBtn).toBeInTheDocument();
   });
 });

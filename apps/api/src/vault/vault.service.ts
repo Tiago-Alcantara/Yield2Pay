@@ -106,30 +106,23 @@ export class VaultService {
   }
 
   /**
-   * Get the user's position value in the vault.
+   * Get the user's position value in the vault, in the underlying asset's
+   * base units (XLM stroops for the native vault, 7 decimals).
    *
-   * PLACEHOLDER: Returns raw dfTokens (vault shares) as bigint.
-   * This does NOT represent the underlying USDC value.
-   * Must be replaced with the real shares→underlying USDC conversion
-   * once DeFindex testnet credentials are available and the integration
-   * test in apps/api/test/vault.integration-spec.ts is run.
-   *
-   * See: apps/api/test/vault.integration-spec.ts for the deferred
-   * integration test that pins this conversion.
+   * Uses the DeFindex SDK's `underlyingBalance` — the real redeemable value of
+   * the user's shares — NOT the raw `dfTokens` share count. Share price drifts
+   * above 1 as the vault earns yield, so dfTokens < underlyingBalance; reporting
+   * dfTokens would understate the position (e.g. a 5000 XLM deposit shows as
+   * ~4998 shares but is worth ~5000 XLM underlying).
    */
   async getPositionValue(userAddress: string): Promise<bigint> {
-    if (this.config.stellarNetwork === 'public') {
-      throw new Error(
-        'getPositionValue: shares→USDC conversion not yet implemented; refusing to report placeholder value on mainnet',
-      );
-    }
     try {
       const response = await this.sdk.getVaultBalance(
         this.vaultAddress,
         userAddress,
         this.network,
       );
-      return BigInt(response.dfTokens);
+      return BigInt(response.underlyingBalance?.[0] ?? 0);
     } catch (e) {
       console.warn('[VaultService] getVaultBalance failed, returning 0n:', e);
       return 0n;

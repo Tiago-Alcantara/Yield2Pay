@@ -129,3 +129,43 @@ it('wraps the inner tx in a sponsor-signed fee bump and submits it', async () =>
   const submitted = (server.sendTransaction as any).mock.calls[0][0];
   expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTxFeeBump');
 });
+
+// ── fundClient (sponsor → cliente) ────────────────────────────────────────────
+
+it('fundClient envia um payment nativo do sponsor para o cliente e espera confirmar', async () => {
+  const server = {
+    getAccount: vi.fn().mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
+    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'pay1' }),
+    pollTransaction: vi.fn().mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
+  } as unknown as rpc.Server;
+
+  const client = Keypair.random().publicKey();
+  await new StellarService(cfg, server).fundClient(client, 100000000n); // 10 XLM
+
+  expect(server.getAccount).toHaveBeenCalledWith(SPONSOR_KP.publicKey());
+  expect(server.sendTransaction).toHaveBeenCalledTimes(1);
+
+  const submitted = (server.sendTransaction as any).mock.calls[0][0];
+  // Tx simples (não fee-bump) com um único payment nativo pro cliente.
+  expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTx');
+  const op = submitted.operations[0];
+  expect(op.type).toBe('payment');
+  expect(op.destination).toBe(client);
+  expect(op.asset.isNative()).toBe(true);
+  expect(Number(op.amount)).toBe(10);
+});
+
+it('fundClient lança quando o payment não confirma', async () => {
+  const server = {
+    getAccount: vi.fn().mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
+    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'pay2' }),
+    pollTransaction: vi.fn().mockResolvedValue({
+      status: rpc.Api.GetTransactionStatus.FAILED,
+      resultXdr: { result: () => ({ switch: () => ({ name: 'txFailed' }) }) },
+    }),
+  } as unknown as rpc.Server;
+
+  await expect(
+    new StellarService(cfg, server).fundClient(Keypair.random().publicKey(), 100000000n),
+  ).rejects.toThrow('failed on-chain');
+});

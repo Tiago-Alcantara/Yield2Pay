@@ -1,17 +1,17 @@
 import { formatUsdc, toBaseUnits } from './money';
 
-describe('formatUsdc (7 decimals)', () => {
-  it('formats whole + fraction, trimming trailing zeros', () => {
-    expect(formatUsdc('10750000')).toBe('1.075');     // 1.0750000 → 1.075
+describe('formatUsdc (display: 2 decimals)', () => {
+  it('always renders exactly 2 decimal places, rounding half-up', () => {
+    expect(formatUsdc('10750000')).toBe('1.08');       // 1.075 → 1.08
   });
-  it('formats sub-unit values', () => {
-    expect(formatUsdc('75000')).toBe('0.0075');        // 0.0075000
+  it('rounds sub-unit values to 2 dp', () => {
+    expect(formatUsdc('75000')).toBe('0.01');          // 0.0075 → 0.01
   });
   it('formats zero', () => {
-    expect(formatUsdc('0')).toBe('0');
+    expect(formatUsdc('0')).toBe('0.00');
   });
   it('formats large values without precision loss', () => {
-    expect(formatUsdc('9000000000000')).toBe('900000');
+    expect(formatUsdc('9000000000000')).toBe('900000.00');
   });
 });
 

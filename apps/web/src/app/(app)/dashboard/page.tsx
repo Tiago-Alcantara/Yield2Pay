@@ -6,7 +6,8 @@ import { usePrivy } from '@privy-io/react-auth';
 import { createApi } from '@/lib/api';
 import { formatUsdc } from '@/lib/money';
 import type { SpendableView, Bill } from '@yield2pay/shared';
-import Bills from './Bills';
+import ServiceCatalog from './ServiceCatalog';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { useIsMobile } from '@/lib/useIsMobile';
 
 // ── i18n dictionary (dashboard-specific, mirrors the reference HTML) ──────────
@@ -16,9 +17,7 @@ const T = {
     nav: {
       overview: 'Overview',
       deposit: 'My deposit',
-      withdraw: 'Withdraw',
       services: 'Services',
-      card: 'Virtual card',
       transactions: 'Transactions',
       settings: 'Settings',
     },
@@ -40,26 +39,12 @@ const T = {
     committedLabel: 'Committed',
     availableLabel: 'Available',
     totalLabel: 'Total monthly return',
-    servicesTitle: 'Registered subscriptions',
-    servicesSub: 'Bills covered by your returns.',
-    tabs: { all: 'All', software: 'Software', utility: 'Utility', other: 'Other' },
+    servicesTitle: 'Available services',
+    servicesSub: 'Activate the tools your returns can cover.',
+    tabs: { all: 'All', ai: 'AI tools', productivity: 'Productivity', dev: 'Dev' },
     activeBadge: 'Active',
     loading: 'Loading…',
     error: 'Error loading dashboard.',
-    noServices: 'No subscriptions found.',
-    // Activation checklist
-    actTitle: 'Activate your account',
-    actSub: "You're almost there. Complete the remaining 3 tasks to activate your account.",
-    actDone: 'Submitted',
-    actAction: 'Requires action',
-    tasks: [
-      ['business', 'Business details', 'done'],
-      ['taxid', 'Tax ID', 'done'],
-      ['bank', 'Bank connection', 'done'],
-      ['deposit', 'Make your first deposit', 'action'],
-      ['services', 'Choose your tools', 'action'],
-      ['card', 'Activate virtual card', 'action'],
-    ] as const,
     // Deposit CTA
     depositTitle: 'Add to your deposit',
     depositSub: 'More capital means more returns to cover your tools.',
@@ -74,9 +59,7 @@ const T = {
     nav: {
       overview: 'Visão geral',
       deposit: 'Meu aporte',
-      withdraw: 'Sacar',
       services: 'Serviços',
-      card: 'Cartão virtual',
       transactions: 'Transações',
       settings: 'Configurações',
     },
@@ -98,26 +81,12 @@ const T = {
     committedLabel: 'Comprometido',
     availableLabel: 'Disponível',
     totalLabel: 'Rendimento mensal total',
-    servicesTitle: 'Assinaturas registradas',
-    servicesSub: 'Contas cobertas pelo seu rendimento.',
-    tabs: { all: 'Todos', software: 'Software', utility: 'Utilidade', other: 'Outros' },
+    servicesTitle: 'Serviços disponíveis',
+    servicesSub: 'Ative as ferramentas que seu rendimento cobre.',
+    tabs: { all: 'Todos', ai: 'IA', productivity: 'Produtividade', dev: 'Dev' },
     activeBadge: 'Ativo',
     loading: 'Carregando…',
     error: 'Erro ao carregar o painel.',
-    noServices: 'Nenhuma assinatura encontrada.',
-    // Activation checklist
-    actTitle: 'Ative sua conta',
-    actSub: 'Você está quase lá. Conclua as 3 tarefas restantes para ativar sua conta.',
-    actDone: 'Enviado',
-    actAction: 'Requer ação',
-    tasks: [
-      ['business', 'Dados da empresa', 'done'],
-      ['taxid', 'CNPJ', 'done'],
-      ['bank', 'Conexão bancária', 'done'],
-      ['deposit', 'Faça seu primeiro aporte', 'action'],
-      ['services', 'Escolha suas ferramentas', 'action'],
-      ['card', 'Ative o cartão virtual', 'action'],
-    ] as const,
     // Deposit CTA
     depositTitle: 'Aumentar seu aporte',
     depositSub: 'Mais capital significa mais rendimento para cobrir suas ferramentas.',
@@ -153,15 +122,6 @@ function IconDeposit() {
     </svg>
   );
 }
-function IconWithdraw() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 21V11" />
-      <path d="M8 15l4-4 4 4" />
-      <path d="M4 5h16" />
-    </svg>
-  );
-}
 function IconServices() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -169,14 +129,6 @@ function IconServices() {
       <circle cx="17" cy="7" r="3.2" />
       <circle cx="7" cy="17" r="3.2" />
       <circle cx="17" cy="17" r="3.2" />
-    </svg>
-  );
-}
-function IconCard() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5.5" width="18" height="13" rx="2" />
-      <path d="M3 9.5h18" />
     </svg>
   );
 }
@@ -214,57 +166,10 @@ function IconBell() {
     </svg>
   );
 }
-function IconChevron() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6e73" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-// Task icons for the activation checklist
-function IconBusiness() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="5" y="4" width="14" height="16" rx="2" />
-      <path d="M9 9h2M13 9h2M9 13h2M13 13h2M10 20v-3h4v3" />
-    </svg>
-  );
-}
-function IconTaxId() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="6" width="18" height="12" rx="2" />
-      <path d="M7 10.5h4M7 14h8" />
-    </svg>
-  );
-}
-function IconBank() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 10h16" />
-      <path d="M5 10l7-4.5 7 4.5" />
-      <path d="M6.5 10v7M10 10v7M14 10v7M17.5 10v7" />
-      <path d="M4 20h16" />
-    </svg>
-  );
-}
-
-const TASK_ICONS: Record<string, React.ReactNode> = {
-  business: <IconBusiness />,
-  taxid: <IconTaxId />,
-  bank: <IconBank />,
-  deposit: <IconDeposit />,
-  services: <IconServices />,
-  card: <IconCard />,
-};
-
 const NAV_ITEMS: Array<{ id: string; icon: React.ReactNode; key: keyof typeof T['en']['nav'] }> = [
   { id: 'overview', icon: <IconOverview />, key: 'overview' },
   { id: 'deposit', icon: <IconDeposit />, key: 'deposit' },
-  { id: 'withdraw', icon: <IconWithdraw />, key: 'withdraw' },
   { id: 'services', icon: <IconServices />, key: 'services' },
-  { id: 'card', icon: <IconCard />, key: 'card' },
   { id: 'transactions', icon: <IconTransactions />, key: 'transactions' },
   { id: 'settings', icon: <IconSettings />, key: 'settings' },
 ];
@@ -372,8 +277,8 @@ export default function DashboardPage() {
     void fetchData();
   }, [fetchData]);
 
-  /** Called by <Bills/> after a successful create/delete so this page refetches both
-   *  the bills list AND the dashboard (spendable/committed totals stay in sync). */
+  /** Called by <ServiceCatalog/> after a successful create/delete so this page refetches
+   *  both the bills list AND the dashboard (spendable/committed totals stay in sync). */
   const handleBillsChanged = useCallback(() => {
     void fetchData();
   }, [fetchData]);
@@ -382,21 +287,10 @@ export default function DashboardPage() {
 
   const tabOrder: Array<{ id: string; label: string }> = [
     { id: 'all', label: t.tabs.all },
-    { id: 'software', label: t.tabs.software },
-    { id: 'utility', label: t.tabs.utility },
-    { id: 'other', label: t.tabs.other },
+    { id: 'ai', label: t.tabs.ai },
+    { id: 'productivity', label: t.tabs.productivity },
+    { id: 'dev', label: t.tabs.dev },
   ];
-
-  const tabBase: React.CSSProperties = {
-    border: 'none',
-    borderRadius: 999,
-    padding: '7px 14px',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all .2s ease',
-  };
 
   const langTabBase: React.CSSProperties = {
     border: 'none',
@@ -478,10 +372,6 @@ export default function DashboardPage() {
     totalReturn > BigInt(0)
       ? Math.min(100, Math.max(0, Number((committedNum * BigInt(100)) / totalReturn)))
       : 0;
-
-  // Activation progress (static checklist)
-  const doneCount = t.tasks.filter((task) => task[2] === 'done').length;
-  const actPct = Math.round((doneCount / t.tasks.length) * 100);
 
   return (
     <div
@@ -566,8 +456,6 @@ export default function DashboardPage() {
             function handleNavClick() {
               if (item.id === 'deposit') {
                 router.push('/deposit');
-              } else if (item.id === 'withdraw') {
-                router.push('/withdraw');
               } else {
                 setNav(item.id);
               }
@@ -843,201 +731,6 @@ export default function DashboardPage() {
             gap: 20,
           }}
         >
-          {/* ── Activation checklist ────────────────────────────────────── */}
-          <section
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
-              border: '1px solid #2A2D31',
-              borderRadius: 20,
-              background: 'linear-gradient(135deg,#15171b 0%,#0e0f11 72%)',
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1.45fr 1fr',
-            }}
-          >
-            {/* Left: title + progress + brushed diamond */}
-            <div
-              style={{
-                position: 'relative',
-                padding: isMobile ? '24px 20px' : '38px 34px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: isMobile ? 'auto' : 360,
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: 'clamp(30px,3.8vw,50px)',
-                  fontWeight: 800,
-                  letterSpacing: '-.02em',
-                  lineHeight: 1.02,
-                  textTransform: 'uppercase',
-                  color: '#F2F3F4',
-                  margin: 0,
-                  textShadow: '0 1px 0 rgba(255,255,255,.13),0 -1px 1px rgba(0,0,0,.6)',
-                  maxWidth: 420,
-                }}
-              >
-                {t.actTitle}
-              </h2>
-              <p
-                style={{
-                  fontSize: 15.5,
-                  lineHeight: 1.55,
-                  color: '#9A9DA1',
-                  margin: '16px 0 0',
-                  maxWidth: 380,
-                }}
-              >
-                {t.actSub}
-              </p>
-              <div
-                style={{
-                  height: 6,
-                  borderRadius: 999,
-                  background: '#16181B',
-                  border: '1px solid #2A2D31',
-                  overflow: 'hidden',
-                  marginTop: 22,
-                  maxWidth: 380,
-                }}
-              >
-                <div
-                  style={{
-                    width: `${actPct}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg,#A8AAAD,#E6E8EA)',
-                    borderRadius: 999,
-                  }}
-                />
-              </div>
-              {!isMobile && (
-              <div
-                style={{
-                  marginTop: 'auto',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  paddingTop: 30,
-                  perspective: 900,
-                }}
-              >
-                <div
-                  style={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    width: 'clamp(140px,16vw,196px)',
-                    height: 'clamp(140px,16vw,196px)',
-                    borderRadius: 30,
-                    border: '1px solid #4a4d52',
-                    background:
-                      'linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)',
-                    boxShadow:
-                      '0 30px 70px rgba(0,0,0,.6),0 2px 0 rgba(255,255,255,.12) inset',
-                    transform: 'rotateX(15deg) rotateZ(-7deg)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <span
-                    style={{
-                      position: 'relative',
-                      zIndex: 2,
-                      width: '44%',
-                      height: '44%',
-                      background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)',
-                      transform: 'rotate(45deg)',
-                      borderRadius: 10,
-                      boxShadow:
-                        '0 2px 5px rgba(0,0,0,.45),0 1px 0 rgba(255,255,255,.55) inset',
-                    }}
-                  />
-                </div>
-              </div>
-              )}
-            </div>
-
-            {/* Right: 6-task checklist */}
-            <div
-              style={{
-                background: '#16181B',
-                borderLeft: isMobile ? 'none' : '1px solid #2A2D31',
-                borderTop: isMobile ? '1px solid #2A2D31' : 'none',
-                padding: 10,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-              }}
-            >
-              {t.tasks.map(([id, title, status], i) => {
-                const done = status === 'done';
-                return (
-                  <button
-                    key={id}
-                    onClick={() => {
-                      if (id === 'deposit') router.push('/deposit');
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 14,
-                      width: '100%',
-                      textAlign: 'left',
-                      border: 'none',
-                      borderBottom: i < t.tasks.length - 1 ? '1px solid #2A2D31' : 'none',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                      padding: '13px 14px',
-                      borderRadius: 10,
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 40,
-                        height: 40,
-                        flexShrink: 0,
-                        borderRadius: 11,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(160deg,#43464b,#1b1d21)',
-                        border: '1px solid #4a4d52',
-                        color: '#D4D6D9',
-                      }}
-                    >
-                      {TASK_ICONS[id]}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span
-                        style={{
-                          display: 'block',
-                          fontSize: 14.5,
-                          fontWeight: 600,
-                          color: '#F2F3F4',
-                        }}
-                      >
-                        {title}
-                      </span>
-                      <span
-                        style={{
-                          display: 'block',
-                          fontFamily: "'Geist Mono', monospace",
-                          fontSize: 12,
-                          marginTop: 3,
-                          color: done ? '#9A9DA1' : '#C2A06A',
-                        }}
-                      >
-                        {done ? t.actDone : t.actAction}
-                      </span>
-                    </span>
-                    <IconChevron />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
           {/* ── Stat panels (capital / monthly returns / available) ───────── */}
           <div
             style={{
@@ -1366,38 +1059,22 @@ export default function DashboardPage() {
               </div>
 
               {/* Category tabs */}
-              <div
-                style={{
-                  display: 'inline-flex',
-                  border: '1px solid #2A2D31',
-                  borderRadius: 999,
-                  padding: 3,
-                  gap: 2,
-                  background: '#16181B',
-                }}
-              >
-                {tabOrder.map(({ id, label }) => {
-                  const on = tab === id;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => setTab(id)}
-                      style={{
-                        ...tabBase,
-                        background: on ? '#2E3136' : 'transparent',
-                        color: on ? '#F2F3F4' : '#9A9DA1',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+              <SegmentedControl
+                options={tabOrder.map(({ id, label }) => ({ value: id, label }))}
+                value={tab}
+                onChange={setTab}
+                size="sm"
+              />
             </div>
 
-            {/* Bills management: add form + list + per-bill delete */}
+            {/* Service catalog: activate platforms; active list below */}
             <div style={{ marginTop: 20 }}>
-              <Bills bills={bills} onBillsChanged={handleBillsChanged} tab={tab} />
+              <ServiceCatalog
+                bills={bills}
+                spendable={dashboard?.spendable ?? '0'}
+                category={tab}
+                onBillsChanged={handleBillsChanged}
+              />
             </div>
           </div>
 

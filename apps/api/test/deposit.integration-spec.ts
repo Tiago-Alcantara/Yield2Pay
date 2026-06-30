@@ -1,11 +1,12 @@
 /**
  * Deferred integration test: full deposit flow (build → sign → submit → assert position).
  *
- * This file is intentionally NOT included in the normal jest suite.
- * Guard: process.env.RUN_INTEGRATION === '1'
+ * This file is intentionally NOT included in the hermetic unit suite
+ * (vitest.config.ts → src/**' + '/*.spec.ts). It runs under the e2e config
+ * (vitest.config.e2e.ts) and is additionally guarded by RUN_INTEGRATION === '1'.
  *
  * Run manually once testnet credentials and a funded keypair are available:
- *   RUN_INTEGRATION=1 npx jest --config test/jest-e2e.json deposit.integration
+ *   RUN_INTEGRATION=1 pnpm --filter @yield2pay/api test:e2e
  *
  * Purpose: pins the full-flow deposit path:
  *   1. build  — DepositService.build() calls WalletService.getAddress → VaultService.buildDeposit → StellarService.hashForSigning

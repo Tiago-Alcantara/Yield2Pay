@@ -1,11 +1,12 @@
 /**
  * Deferred integration test: VaultService.getPositionValue shares→USDC conversion.
  *
- * This file is intentionally NOT included in the normal jest suite.
- * Guard: process.env.RUN_INTEGRATION === '1'
+ * This file is intentionally NOT included in the hermetic unit suite
+ * (vitest.config.ts → src/**' + '/*.spec.ts). It runs under the e2e config
+ * (vitest.config.e2e.ts) and is additionally guarded by RUN_INTEGRATION === '1'.
  *
  * Run manually once DeFindex testnet credentials are available:
- *   RUN_INTEGRATION=1 npx jest --config test/jest-e2e.json vault.integration
+ *   RUN_INTEGRATION=1 pnpm --filter @yield2pay/api test:e2e
  *
  * Purpose: pins the correct shares→underlying-USDC conversion for
  * VaultService.getPositionValue(), replacing the current PLACEHOLDER

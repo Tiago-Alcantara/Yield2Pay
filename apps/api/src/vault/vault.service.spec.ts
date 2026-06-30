@@ -129,12 +129,13 @@ describe('VaultService', () => {
   });
 
   describe('getPositionValue', () => {
-    it('returns dfTokens as bigint on testnet (PLACEHOLDER — raw shares, not underlying USDC)', async () => {
+    it('returns underlyingBalance[0] as bigint on testnet (real value, not raw dfTokens shares)', async () => {
       const sdk = makeSdkMock();
-      // dfTokens is number per VaultBalanceResponse
+      // dfTokens (shares) differs from underlyingBalance (real value): the share
+      // price drifted above 1 as the vault earned yield.
       sdk.getVaultBalance.mockResolvedValue({
-        dfTokens: 123456,
-        underlyingBalance: [123456],
+        dfTokens: 4998749,
+        underlyingBalance: [5000046],
       });
       const svc = new VaultService(sdk as any, makeConfig('testnet'));
 
@@ -145,19 +146,36 @@ describe('VaultService', () => {
         'GUSER...',
         SupportedNetworks.TESTNET,
       );
-      // PLACEHOLDER: returns raw share count as bigint; must be replaced with
-      // real shares→underlying conversion once DeFindex testnet credentials exist.
-      expect(result).toBe(123456n);
+      // returns the underlying value, NOT the dfTokens share count
+      expect(result).toBe(5000046n);
     });
 
-    it('throws on mainnet (I4 guard: placeholder must not serve fake USDC)', async () => {
+    it('returns underlyingBalance[0] on mainnet too (real value, no placeholder guard)', async () => {
       const sdk = makeSdkMock();
+      sdk.getVaultBalance.mockResolvedValue({
+        dfTokens: 4998749,
+        underlyingBalance: [5000046],
+      });
       const svc = new VaultService(sdk as any, makeConfig('public'));
 
-      await expect(svc.getPositionValue('GUSER...')).rejects.toThrow(
-        'getPositionValue: shares→USDC conversion not yet implemented; refusing to report placeholder value on mainnet',
+      const result = await svc.getPositionValue('GUSER...');
+
+      expect(sdk.getVaultBalance).toHaveBeenCalledWith(
+        VAULT_ADDR,
+        'GUSER...',
+        SupportedNetworks.MAINNET,
       );
-      expect(sdk.getVaultBalance).not.toHaveBeenCalled();
+      expect(result).toBe(5000046n);
+    });
+
+    it('returns 0n when the user has no position (empty underlyingBalance)', async () => {
+      const sdk = makeSdkMock();
+      sdk.getVaultBalance.mockResolvedValue({ dfTokens: 0, underlyingBalance: [] });
+      const svc = new VaultService(sdk as any, makeConfig('testnet'));
+
+      const result = await svc.getPositionValue('GUSER...');
+
+      expect(result).toBe(0n);
     });
   });
 

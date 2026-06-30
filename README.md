@@ -35,7 +35,7 @@ Resumo: **"o seu caixa ocioso paga o seu software, e o caixa continua sendo seu.
 | Pilar | Tecnologia | Papel |
 |---|---|---|
 | **Identidade & Carteira** | **Privy** | Embedded wallet via login Google/e-mail corporativo. Sem seed phrase, sem extensão (Freighter). Chave fragmentada por SSS — só o usuário assina. |
-| **Rampa Bancária (fiat ⇄ cripto)** | **Stellar Anchors (SEP-24)** | Cliente paga um **Pix** tradicional; o Anchor liquida o fiat e emite a stablecoin (BRZ/USDC) na carteira. KYC/AML é do Anchor licenciado. |
+| **Rampa Bancária (fiat ⇄ cripto)** | **Etherfuse Ramp API** (BRL ↔ USDC via PIX) | Cliente paga um **Pix** tradicional; a Etherfuse liquida o fiat e entrega **USDC** na carteira Stellar via *claimable balance* (que já cria a trustline). KYC/KYB é **hosted** (presigned URL) — a plataforma nunca toca em BRL. |
 | **Motor de Rendimento** | **DeFindex (Soroban)** | O colateral é direcionado a cofres indexados que capturam o melhor APY da rede. |
 
 ## 1.4. A matemática do colateral
@@ -51,20 +51,21 @@ C = (M × 12) / Y_anual
 R$ 50.000 permanecem intactos.
 
 Mecanismos de robustez previstos na especificação:
-- **Ajuste por taxas de rampa** (spread/slippage do Anchor embutido no QR do Pix).
+- **Ajuste por taxas de rampa** (spread/fee da Etherfuse — `feeBps`/`feeAmount` do quote — embutido no valor do PIX).
 - **Margem de colateral reativa**: se o APY cair abaixo do equilíbrio, o protocolo avisa
   subcolaterização e cobra a diferença residual via Pix/boleto em vez de travar o serviço.
 
 ## 1.5. Ciclos de vida
 
-**Entrada (Pix → cofre):** o app gera um canal On-Ramp SEP-24 → cliente paga o Pix → o
-Anchor emite stablecoins na carteira Privy → duas transações pré-assinadas (allowance +
-deposit) movem o colateral para o cofre DeFindex.
+**Entrada (Pix → cofre):** o app pede um *quote* e cria uma *order* na **Etherfuse** →
+cliente paga o **Pix** → a Etherfuse entrega o **USDC** na carteira Privy via *claimable
+balance* → o cliente assina **uma** tx que faz `ChangeTrust` + `ClaimClaimableBalance` →
+**auto-depósito** no cofre DeFindex. São **2 assinaturas**: claim + deposit.
 
 **Distribuição do yield (pagamento da API):** no vencimento, o protocolo resgata **só o
 lucro** do período, faz o split de receita (95% provedor da API / 5% taxa Yield2Pay) e
-aciona o Off-Ramp (Anchor queima a stablecoin e envia Pix ao provedor). O principal não é
-tocado.
+aciona o **Off-Ramp Etherfuse** (saca o USDC do cofre → cliente assina a `burnTransaction`
+→ a Etherfuse envia o **Pix** ao provedor). O principal não é tocado.
 
 **Saída (cancelamento):** cliente assina `cancel_subscription` → o cofre devolve o principal
 → cálculo pro-rata do rendimento dos dias usados → Pix de devolução para o CNPJ da empresa.
@@ -72,8 +73,9 @@ O acesso à API é revogado lendo o evento on-chain.
 
 > No **MVP atual** o backend implementa o núcleo desse fluxo de forma simplificada:
 > depósito/saque direto no cofre DeFindex e cálculo de *spendable = valor atual do cofre −
-> principal*. O contrato escrow próprio do Yield2Pay com `claim_yield`/split/`cancel` e as
-> rampas fiat (Anchor/Pix) são pontos **de integração ainda não codados** — ver o Bloco 3.
+> principal*. O contrato escrow próprio do Yield2Pay com `claim_yield`/split/`cancel` e a
+> **rampa fiat Etherfuse** (BRL↔USDC via PIX) já estão **especificados e planejados**, mas
+> **ainda não codados** — ver o Bloco 3.
 
 ---
 
@@ -241,8 +243,25 @@ SDK · Stellar SDK · pnpm · Vitest**.
       DeFindex direto. As funções `deposit_collateral`, `claim_yield` (com **split** 95/5),
       `cancel_subscription` e os eventos (`DepositCollateral`, `YieldClaimed`,
       `SubscriptionCanceled`) descritos na doc **ainda não existem no repo**.
-- [ ] **Rampa fiat SEP-24 (On/Off-Ramp via Anchor)** — geração de QR Pix, emissão/queima de
-      stablecoin, conta de spread/slippage no checkout. **Fora do escopo do MVP**, é a Fase 2.
+- [ ] **Rampa fiat via Etherfuse (On/Off-Ramp BRL↔USDC via PIX)** — **design aprovado e
+      verificado** contra a doc oficial (`docs/superpowers/specs/2026-06-26-etherfuse-ramp-design.md`)
+      e com **plano de implementação task-a-task**
+      (`docs/superpowers/plans/2026-06-26-etherfuse-ramp-mvp.md`). Ainda **não codado**. Escopo:
+  - Novo módulo `apps/api/src/ramp/` — `EtherfuseClient` (HTTP) + `EtherfuseService` (wrappers
+    tipados) + `RampService` (orquestração) + `ramp.webhook.controller` com state machine.
+  - **On-ramp:** quote → order → PIX → claim (`ChangeTrust`+`Claim` numa tx) → **auto-depósito**
+    no cofre. **Off-ramp:** saca cofre → `burnTransaction` → PIX payout. KYC/KYB **hosted**.
+  - Prisma: novo modelo `RampOrder` + campos em `Company` (`etherfuseCustomerId`,
+    `etherfuseWalletId`, `etherfuseBankAccountId`, `kycStatus`).
+  - Webhook `POST /ramp/webhook` com verificação **X-Signature HMAC** (RFC 8785 / JCS).
+  - Env: `ETHERFUSE_API_KEY` (header `Authorization` **sem** `Bearer`), `ETHERFUSE_BASE_URL`
+    (sandbox/prod), `ETHERFUSE_WEBHOOK_SECRET`, `RAMP_FIAT_CURRENCY`, `RAMP_REDIRECT_URL`.
+  - **Questões a confirmar em sandbox** (§15 do spec): (1) campos da instrução de pagamento
+    BRL/PIX no on-ramp (a doc é MX-cêntrica — `depositClabe`); (2) se `sourceAmount` do
+    off-ramp é em USDC ou em BRL; (3) enum aceito de `pixKeyType` (cpf/cnpj/email/phone/evp);
+    (4) se o onboarding hosted coleta a conta PIX além do KYC; (5) disponibilidade GA do
+    corredor BRL em produção (limites/fees); (6) registro do webhook (boot vs painel) e onde
+    guardar o `secret`.
 - [ ] **Motor de cobrança automatizado** — job que aciona `claim_yield` no vencimento, faz o
       split e dispara o Off-Ramp para o provedor da API.
 - [ ] **Margem de colateral reativa** — detecção de subcolaterização quando o APY cai e
@@ -271,9 +290,12 @@ SDK · Stellar SDK · pnpm · Vitest**.
 - [ ] **Segurança de CORS**: hoje, sem `CORS_ORIGIN`, o backend reflete **qualquer origem**
       (marcado "MVP only" em `main.ts`). Fixar a origem da Vercel antes de produção.
 - [ ] **Segredos de produção** no Render/Vercel: `PRIVY_*`, `DEFINDEX_API_KEY`,
-      `VAULT_ADDRESS`, `USDC_ADDRESS`, `CORS_ORIGIN`, `NEXT_PUBLIC_*` (ver `docs/DEPLOY.md`).
+      `VAULT_ADDRESS`, `USDC_ADDRESS`, `CORS_ORIGIN`, `NEXT_PUBLIC_*`, e os da rampa Etherfuse
+      (`ETHERFUSE_API_KEY`, `ETHERFUSE_BASE_URL`, `ETHERFUSE_WEBHOOK_SECRET`, `RAMP_REDIRECT_URL`)
+      (ver `docs/DEPLOY.md`).
 - [ ] **Carteira/cofre on-chain reais**: hoje aponta para **testnet**; migrar para mainnet
-      exige cofre DeFindex financiado, chave do Anchor e `STELLAR_NETWORK=public`.
+      exige cofre DeFindex financiado, **chave de produção Etherfuse** (KYB aprovado +
+      `ETHERFUSE_BASE_URL=https://api.etherfuse.com`) e `STELLAR_NETWORK=public`.
 - [ ] **Confirmar o plano de cleanup** (`docs/superpowers/plans/2026-06-25-yield2pay-cleanup.md`):
       os checkboxes do arquivo estão vazios, mas os commits indicam execução — validar item a
       item e marcar/ajustar o que ficou.
@@ -296,6 +318,10 @@ Sem `NEXT_PUBLIC_PRIVY_APP_ID` só a landing pública renderiza.
 
 - `docs/Yield2Pay_Documentacao_Tecnica.md` — spec técnica e de negócios completa.
 - `docs/DEPLOY.md` — guia de deploy (Vercel + Render).
-- `docs/superpowers/plans/` — planos de implementação (backend MVP, frontend MVP, cleanup).
+- `docs/superpowers/specs/2026-06-26-etherfuse-ramp-design.md` — design da rampa fiat Etherfuse
+  (BRL↔USDC via PIX), verificado endpoint-a-endpoint contra a doc oficial.
+- `docs/superpowers/plans/2026-06-26-etherfuse-ramp-mvp.md` — plano de implementação da rampa
+  Etherfuse, task a task.
+- `docs/superpowers/plans/` — demais planos de implementação (backend MVP, frontend MVP, cleanup).
 </content>
 </invoke>

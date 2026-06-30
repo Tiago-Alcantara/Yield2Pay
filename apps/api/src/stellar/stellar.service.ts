@@ -6,13 +6,19 @@ import {
   Keypair,
   Networks,
   Operation,
+  Asset,
   xdr as StellarXdr,
   rpc,
   BASE_FEE,
 } from '@stellar/stellar-sdk';
 import { APP_CONFIG } from '../config/config.module';
 import type { Env } from '../config/env';
+import { toStellarAmount } from '../common/format-amount';
 
+// Base reserve cushion for a freshly-created client account. Must cover the
+// account's base reserve PLUS any subentries the first deposit creates (each
+// subentry = 0.5 XLM reserve). 2 XLM covers the native-XLM vault path (no
+// trustline). Revisit if a deposit ever adds subentries/trustlines.
 const STARTING_BALANCE = '2'; // base reserve + buffer for future trustlines
 
 @Injectable()
@@ -43,6 +49,32 @@ export class StellarService {
     })
       .addOperation(
         Operation.createAccount({ destination: address, startingBalance: STARTING_BALANCE }),
+      )
+      .setTimeout(30)
+      .build();
+    tx.sign(this.sponsor);
+    await this.submit(tx);
+  }
+
+  /**
+   * Sends `amountBaseUnits` of native XLM from the sponsor (treasury) to the
+   * client wallet, so the client can fund the vault deposit. Waits for
+   * confirmation. Used to simulate the client funding their own deposit on
+   * testnet — replaced by a real on-ramp on mainnet.
+   * Callers MUST bound `amountBaseUnits` — the sponsor pays it out (see MAX_DEPOSIT_BASE_UNITS in DepositService).
+   */
+  async fundClient(clientAddress: string, amountBaseUnits: bigint): Promise<void> {
+    const source = await this.server.getAccount(this.sponsor.publicKey());
+    const tx = new TransactionBuilder(source, {
+      fee: BASE_FEE,
+      networkPassphrase: this.passphrase,
+    })
+      .addOperation(
+        Operation.payment({
+          destination: clientAddress,
+          asset: Asset.native(),
+          amount: toStellarAmount(amountBaseUnits),
+        }),
       )
       .setTimeout(30)
       .build();
