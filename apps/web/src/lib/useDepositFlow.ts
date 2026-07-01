@@ -147,6 +147,16 @@ export function useDepositFlow() {
 }
 
 function getErr(e: unknown): string {
+  // ApiError guarda a mensagem real do backend em `body`; `message` é só
+  // "ApiError: <status>". Preferimos `body.message` quando existir.
+  if (e && typeof e === 'object' && 'body' in e) {
+    const body = (e as { body?: unknown }).body;
+    if (body && typeof body === 'object' && 'message' in body) {
+      const m = (body as { message?: unknown }).message;
+      if (typeof m === 'string' && m) return m;
+      if (Array.isArray(m) && m.length) return String(m[0]);
+    }
+  }
   if (e && typeof e === 'object' && 'message' in e) {
     return String((e as { message: unknown }).message);
   }

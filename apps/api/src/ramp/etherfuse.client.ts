@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { APP_CONFIG } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -126,11 +132,30 @@ export class EtherfuseClient {
     });
     const raw = await res.text().catch(() => '');
     if (!res.ok) {
-      throw new Error(`Etherfuse ${method} ${path} → ${res.status}: ${raw}`);
+      // Log completo pro dev; mensagem limpa pro cliente.
+      this.logger.warn(`Etherfuse ${method} ${path} → ${res.status}: ${raw}`);
+      // 4xx da Etherfuse = input inválido / limite de sandbox → repassa o status.
+      // 5xx ou desconhecido = falha upstream → 502.
+      const status =
+        res.status >= 400 && res.status < 500
+          ? res.status
+          : HttpStatus.BAD_GATEWAY;
+      throw new HttpException(this.extractError(raw), status);
     }
     // Alguns endpoints (ex.: fiat_received) retornam 200 com corpo vazio.
     if (!raw) return undefined as T;
     return JSON.parse(raw) as T;
+  }
+
+  /** Extrai a mensagem legível do corpo de erro da Etherfuse (JSON `{message}` ou cru). */
+  private extractError(raw: string): string {
+    try {
+      const body = JSON.parse(raw) as { message?: unknown };
+      if (typeof body.message === 'string' && body.message) return body.message;
+    } catch {
+      // corpo não-JSON — cai pro cru abaixo.
+    }
+    return raw || 'Etherfuse request failed';
   }
 
   // ── Customer onboarding ───────────────────────────────────────────────────
