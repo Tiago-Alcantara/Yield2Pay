@@ -85,7 +85,9 @@ export default function LoginPage() {
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
   const { initOAuth, loading } = useLoginWithOAuth({
-    onComplete: () => router.replace('/dashboard'),
+    // Navigation is intentionally NOT done here. `onComplete` fires one render
+    // before Privy's global `authenticated` flips true; the `ready &&
+    // authenticated` effect below is the single navigation authority.
     onError: (err) => {
       console.error('[Yield2Pay] Privy OAuth error:', err);
       setError(true);
@@ -99,8 +101,45 @@ export default function LoginPage() {
   const t = L[lang];
 
   // Already authenticated (or just returned from the Google redirect) → leave.
+  //
+  // Careful: when returning from the OAuth redirect, Privy strips its own query
+  // params (`privy_oauth_code`/`privy_oauth_state`) from the URL via
+  // history.replaceState a tick AFTER `authenticated` flips true. A single
+  // router.replace('/dashboard') issued in that same flush gets clobbered by
+  // Privy's cleanup — we log "navigating" but stay on /login and nothing
+  // happens (the "have to log in twice" bug). So we re-issue the navigation
+  // until the pathname actually becomes /dashboard, with a hard-nav fallback.
   useEffect(() => {
-    if (ready && authenticated) router.replace('/dashboard');
+    if (!(ready && authenticated)) return;
+
+    const onDashboard = () => window.location.pathname.startsWith('/dashboard');
+    if (onDashboard()) return;
+
+    let cancelled = false;
+    const go = () => {
+      if (cancelled || onDashboard()) return;
+      router.replace('/dashboard');
+    };
+
+    go();
+    const retry = setInterval(() => {
+      if (cancelled || onDashboard()) {
+        clearInterval(retry);
+        return;
+      }
+      go();
+    }, 60);
+    // Last resort: if SPA navigation keeps losing the race, force a hard nav.
+    const fallback = setTimeout(() => {
+      clearInterval(retry);
+      if (!cancelled && !onDashboard()) window.location.replace('/dashboard');
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      clearInterval(retry);
+      clearTimeout(fallback);
+    };
   }, [ready, authenticated, router]);
 
   async function signInWithGoogle() {

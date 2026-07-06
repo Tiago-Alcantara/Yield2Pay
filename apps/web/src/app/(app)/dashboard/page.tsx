@@ -189,9 +189,6 @@ function IconBell() {
 const NAV_ITEMS: Array<{ id: string; icon: React.ReactNode; key: keyof typeof T['en']['nav'] }> = [
   { id: 'overview', icon: <IconOverview />, key: 'overview' },
   { id: 'deposit', icon: <IconDeposit />, key: 'deposit' },
-  { id: 'services', icon: <IconServices />, key: 'services' },
-  { id: 'transactions', icon: <IconTransactions />, key: 'transactions' },
-  { id: 'settings', icon: <IconSettings />, key: 'settings' },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -265,7 +262,15 @@ export default function DashboardPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
 
-  const [lang, setLang] = useState<Lang>('en');
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window === 'undefined') return 'en';
+    const saved = window.localStorage.getItem('lang');
+    return saved === 'pt' || saved === 'en' ? saved : 'en';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('lang', lang);
+  }, [lang]);
   const [nav, setNav] = useState('overview');
   const [tab, setTab] = useState('all');
 
@@ -1117,179 +1122,8 @@ export default function DashboardPage() {
               />
             </div>
           </div>
-
-          {/* ── Virtual card panel ───────────────────────────────────────── */}
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 24,
-              alignItems: 'center',
-              background: '#1A1C1F',
-              border: '1px solid #2A2D31',
-              borderRadius: 20,
-              padding: 26,
-              marginTop: 6,
-            }}
-          >
-            {/* Brushed VISA card mock */}
-            <div
-              style={{
-                position: 'relative',
-                overflow: 'hidden',
-                flex: '0 0 auto',
-                width: 340,
-                maxWidth: '100%',
-                aspectRatio: '1.6',
-                borderRadius: 18,
-                border: '1px solid #4a4d52',
-                background:
-                  'linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)',
-                boxShadow: '0 24px 56px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.1) inset',
-                padding: 24,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div
-                style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span
-                    style={{
-                      width: 11,
-                      height: 11,
-                      background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)',
-                      transform: 'rotate(45deg)',
-                      borderRadius: 2,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: "'Geist Mono', monospace",
-                      fontSize: 12,
-                      letterSpacing: '.18em',
-                      color: '#D4D6D9',
-                    }}
-                  >
-                    YIELD2PAY
-                  </span>
-                </span>
-                <span
-                  style={{
-                    width: 34,
-                    height: 25,
-                    borderRadius: 5,
-                    background: 'linear-gradient(135deg,#D4D6D9,#8d9094)',
-                    boxShadow: '0 1px 2px rgba(0,0,0,.45) inset',
-                  }}
-                />
-              </div>
-              <div
-                style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  fontFamily: "'Geist Mono', monospace",
-                  fontSize: 18,
-                  letterSpacing: '.18em',
-                  color: '#EDEFF1',
-                  textShadow: '0 1px 0 rgba(0,0,0,.5)',
-                }}
-              >
-                •••• •••• •••• 4291
-              </div>
-              <div
-                style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "'Geist Mono', monospace",
-                    fontSize: 12,
-                    letterSpacing: '.1em',
-                    color: '#C0C2C5',
-                  }}
-                >
-                  ACME LTDA.
-                </span>
-                <span
-                  style={{
-                    fontStyle: 'italic',
-                    fontWeight: 700,
-                    fontSize: 17,
-                    color: '#EDEFF1',
-                    letterSpacing: '-.02em',
-                  }}
-                >
-                  VISA
-                </span>
-              </div>
-            </div>
-
-            {/* Paid services list + settings */}
-            <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-              <p style={{ fontSize: 15, lineHeight: 1.6, color: '#C8CACD', margin: '0 0 16px' }}>
-                {t.cardText}
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {bills
-                  .filter((b) => b.status === 'active')
-                  .map((b) => (
-                    <div
-                      key={b.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '9px 0',
-                        borderBottom: '1px solid #2A2D31',
-                      }}
-                    >
-                      <span style={{ fontSize: 14, color: '#F2F3F4' }}>{b.vendor}</span>
-                      <span
-                        style={{
-                          fontFamily: "'Geist Mono', monospace",
-                          fontSize: 13,
-                          color: '#9A9DA1',
-                        }}
-                      >
-                        {formatUsdc(b.monthlyCost)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-              <button
-                style={{
-                  marginTop: 18,
-                  fontFamily: 'inherit',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: '#F2F3F4',
-                  background: 'rgba(255,255,255,.03)',
-                  border: '1px solid #3A3D41',
-                  borderRadius: 10,
-                  padding: '11px 20px',
-                  cursor: 'pointer',
-                  transition: 'all .25s ease',
-                }}
-              >
-                {t.cardSettings}
-              </button>
-            </div>
-          </div>
         </div>
+
       </main>
 
       {drawer && (

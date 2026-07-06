@@ -31,12 +31,29 @@ export class StellarService {
   private readonly passphrase: string;
   private readonly server: rpc.Server;
   private readonly sponsor: Keypair;
+  // Fila que serializa toda operação que consome o sequence do sponsor (fonte
+  // única). Sem isso, chamadas concorrentes leem o mesmo seq, montam a mesma tx
+  // e a 2ª é rejeitada com txBadSeq. Encadear torna getAccount→submit atômico.
+  // NOTA: só protege dentro de um processo — múltiplas instâncias da API
+  // exigiriam channel accounts ou lock de sequence no banco.
+  private sponsorTail: Promise<unknown> = Promise.resolve();
 
   constructor(@Inject(APP_CONFIG) config: Env, @Optional() server?: rpc.Server) {
     this.passphrase =
       config.stellarNetwork === 'public' ? Networks.PUBLIC : Networks.TESTNET;
     this.server = server ?? new rpc.Server(config.sorobanRpcUrl);
     this.sponsor = Keypair.fromSecret(config.feeSponsorSecretKey);
+  }
+
+  /** Roda `fn` em exclusão mútua na fila do sponsor. A cauda avança mesmo se
+   *  `fn` rejeitar, para não travar as próximas operações. */
+  private runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.sponsorTail.then(fn, fn);
+    this.sponsorTail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   hashForSigning(xdr: string): { hash: string } {
@@ -46,19 +63,23 @@ export class StellarService {
 
   /** Creates the account on-chain (sponsor pays) if it doesn't exist. Idempotent. */
   async ensureAccountFunded(address: string): Promise<void> {
-    if (await this.exists(address)) return;
-    const source = await this.server.getAccount(this.sponsor.publicKey());
-    const tx = new TransactionBuilder(source, {
-      fee: BASE_FEE,
-      networkPassphrase: this.passphrase,
-    })
-      .addOperation(
-        Operation.createAccount({ destination: address, startingBalance: STARTING_BALANCE }),
-      )
-      .setTimeout(30)
-      .build();
-    tx.sign(this.sponsor);
-    await this.submit(tx);
+    // exists() dentro do lock: fora dele, dois registers concorrentes veriam
+    // ambos "não existe" e o 2º criaria a conta de novo (op_already_exists).
+    await this.runExclusive(async () => {
+      if (await this.exists(address)) return;
+      const source = await this.server.getAccount(this.sponsor.publicKey());
+      const tx = new TransactionBuilder(source, {
+        fee: BASE_FEE,
+        networkPassphrase: this.passphrase,
+      })
+        .addOperation(
+          Operation.createAccount({ destination: address, startingBalance: STARTING_BALANCE }),
+        )
+        .setTimeout(30)
+        .build();
+      tx.sign(this.sponsor);
+      await this.submit(tx);
+    });
   }
 
   /**
@@ -70,22 +91,24 @@ export class StellarService {
    * Returns the confirmed transaction hash.
    */
   async fundClient(clientAddress: string, amountBaseUnits: bigint): Promise<string> {
-    const source = await this.server.getAccount(this.sponsor.publicKey());
-    const tx = new TransactionBuilder(source, {
-      fee: BASE_FEE,
-      networkPassphrase: this.passphrase,
-    })
-      .addOperation(
-        Operation.payment({
-          destination: clientAddress,
-          asset: Asset.native(),
-          amount: toStellarAmount(amountBaseUnits),
-        }),
-      )
-      .setTimeout(30)
-      .build();
-    tx.sign(this.sponsor);
-    return this.submit(tx);
+    return this.runExclusive(async () => {
+      const source = await this.server.getAccount(this.sponsor.publicKey());
+      const tx = new TransactionBuilder(source, {
+        fee: BASE_FEE,
+        networkPassphrase: this.passphrase,
+      })
+        .addOperation(
+          Operation.payment({
+            destination: clientAddress,
+            asset: Asset.native(),
+            amount: toStellarAmount(amountBaseUnits),
+          }),
+        )
+        .setTimeout(30)
+        .build();
+      tx.sign(this.sponsor);
+      return this.submit(tx);
+    });
   }
 
   /**

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppConfigModule } from './config/config.module';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
@@ -15,6 +17,14 @@ import { JobsModule } from './jobs/jobs.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    // Rate limit global: teto brando por IP em toda a API. Roda como APP_GUARD,
+    // que executa ANTES do AuthGuard de cada controller — corta flood antes de
+    // chegar no Privy/DB. Rotas caras (fund/register/submit) apertam ainda mais
+    // via @Throttle no controller. Storage em memória: OK para instância única
+    // (Render). Múltiplas instâncias → trocar por storage compartilhado (Redis).
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 60 }],
+    }),
     AppConfigModule,
     PrismaModule,
     WalletModule,
@@ -27,6 +37,6 @@ import { JobsModule } from './jobs/jobs.module';
     JobsModule,
   ],
   controllers: [HealthController],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

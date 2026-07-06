@@ -212,6 +212,41 @@ it('desiste após esgotar as tentativas se o RPC continua em TRY_AGAIN_LATER', a
   expect(pollTransaction).not.toHaveBeenCalled();
 });
 
+// ── serialização do sequence do sponsor (corrida → txBadSeq) ──────────────────
+
+// Mock que modela o sequence on-chain do sponsor: aceita a tx só se o seu seq
+// for exatamente (onChain + 1); senão devolve ERROR/txBadSeq como o RPC real.
+function sponsorSeqServer(startSeq: number): rpc.Server {
+  let onChain = startSeq;
+  return {
+    getAccount: vi.fn(async (pub: string) => new Account(pub, String(onChain))),
+    sendTransaction: vi.fn(async (tx: Transaction) => {
+      const txSeq = Number(tx.sequence);
+      if (txSeq === onChain + 1) {
+        onChain = txSeq;
+        return { status: 'PENDING', hash: 'h' + txSeq };
+      }
+      return {
+        status: 'ERROR',
+        errorResult: { result: () => ({ switch: () => ({ name: 'txBadSeq' }) }) },
+      };
+    }),
+    pollTransaction: vi.fn(async () => ({ status: rpc.Api.GetTransactionStatus.SUCCESS })),
+  } as unknown as rpc.Server;
+}
+
+it('serializa txs concorrentes do sponsor sem colidir com txBadSeq', async () => {
+  const svc = new StellarService(cfg, sponsorSeqServer(100));
+  const c1 = Keypair.random().publicKey();
+  const c2 = Keypair.random().publicKey();
+
+  // Duas chamadas concorrentes que consomem o sequence do sponsor. Sem
+  // serialização, ambas leem seq 100, montam seq 101 e a 2ª leva txBadSeq.
+  await expect(
+    Promise.all([svc.fundClient(c1, 100000000n), svc.fundClient(c2, 100000000n)]),
+  ).resolves.toEqual(['h101', 'h102']);
+});
+
 // ── getNativeBalance ──────────────────────────────────────────────────────────
 
 it('getNativeBalance lê o balance nativo do AccountEntry (stroops)', async () => {
