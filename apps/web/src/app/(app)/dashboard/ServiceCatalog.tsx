@@ -29,7 +29,7 @@ export default function ServiceCatalog({ bills, spendable, category, onBillsChan
   const { getAccessToken } = usePrivy();
   const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
   const router = useRouter();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   const [pendingVendor, setPendingVendor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

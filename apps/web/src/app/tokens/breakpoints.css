@@ -1,0 +1,8 @@
+/* Breakpoints canônicos. Fonte da verdade documental — o CSS não aceita
+   var() na condição de @media, então nos @media os px são escritos literais
+   (480 / 768 / 1200), espelhando estes valores. */
+:root {
+  --fx-bp-mobile: 480px;    /* phone retrato */
+  --fx-bp-tablet: 768px;    /* phone landscape / tablet retrato — tier 'desktop' do useBreakpoint começa aqui (>=768) */
+  --fx-bp-desktop: 1200px;  /* largura de conforto do layout desktop cheio; pivôs por-tela podem colapsar antes (ex.: dashboard em 1024) */
+}

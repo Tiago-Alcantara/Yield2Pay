@@ -8,7 +8,6 @@ import { Badge } from '@/components/Badge';
 import { BrandHeader } from '@/components/BrandHeader';
 import { TxErrorBox } from '@/components/TxErrorBox';
 import { useDepositFlow } from '@/lib/useDepositFlow';
-import { useIsMobile } from '@/lib/useIsMobile';
 
 // Rendimento anual demonstrativo (mesma base do restante do app).
 const ANNUAL_YIELD = 0.084;
@@ -32,7 +31,6 @@ function Divider() {
 const CHIPS = [100, 250, 500];
 
 export default function DepositPage() {
-  const isMobile = useIsMobile();
   const { state, order, error, start, simulate, confirm } = useDepositFlow();
 
   const [amountBrl, setAmountBrl] = useState('100');
@@ -42,12 +40,12 @@ export default function DepositPage() {
   const busy = state === 'quoting' || state === 'applying';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: isMobile ? '24px 12px' : '48px 24px' }}>
-      <div style={{ width: 520, maxWidth: '100%' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 'clamp(20px, 4vw, 48px) clamp(12px, 3vw, 24px)' }}>
+      <div style={{ width: 'min(520px, 100%)' }}>
         <BrandHeader />
 
         <MetalCard sweep="loop" padding={0} radius="var(--fx-radius-2xl)" style={{ border: '1px solid var(--fx-border-metal)', boxShadow: 'var(--fx-elev-hero)' }}>
-          <div style={{ padding: 30 }}>
+          <div style={{ padding: 'clamp(16px, 5vw, 30px)' }}>
 
             {/* ── Valor ─────────────────────────────────────────────── */}
             {(state === 'idle' || state === 'quoting') && (

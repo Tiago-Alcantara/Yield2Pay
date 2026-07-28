@@ -262,7 +262,7 @@ function StatCard({
 export default function DashboardPage() {
   const { getAccessToken, logout } = usePrivy();
   const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const router = useRouter();
 
   const [lang, setLang] = useState<Lang>('pt');

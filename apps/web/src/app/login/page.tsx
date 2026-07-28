@@ -218,7 +218,7 @@ export default function LoginPage() {
         )}
 
         {/* ── Right: Google sign-in panel ───────────────────────────────── */}
-        <section style={{ flex: '1.15 1 480px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '24px 16px' : 'clamp(32px,5vw,64px) 24px', background: '#0c0d0f', minHeight: isMobile ? '100vh' : undefined }}>
+        <section style={{ flex: '1.15 1 480px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(24px, 5vw, 64px) clamp(16px, 3vw, 24px)', background: '#0c0d0f', minHeight: isMobile ? '100vh' : undefined }}>
           <div className="fx-form" style={{ width: '100%', maxWidth: 404, textAlign: 'center' }}>
 
             <h1 style={{ fontSize: 'clamp(26px,3vw,32px)', fontWeight: 700, letterSpacing: '-.02em', color: '#EDEFF1', margin: 0, textShadow: '0 1px 0 rgba(255,255,255,.1)' }}>

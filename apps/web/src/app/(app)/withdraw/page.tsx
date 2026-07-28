@@ -8,7 +8,6 @@ import { Badge } from '@/components/Badge';
 import { BrandHeader } from '@/components/BrandHeader';
 import { TxErrorBox } from '@/components/TxErrorBox';
 import { useWithdrawFlow } from '@/lib/useWithdrawFlow';
-import { useIsMobile } from '@/lib/useIsMobile';
 
 // Câmbio aproximado USDC→BRL (sandbox ~5.34). Só p/ projeção na UI.
 const USDC_TO_BRL = 5.34;
@@ -35,7 +34,6 @@ function Divider() {
 const CHIPS = [10, 50, 100];
 
 export default function WithdrawPage() {
-  const isMobile = useIsMobile();
   const { state, order, error, start } = useWithdrawFlow();
 
   const [amount, setAmount] = useState('50');
@@ -43,12 +41,12 @@ export default function WithdrawPage() {
   const approxBrl = amountNum * USDC_TO_BRL;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: isMobile ? '24px 12px' : '48px 24px' }}>
-      <div style={{ width: 520, maxWidth: '100%' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 'clamp(20px, 4vw, 48px) clamp(12px, 3vw, 24px)' }}>
+      <div style={{ width: 'min(520px, 100%)' }}>
         <BrandHeader />
 
         <MetalCard sweep="loop" padding={0} radius="var(--fx-radius-2xl)" style={{ border: '1px solid var(--fx-border-metal)', boxShadow: 'var(--fx-elev-hero)' }}>
-          <div style={{ padding: 30 }}>
+          <div style={{ padding: 'clamp(16px, 5vw, 30px)' }}>
 
             {(state === 'idle') && (
               <>

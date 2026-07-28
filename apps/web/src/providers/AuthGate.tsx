@@ -19,7 +19,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { ready, authenticated } = usePrivy();
   const { ensureWallet } = useWallet();
 
+  // Bypass SÓ para validação visual local (screenshots de telas autenticadas).
+  // Nunca ligar em produção — ver plano de responsividade, Task 8.
+  const bypass = process.env.NEXT_PUBLIC_AUTH_BYPASS === 'true';
+
   useEffect(() => {
+    if (bypass) return;
     if (!ready) return;
 
     if (!authenticated) {
@@ -40,6 +45,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // Render children only once Privy is ready AND the user is authenticated.
   // Guarding on `authenticated` (not just `ready`) prevents a one-render flash
   // of protected content while the redirect effect runs asynchronously.
+  if (bypass) return <>{children}</>;
   if (!ready || !authenticated) return null;
 
   return <>{children}</>;
