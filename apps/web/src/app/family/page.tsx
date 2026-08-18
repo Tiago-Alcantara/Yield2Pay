@@ -93,11 +93,11 @@ export default function FamilyLandingPage() {
   const sectionStyle: React.CSSProperties = {
     maxWidth: 1200,
     margin: '0 auto',
-    padding: 'clamp(56px,7vw,88px) 24px',
+    padding: 'clamp(48px,7vw,88px) var(--fam-gutter)',
     borderTop: `1px solid ${C.border}`,
   };
   const h2Style: React.CSSProperties = {
-    fontSize: 'clamp(30px,3.4vw,40px)',
+    fontSize: 'clamp(25px,5.4vw,40px)',
     fontWeight: 700,
     letterSpacing: '-.025em',
     lineHeight: 1.1,
@@ -124,20 +124,37 @@ export default function FamilyLandingPage() {
           style={{
             maxWidth: 1200,
             margin: '0 auto',
-            padding: '16px 24px',
+            padding: '14px var(--fam-gutter)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 24,
+            gap: 16,
             flexWrap: 'wrap',
           }}
         >
           <FamilyBrand tag={FAM[lang].brandTag} href="#topo" />
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
-            <a href="#calculadora" className="fam-quiet" style={{ fontSize: 14.5, color: C.text2 }}>
+          <nav
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'clamp(12px,2.4vw,22px)',
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* No celular as âncoras somem: a página é curta e as seções ficam
+                a uma rolagem de distância. */}
+            <a
+              href="#calculadora"
+              className="fam-quiet fam-hide-sm"
+              style={{ fontSize: 14.5, color: C.text2 }}
+            >
               {t.navCalc}
             </a>
-            <a href="#como-funciona" className="fam-quiet" style={{ fontSize: 14.5, color: C.text2 }}>
+            <a
+              href="#como-funciona"
+              className="fam-quiet fam-hide-sm"
+              style={{ fontSize: 14.5, color: C.text2 }}
+            >
               {t.navHow}
             </a>
             <PillGroup
@@ -159,7 +176,7 @@ export default function FamilyLandingPage() {
                 color: C.chromeInk,
                 background: C.chromeSoft,
                 borderRadius: 12,
-                padding: '11px 20px',
+                padding: '11px clamp(14px,3vw,20px)',
                 boxShadow: CHROME_SHADOW,
               }}
             >
@@ -176,14 +193,14 @@ export default function FamilyLandingPage() {
         style={{
           maxWidth: 1200,
           margin: '0 auto',
-          padding: 'clamp(64px,9vw,104px) 24px clamp(48px,6vw,72px)',
+          padding: 'clamp(44px,9vw,104px) var(--fam-gutter) clamp(40px,6vw,72px)',
         }}
       >
         <div>
           <div style={eyebrow()}>{t.heroEyebrow}</div>
           <h1
             style={{
-              fontSize: 'clamp(38px,5.2vw,62px)',
+              fontSize: 'clamp(31px,7.4vw,62px)',
               fontWeight: 700,
               letterSpacing: '-.03em',
               lineHeight: 1.04,
@@ -267,7 +284,7 @@ export default function FamilyLandingPage() {
             <div
               style={{
                 fontFamily: C.mono,
-                fontSize: 34,
+                fontSize: 'clamp(28px,8vw,34px)',
                 fontWeight: 600,
                 color: C.textStrong,
                 marginTop: 16,
@@ -330,7 +347,7 @@ export default function FamilyLandingPage() {
               background: C.card,
               border: `1px solid ${C.border}`,
               borderRadius: 18,
-              padding: 26,
+              padding: 'var(--fam-card-pad)',
             }}
           >
             <div style={{ ...cardLabel, color: C.text2 }}>{t.calcSubsLabel}</div>
@@ -419,7 +436,13 @@ export default function FamilyLandingPage() {
               >
                 <span style={cardLabel}>{t.calcDepositLabel}</span>
                 <span
-                  style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 600, color: C.textStrong }}
+                  style={{
+                    fontFamily: C.mono,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: C.textStrong,
+                    whiteSpace: 'nowrap',
+                  }}
                 >
                   {fmtBRLShort(deposit)}
                 </span>
@@ -474,7 +497,7 @@ export default function FamilyLandingPage() {
               <div
                 style={{
                   fontFamily: C.mono,
-                  fontSize: 56,
+                  fontSize: 'clamp(42px,13vw,56px)',
                   fontWeight: 600,
                   color: C.textStrong,
                   marginTop: 12,
@@ -569,7 +592,7 @@ export default function FamilyLandingPage() {
                 background: C.card,
                 border: `1px solid ${C.border}`,
                 borderRadius: 18,
-                padding: 26,
+                padding: 'var(--fam-card-pad)',
               }}
             >
               <NumberTile>{step.n}</NumberTile>
@@ -629,7 +652,7 @@ export default function FamilyLandingPage() {
         <MetalPanel radius={26} padding={0} shadow={PANEL_SHADOW_LG}>
           <div
             style={{
-              padding: 'clamp(32px,4.5vw,52px)',
+              padding: 'clamp(22px,4.5vw,52px)',
               display: 'flex',
               flexWrap: 'wrap',
               gap: 32,
@@ -640,7 +663,7 @@ export default function FamilyLandingPage() {
             <div style={{ flex: '1 1 380px' }}>
               <h2
                 style={{
-                  fontSize: 'clamp(26px,3vw,36px)',
+                  fontSize: 'clamp(23px,4.6vw,36px)',
                   fontWeight: 700,
                   letterSpacing: '-.025em',
                   lineHeight: 1.1,
@@ -664,7 +687,7 @@ export default function FamilyLandingPage() {
                 {t.ctaSub}
               </p>
             </div>
-            <div style={{ flex: '0 1 380px', minWidth: 280 }}>
+            <div style={{ flex: '0 1 380px', minWidth: 'min(280px,100%)' }}>
               <form
                 onSubmit={handleSubmit}
                 noValidate
@@ -744,7 +767,7 @@ export default function FamilyLandingPage() {
           style={{
             maxWidth: 1200,
             margin: '0 auto',
-            padding: '28px 24px',
+            padding: '28px var(--fam-gutter)',
             display: 'flex',
             flexWrap: 'wrap',
             gap: 20,
@@ -785,7 +808,7 @@ export default function FamilyLandingPage() {
           style={{
             maxWidth: 1200,
             margin: '0 auto',
-            padding: '0 24px 28px',
+            padding: '0 var(--fam-gutter) 28px',
           }}
         >
           <Link

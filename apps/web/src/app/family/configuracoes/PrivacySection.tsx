@@ -31,7 +31,7 @@ export function PrivacySection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={cardTitle}>{t.settings.dataTitle}</div>
         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
           {t.settings.dataSub}
@@ -75,7 +75,7 @@ export function PrivacySection() {
           background: C.card,
           border: `1px solid ${C.dangerEdge}`,
           borderRadius: 20,
-          padding: 26,
+          padding: 'var(--fam-card-pad)',
         }}
       >
         <div style={cardTitle}>{t.settings.deleteTitle}</div>

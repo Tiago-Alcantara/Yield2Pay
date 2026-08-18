@@ -74,7 +74,7 @@ export function NotificationsSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={cardTitle}>{t.settings.channelsTitle}</div>
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 6 }}>
           {t.settings.channels.map(([id, label, desc]) => (
@@ -89,7 +89,7 @@ export function NotificationsSection() {
         </div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={cardTitle}>{t.settings.eventsTitle}</div>
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 6 }}>
           {t.settings.events.map(([id, label, desc]) => (

@@ -61,10 +61,12 @@ export default function FamilySettingsPage() {
     <div style={{ minHeight: '100vh', background: C.bgRadial }}>
       <BackHeader label={t.settings.back} maxWidth={1040} />
 
-      <main style={{ maxWidth: 1040, margin: '0 auto', padding: '36px 24px 80px' }}>
+      <main
+        style={{ maxWidth: 1040, margin: '0 auto', padding: '28px var(--fam-gutter) 80px' }}
+      >
         <h1
           style={{
-            fontSize: 'clamp(26px,3.4vw,34px)',
+            fontSize: 'clamp(23px,5vw,34px)',
             fontWeight: 700,
             letterSpacing: '-.025em',
             margin: 0,

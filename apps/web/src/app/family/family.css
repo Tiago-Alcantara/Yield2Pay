@@ -5,6 +5,56 @@
    e o input[type=range] da calculadora.
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* ── Escala das telas pequenas ────────────────────────────────────────────────
+   Os respiros laterais e o padding dos cards vêm destas variáveis, para as
+   telas usarem `var(--fam-*)` no style inline e o ponto de quebra ficar só
+   aqui. Só carrega em /family, então não afeta as telas de empresas.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --fam-gutter: 24px;      /* respiro lateral de header, main e rodapé */
+  --fam-card-pad: 26px;    /* card padrão das seções */
+  --fam-card-pad-lg: 32px; /* cards centrais (login, PIX, saque) */
+  --fam-metal-pad: 28px;   /* painel de metal padrão */
+  --fam-panel-pad: 30px;   /* painéis de metal maiores */
+}
+
+@media (max-width: 640px) {
+  :root {
+    --fam-gutter: 16px;
+    --fam-card-pad: 18px;
+    --fam-card-pad-lg: 20px;
+    --fam-metal-pad: 20px;
+    --fam-panel-pad: 20px;
+  }
+}
+
+/* Telas de um card só, centrado (onboarding, depósito, saque).
+   `dvh` evita o corte causado pela barra de endereço no mobile. */
+.fam-center-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 6vw, 40px) var(--fam-gutter);
+}
+
+/* Some abaixo de 560px — usado no que é redundante no celular
+   (chevron das linhas, "Olá, fulano", âncoras do menu da landing). */
+@media (max-width: 560px) {
+  .fam-hide-sm {
+    display: none !important;
+  }
+}
+/* A etiqueta "Para famílias" quebraria a marca em telas bem estreitas. */
+@media (max-width: 420px) {
+  .fam-brand-tag {
+    display: none;
+  }
+}
+
 /* ── Grids responsivos ────────────────────────────────────────────────────── */
 
 .fam-hero {
@@ -34,14 +84,16 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* O `min(…, 100%)` impede a faixa mínima de estourar a largura da tela quando
+   o container é mais estreito que ela. */
 .fam-cards-3 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 .fam-subs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
   gap: 10px;
 }
 
@@ -78,11 +130,49 @@
   .fam-cfg {
     grid-template-columns: 1fr;
   }
+  /* Sete seções em faixa: rolagem horizontal em vez de três linhas de chips. */
   .fam-cfg-nav {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     position: static;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .fam-cfg-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .fam-cfg-nav > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+/* ── Linha de assinatura do painel ────────────────────────────────────────── */
+
+.fam-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.fam-sub-row > .fam-sub-main {
+  flex: 1;
+  min-width: 0;
+}
+/* No celular o nome ocupa a primeira linha inteira; valor e status descem
+   para a segunda, alinhados sob o nome. */
+@media (max-width: 560px) {
+  .fam-sub-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .fam-sub-row > .fam-sub-main {
+    flex-basis: calc(100% - 20px);
+  }
+  .fam-sub-row > .fam-sub-price {
+    margin-left: 20px;
   }
 }
 
@@ -152,6 +242,12 @@
 }
 .fam-field:focus {
   border-color: var(--fx-silver);
+}
+/* Abaixo de 16px o Safari do iPhone dá zoom ao focar o campo. */
+@media (max-width: 640px) {
+  .fam-field {
+    font-size: 16px !important;
+  }
 }
 
 /* ── Movimento reduzido ───────────────────────────────────────────────────── */

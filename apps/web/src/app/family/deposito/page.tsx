@@ -25,17 +25,8 @@ export default function FamilyDepositPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bgRadialTall }}>
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px 24px',
-        }}
-      >
-        <div style={{ marginBottom: 34 }}>
+      <div className="fam-center-shell">
+        <div style={{ marginBottom: 'clamp(22px,5vw,34px)' }}>
           <FamilyBrand tag={t.brandTag} size={20} href="/family/dashboard" />
         </div>
         <PixDepositCard

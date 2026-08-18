@@ -21,7 +21,7 @@ export function SecuritySection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <MetalPanel radius={20} padding={26} sweep={false}>
+      <MetalPanel radius={20} padding="var(--fam-card-pad)" sweep={false}>
         <div
           style={{
             fontFamily: C.mono,
@@ -57,7 +57,7 @@ export function SecuritySection() {
         </p>
       </MetalPanel>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.accessTitle}
         </div>

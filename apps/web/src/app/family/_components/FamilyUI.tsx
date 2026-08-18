@@ -46,6 +46,7 @@ export function FamilyBrand({
       </span>
       {tag && (
         <span
+          className="fam-brand-tag"
           style={{
             fontFamily: C.mono,
             fontSize: 10.5,
@@ -88,14 +89,14 @@ export function FamilyBrand({
 export function MetalPanel({
   children,
   radius = 20,
-  padding = 28,
+  padding = 'var(--fam-metal-pad)',
   sweep = true,
   shadow = PANEL_SHADOW,
   style = {},
 }: {
   children: React.ReactNode;
   radius?: number;
-  padding?: number;
+  padding?: number | string;
   sweep?: boolean;
   shadow?: string;
   style?: React.CSSProperties;
@@ -194,12 +195,12 @@ export function StatCard({
   label,
   value,
   sub,
-  valueSize = 28,
+  valueSize = 'clamp(22px,6.5vw,28px)',
 }: {
   label: string;
   value: string;
   sub?: string;
-  valueSize?: number;
+  valueSize?: number | string;
 }) {
   return (
     <div
@@ -208,7 +209,7 @@ export function StatCard({
         background: C.card,
         border: `1px solid ${C.border}`,
         borderRadius: 18,
-        padding: 22,
+        padding: 'clamp(18px,4vw,22px)',
       }}
     >
       <div style={cardLabel}>{label}</div>
@@ -282,6 +283,7 @@ export function PillGroup({
       aria-label={ariaLabel}
       style={{
         display: 'inline-flex',
+        flexWrap: 'wrap',
         border: `1px solid ${C.border}`,
         borderRadius: 999,
         padding: 3,
@@ -303,6 +305,7 @@ export function PillGroup({
               padding: '7px 14px',
               fontSize: 13,
               fontWeight: 600,
+              whiteSpace: 'nowrap',
               cursor: 'pointer',
               fontFamily: mono ? C.mono : 'inherit',
               background: on ? '#2E3136' : 'transparent',
@@ -475,7 +478,7 @@ export function BackHeader({ label, maxWidth = 720 }: { label: string; maxWidth?
         style={{
           maxWidth,
           margin: '0 auto',
-          padding: '14px 24px',
+          padding: '14px var(--fam-gutter)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

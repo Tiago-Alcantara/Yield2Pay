@@ -69,7 +69,7 @@ export function DashboardHeader() {
         style={{
           maxWidth: 960,
           margin: '0 auto',
-          padding: '16px 24px',
+          padding: '14px var(--fam-gutter)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -78,7 +78,7 @@ export function DashboardHeader() {
       >
         <FamilyBrand size={18} href="/family/dashboard" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px,3vw,16px)' }}>
           <Link
             href="/family/conceitos"
             className="fam-quiet"
@@ -105,7 +105,7 @@ export function DashboardHeader() {
                 borderRadius: 999,
               }}
             >
-              <span style={{ fontSize: 14, color: C.text2 }}>
+              <span className="fam-hide-sm" style={{ fontSize: 14, color: C.text2 }}>
                 {t.dash.hello} {state.profile.name}
               </span>
               <span
@@ -134,7 +134,7 @@ export function DashboardHeader() {
                   position: 'absolute',
                   right: 0,
                   top: 'calc(100% + 8px)',
-                  width: 236,
+                  width: 'min(236px, calc(100vw - 2 * var(--fam-gutter)))',
                   background: C.card,
                   border: `1px solid ${C.border}`,
                   borderRadius: 14,

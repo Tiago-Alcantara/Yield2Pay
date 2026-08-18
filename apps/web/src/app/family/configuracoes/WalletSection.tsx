@@ -40,7 +40,7 @@ export function WalletSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.walletTitle}
         </div>
@@ -55,6 +55,8 @@ export function WalletSection() {
               fontSize: 15,
               color: C.textStrong,
               letterSpacing: '.04em',
+              maxWidth: '100%',
+              wordBreak: 'break-all',
             }}
           >
             {state.walletAddress}
@@ -76,7 +78,7 @@ export function WalletSection() {
         </p>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div
           style={{
             display: 'flex',

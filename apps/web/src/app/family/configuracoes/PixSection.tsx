@@ -64,7 +64,7 @@ export function PixSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Chave PIX ─────────────────────────────────────────────────────── */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.pixTitle}
         </div>
@@ -83,6 +83,8 @@ export function PixSection() {
                 fontFamily: C.mono,
                 fontSize: 14,
                 color: C.textStrong,
+                maxWidth: '100%',
+                wordBreak: 'break-all',
               }}
             >
               {state.pixKey}
@@ -213,7 +215,7 @@ export function PixSection() {
       </div>
 
       {/* ── Depósito automático ───────────────────────────────────────────── */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 26 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <span style={{ flex: 1, minWidth: 220 }}>
             <span
@@ -304,7 +306,7 @@ export function PixSection() {
           background: C.card,
           border: `1px solid ${C.border}`,
           borderRadius: 20,
-          padding: 26,
+          padding: 'var(--fam-card-pad)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

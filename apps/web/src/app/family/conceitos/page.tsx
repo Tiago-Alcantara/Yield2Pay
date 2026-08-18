@@ -40,13 +40,13 @@ export default function FamilyConceptsPage() {
         style={{
           maxWidth: 720,
           margin: '0 auto',
-          padding: 'clamp(40px,6vw,64px) 24px 72px',
+          padding: 'clamp(28px,6vw,64px) var(--fam-gutter) 72px',
         }}
       >
         <div style={eyebrow()}>{t.concepts.eyebrow}</div>
         <h1
           style={{
-            fontSize: 'clamp(30px,4vw,42px)',
+            fontSize: 'clamp(26px,6vw,42px)',
             fontWeight: 700,
             letterSpacing: '-.025em',
             lineHeight: 1.1,
@@ -93,7 +93,7 @@ export default function FamilyConceptsPage() {
                     gap: 14,
                     background: 'none',
                     border: 'none',
-                    padding: '20px 22px',
+                    padding: 'clamp(16px,4vw,20px) clamp(16px,4vw,22px)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                     textAlign: 'left',
@@ -133,7 +133,7 @@ export default function FamilyConceptsPage() {
                 {isOpen && (
                   <div
                     style={{
-                      padding: '2px 22px 22px',
+                      padding: '2px clamp(16px,4vw,22px) clamp(18px,4vw,22px)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 16,

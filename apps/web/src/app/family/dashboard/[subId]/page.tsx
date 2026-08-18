@@ -51,7 +51,9 @@ export default function FamilySubscriptionPage({
   if (!row) {
     return (
       <div style={{ minHeight: '100vh', background: C.bgRadialTall }}>
-        <main style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px 72px' }}>
+        <main
+          style={{ maxWidth: 680, margin: '0 auto', padding: '24px var(--fam-gutter) 72px' }}
+        >
           {backLink}
           <p style={{ fontSize: 16, color: C.text2, marginTop: 24 }}>{t.detail.notFound}</p>
         </main>
@@ -64,23 +66,24 @@ export default function FamilySubscriptionPage({
 
   return (
     <div style={{ minHeight: '100vh', background: C.bgRadialTall }}>
-      <main style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px 72px' }}>
+      <main style={{ maxWidth: 680, margin: '0 auto', padding: '24px var(--fam-gutter) 72px' }}>
         {backLink}
 
         <div style={{ marginTop: 22 }}>
-          <MetalPanel radius={22} padding={30} shadow={PANEL_SHADOW_LG}>
+          <MetalPanel radius={22} padding="var(--fam-panel-pad)" shadow={PANEL_SHADOW_LG}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
                 gap: 16,
+                flexWrap: 'wrap',
               }}
             >
               <div>
                 <h1
                   style={{
-                    fontSize: 28,
+                    fontSize: 'clamp(23px,6vw,28px)',
                     fontWeight: 700,
                     letterSpacing: '-.02em',
                     margin: 0,
@@ -115,14 +118,14 @@ export default function FamilySubscriptionPage({
               background: C.card,
               border: `1px solid ${C.border}`,
               borderRadius: 18,
-              padding: 22,
+              padding: 'clamp(18px,4vw,22px)',
             }}
           >
             <div style={cardLabel}>{t.detail.neededLabel}</div>
             <div
               style={{
                 fontFamily: C.mono,
-                fontSize: 26,
+                fontSize: 'clamp(22px,6vw,26px)',
                 fontWeight: 600,
                 color: C.textStrong,
                 marginTop: 10,
@@ -139,14 +142,14 @@ export default function FamilySubscriptionPage({
               background: C.card,
               border: `1px solid ${C.border}`,
               borderRadius: 18,
-              padding: 22,
+              padding: 'clamp(18px,4vw,22px)',
             }}
           >
             <div style={cardLabel}>{t.detail.missingLabel}</div>
             <div
               style={{
                 fontFamily: C.mono,
-                fontSize: 26,
+                fontSize: 'clamp(22px,6vw,26px)',
                 fontWeight: 600,
                 color: C.textStrong,
                 marginTop: 10,

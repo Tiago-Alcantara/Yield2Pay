@@ -93,17 +93,23 @@ export default function FamilyDashboardPage() {
     <div style={{ minHeight: '100vh', background: C.bgRadialTall }}>
       <DashboardHeader />
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 72px' }}>
+      <main
+        style={{
+          maxWidth: 960,
+          margin: '0 auto',
+          padding: '24px var(--fam-gutter) 72px',
+        }}
+      >
         {/* ── Percentual de liberdade + saldos ──────────────────────────── */}
         <div className="fam-dash-top">
-          <MetalPanel radius={22} padding={30} shadow={PANEL_SHADOW_LG}>
+          <MetalPanel radius={22} padding="var(--fam-panel-pad)" shadow={PANEL_SHADOW_LG}>
             <div style={{ ...cardLabel, letterSpacing: '.16em', color: C.text2 }}>
               {t.dash.freedomLabel}
             </div>
             <div
               style={{
                 fontFamily: C.mono,
-                fontSize: 60,
+                fontSize: 'clamp(44px,14vw,60px)',
                 fontWeight: 600,
                 color: C.textStrong,
                 marginTop: 12,
@@ -149,7 +155,7 @@ export default function FamilyDashboardPage() {
             background: C.card,
             border: `1px solid ${C.border}`,
             borderRadius: 20,
-            padding: 26,
+            padding: 'var(--fam-card-pad)',
             marginTop: 16,
           }}
         >
@@ -190,7 +196,7 @@ export default function FamilyDashboardPage() {
                 background: C.well,
                 border: `1px solid ${C.border}`,
                 borderRadius: 16,
-                padding: 22,
+                padding: 'clamp(18px,4vw,22px)',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -199,7 +205,7 @@ export default function FamilyDashboardPage() {
               <div
                 style={{
                   fontFamily: C.mono,
-                  fontSize: 30,
+                  fontSize: 'clamp(24px,7vw,30px)',
                   fontWeight: 600,
                   color: C.textStrong,
                   marginTop: 10,
@@ -265,7 +271,7 @@ export default function FamilyDashboardPage() {
                 background: C.well,
                 border: `1px solid ${C.border}`,
                 borderRadius: 16,
-                padding: 22,
+                padding: 'clamp(18px,4vw,22px)',
               }}
             >
               <div style={cardLabel}>{t.dash.movTitle}</div>
@@ -315,7 +321,7 @@ export default function FamilyDashboardPage() {
             background: C.card,
             border: `1px solid ${C.border}`,
             borderRadius: 20,
-            padding: 26,
+            padding: 'var(--fam-card-pad)',
             marginTop: 16,
           }}
         >
@@ -441,12 +447,9 @@ export default function FamilyDashboardPage() {
               <button
                 key={row.id}
                 type="button"
-                className="fam-row"
+                className="fam-row fam-sub-row"
                 onClick={() => router.push(`/family/dashboard/${encodeURIComponent(row.id)}`)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
                   width: '100%',
                   textAlign: 'left',
                   background: 'none',
@@ -459,7 +462,7 @@ export default function FamilyDashboardPage() {
                 }}
               >
                 <SubDot on={row.covered} />
-                <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="fam-sub-main">
                   <span style={{ display: 'block', fontSize: 15.5, fontWeight: 600, color: C.textStrong }}>
                     {row.name}
                   </span>
@@ -469,13 +472,20 @@ export default function FamilyDashboardPage() {
                       : t.dash.subsHintMissing(fmtBRLShort(row.missing))}
                   </span>
                 </span>
-                <span style={{ fontFamily: C.mono, fontSize: 14, color: C.silver }}>
+                <span
+                  className="fam-sub-price"
+                  style={{ fontFamily: C.mono, fontSize: 14, color: C.silver }}
+                >
                   {fmtBRLShort(row.price)}
                 </span>
                 <StatusPill covered={row.covered}>
                   {row.covered ? t.dash.statusCovered : t.dash.statusNotYet}
                 </StatusPill>
-                <span aria-hidden="true" style={{ color: C.placeholder, fontSize: 16 }}>
+                <span
+                  aria-hidden="true"
+                  className="fam-hide-sm"
+                  style={{ color: C.placeholder, fontSize: 16 }}
+                >
                   ›
                 </span>
               </button>

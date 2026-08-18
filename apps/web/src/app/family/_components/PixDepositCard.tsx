@@ -50,13 +50,13 @@ export function PixDepositCard({
         background: C.card,
         border: `1px solid ${C.border}`,
         borderRadius: 20,
-        padding: 32,
+        padding: 'var(--fam-card-pad-lg)',
         boxShadow: '0 24px 56px rgba(0,0,0,.5)',
       }}
     >
       <h1
         style={{
-          fontSize: 26,
+          fontSize: 'clamp(22px,5.6vw,26px)',
           fontWeight: 700,
           letterSpacing: '-.02em',
           margin: 0,
@@ -99,6 +99,7 @@ export function PixDepositCard({
           display: 'flex',
           gap: 14,
           alignItems: 'center',
+          flexWrap: 'wrap',
           marginTop: 18,
           background: C.well,
           border: `1px solid ${C.border}`,
@@ -126,7 +127,7 @@ export function PixDepositCard({
             {t.onboarding.pixQr}
           </span>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 150 }}>
           <div style={cardLabel}>{t.onboarding.pixCopyLabel}</div>
           <div
             style={{

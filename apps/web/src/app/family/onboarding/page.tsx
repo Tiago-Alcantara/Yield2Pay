@@ -34,23 +34,14 @@ export default function FamilyOnboardingPage() {
     background: C.card,
     border: `1px solid ${C.border}`,
     borderRadius: 20,
-    padding: 32,
+    padding: 'var(--fam-card-pad-lg)',
     boxShadow: '0 24px 56px rgba(0,0,0,.5)',
   };
 
   return (
     <div style={{ minHeight: '100vh', background: C.bgRadialTall }}>
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px 24px',
-        }}
-      >
-        <div style={{ marginBottom: 34 }}>
+      <div className="fam-center-shell">
+        <div style={{ marginBottom: 'clamp(22px,5vw,34px)' }}>
           <FamilyBrand tag={t.brandTag} size={20} href="/family" />
         </div>
 
@@ -58,7 +49,7 @@ export default function FamilyOnboardingPage() {
           <div style={cardStyle}>
             <h1
               style={{
-                fontSize: 26,
+                fontSize: 'clamp(22px,5.6vw,26px)',
                 fontWeight: 700,
                 letterSpacing: '-.02em',
                 margin: 0,
@@ -154,7 +145,7 @@ export default function FamilyOnboardingPage() {
             </div>
             <h1
               style={{
-                fontSize: 26,
+                fontSize: 'clamp(22px,5.6vw,26px)',
                 fontWeight: 700,
                 letterSpacing: '-.02em',
                 margin: '20px 0 0',
