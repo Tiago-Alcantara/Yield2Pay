@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0d0f;color:#EDEFF1;font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(192,194,197,.25);color:#fff}
+:focus-visible{outline:2px solid #C0C2C5;outline-offset:2px;border-radius:6px}
+a{color:#C0C2C5;text-decoration:none}
+a:hover{color:#EDEFF1}
+h1{text-shadow:0 1px 0 rgba(255,255,255,.13),0 -1px 1px rgba(0,0,0,.6)}
+h1:focus{outline:none}
+.brushed{position:relative;background:linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)}
+.brushed::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(118deg,rgba(255,255,255,.04) 0,rgba(255,255,255,.04) 1px,transparent 1px,transparent 4px);opacity:.5;pointer-events:none}
+.btn-shine{position:relative;overflow:hidden}
+.btn-shine::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 26%,rgba(255,255,255,.5) 48%,transparent 68%);transform:translateX(-135%);transition:transform .6s ease;pointer-events:none}
+.btn-shine:hover::before{transform:translateX(135%)}
+@keyframes revealIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.btn-shine::before{transition:none}}
+</style>
+</helmet>
+
+<!--
+  ============================================================================
+  Yield2Pay — ERROR PAGE (bundle de produção)
+  ============================================================================
+  Esta é exatamente a tela que o cliente vê. Nada aqui é painel de revisão:
+  sem seletor de ambiente, sem faixa de staging, sem detalhes técnicos.
+  A versão com todas as combinações lado a lado fica em
+  "Yield2Pay Error State.dc.html" (uso interno).
+
+  ---------------------------------------------------------------------------
+  1. COMO ISSO VIRA CÓDIGO NO SEU APP
+  ---------------------------------------------------------------------------
+  O componente React tipado equivalente é ErrorPage.tsx (mesma pasta):
+
+      <ErrorPage
+        statusCode={404}                 // 400|401|403|404|408|500|502|503
+        environment="production"
+        errorId="ERR-8F3A-2C91"
+        timestamp={new Date().toISOString()}
+        technicalDetails={null}          // em produção: SEMPRE null
+        onHome={() => router.push('/')}
+        onRetry={() => router.refresh()}
+        onLogin={() => router.push('/entrar')}
+        onSupport={() => open('mailto:suporte@yield2pay.com.br')}
+      />
+
+  O markup abaixo é a referência visual 1:1 desse componente. Cada bloco está
+  marcado com o trecho correspondente do .tsx.
+
+  ---------------------------------------------------------------------------
+  2. AÇÕES POR statusCode (regra de produto, não mexer sem combinar)
+  ---------------------------------------------------------------------------
+      404          → só "Voltar ao início"       (retry não resolve: não oferecer)
+      500/502/503  → "Tentar novamente" + "Voltar ao início"
+      408          → "Tentar novamente" + "Voltar ao início"
+      401          → "Fazer login" + "Voltar ao início"
+      403          → "Voltar ao início" + "Falar com o suporte"
+      400          → "Voltar ao início" + "Falar com o suporte"
+  O mapa completo de título/mensagem/ações está em STATUS_COPY (ErrorPage.tsx).
+
+  ---------------------------------------------------------------------------
+  3. DETALHES TÉCNICOS / STAGING — gate de BUILD TIME
+  ---------------------------------------------------------------------------
+  No .tsx:  const SHOW_TECHNICAL_DETAILS = process.env.NEXT_PUBLIC_APP_ENV === 'staging'
+  Constante de módulo → o bundler substitui pelo literal → em produção o ramo
+  é eliminado e o painel (e o stack) não existem no bundle. Não use flag de
+  runtime, feature flag remota ou prop booleana para isso.
+  Par obrigatório no backend: em produção o endpoint de erro NÃO serializa
+  technicalDetails (message/stack/endpoint/requestId).
+
+  ---------------------------------------------------------------------------
+  4. ACESSIBILIDADE (obrigatório manter)
+  ---------------------------------------------------------------------------
+  - <section role="alert" aria-live="assertive"> envolve todo o conteúdo.
+  - <h1 tabindex="-1"> recebe foco ao montar, com focus({preventScroll:true}).
+  - Todos os botões são <button type="button">, altura mínima 44px.
+  - Contraste: texto #EDEFF1/#9A9DA1 sobre #1A1C1F (tokens do design system).
+
+  ---------------------------------------------------------------------------
+  5. TOKENS USADOS (DESIGN-SYSTEM.md — não criar valores novos)
+  ---------------------------------------------------------------------------
+  fundo #0c0d0f · superfície #1A1C1F · borda #2A2D31 · borda metal #4a4d52
+  texto #EDEFF1 · ênfase #F2F3F4 · secundário #9A9DA1 · rótulo #8a8d91 · faint #7E8186
+  cromo linear-gradient(180deg,#E6E8EA,#A8AAAD) sobre #0E0F11
+  metal escovado = classe .brushed (gradiente 135° + grão) + borda 1px + inset topo
+  raio: card 24px · chip 14px · pílula 999px · código engravado 5px
+  tipos: Hanken Grotesk (título/corpo) · Geist Mono (código, rótulo, timestamp)
+  ============================================================================
+-->
+
+<div style="min-height:100vh;background:radial-gradient(120% 50% at 50% -10%,#1b1d20 0%,#0c0d0f 55%);display:flex;flex-direction:column">
+
+  <!-- HEADER — o mesmo das outras telas do produto. Fora do escopo do componente ErrorPage:
+       no seu app isso é o layout/shell, o ErrorPage entra só no <main>. -->
+  <header style="border-bottom:1px solid #2A2D31">
+    <div style="max-width:1040px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;gap:9px">
+      <span style="width:11px;height:11px;background:linear-gradient(135deg,#E6E8EA,#9A9DA1);transform:rotate(45deg);border-radius:2px"></span>
+      <span style="font-size:16px;font-weight:700;letter-spacing:-.01em;color:#F2F3F4">Yield2Pay</span>
+    </div>
+  </header>
+
+  <main style="flex:1;display:flex;align-items:center;justify-content:center;padding:clamp(28px,6vw,72px) 24px">
+
+    <!-- ErrorPage.tsx → <section role="alert" aria-live="assertive" style={S.card}> -->
+    <section role="alert" aria-live="assertive" style="width:100%;max-width:620px;background:#1A1C1F;border:1px solid #2A2D31;border-radius:24px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.45);animation:revealIn .4s ease both">
+      <div style="padding:clamp(26px,3.4vw,42px)">
+
+        <!-- ErrorPage.tsx → S.codeTile + S.kicker. O chip é o "ícone": tile de metal
+             escovado com o número em Geist Mono. Não usar ilustração/emoji. -->
+        <div style="display:flex;align-items:center;gap:14px">
+          <span class="brushed" style="display:flex;align-items:center;justify-content:center;width:64px;height:52px;border-radius:14px;border:1px solid #4a4d52;box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 10px 24px rgba(0,0,0,.4)"><span style="position:relative;z-index:2;font-family:'Geist Mono',ui-monospace,monospace;font-size:20px;font-weight:500;color:#D4D6D9">{{ code }}</span></span>
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#9A9DA1;line-height:1.5">{{ kicker }}</span>
+        </div>
+
+        <!-- ErrorPage.tsx → <h1 ref={titleRef} tabIndex={-1}>: recebe o foco ao montar.
+             Título humano, sem jargão, sem número de erro no meio da frase. -->
+        <h1 tabIndex="-1" style="font-size:clamp(25px,2.7vw,34px);font-weight:700;letter-spacing:-.025em;line-height:1.15;color:#F2F3F4;margin:22px 0 0;text-wrap:pretty">{{ title }}</h1>
+        <p style="font-size:15.5px;line-height:1.6;color:#9A9DA1;margin:12px 0 0;max-width:52ch;text-wrap:pretty">{{ msg }}</p>
+
+        <!-- ErrorPage.tsx → S.actions. Primário = cromo (.btn-shine no hover).
+             Secundário = fantasma com borda de metal; some quando não existe (404). -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+          <button class="btn-shine" onClick="{{ onPrimary }}" style="font-family:inherit;font-size:14.5px;font-weight:700;letter-spacing:-.005em;color:#0E0F11;background:linear-gradient(180deg,#E6E8EA,#A8AAAD);border:none;border-radius:999px;padding:13px 24px;min-height:44px;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.45) inset,0 10px 26px rgba(0,0,0,.45);transition:transform .2s ease,filter .2s ease" style-hover="transform:translateY(-1px);filter:brightness(1.05)">{{ primaryLabel }}</button>
+          <sc-if value="{{ hasSecondary }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ onSecondary }}" style="font-family:inherit;font-size:14.5px;font-weight:600;color:#EDEFF1;background:rgba(255,255,255,.03);border:1px solid #4a4d52;border-radius:999px;padding:13px 22px;min-height:44px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#F2F3F4">{{ secondaryLabel }}</button>
+          </sc-if>
+        </div>
+
+        <!-- ErrorPage.tsx → S.footer. errorId + copiar + timestamp + frase de suporte.
+             O errorId vem do backend (mesmo id gravado no log); o timestamp é ISO
+             formatado com toLocaleString('pt-BR'). -->
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8a8d91">Código do erro</span>
+            <code style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:#D4D6D9;background:#16181b;border:1px solid #2A2D31;border-radius:5px;padding:5px 9px;user-select:all">{{ errorId }}</code>
+            <button onClick="{{ onCopyId }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9A9DA1;background:none;border:1px solid #2A2D31;border-radius:999px;padding:6px 12px;min-height:32px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#EDEFF1">{{ copyIdLabel }}</button>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#7E8186;margin-left:auto">{{ timestampFmt }}</span>
+          </div>
+          <p style="font-size:12.5px;line-height:1.55;color:#7E8186;margin:12px 0 0;max-width:56ch">Informe este código ao suporte — com ele conseguimos localizar exatamente o que aconteceu.</p>
+        </div>
+
+        <!-- AQUI NÃO ENTRA NADA MAIS.
+             Em staging o ErrorPage acrescenta, depois deste ponto, o <TechnicalPanel>
+             e a faixa de ambiente no topo do card — ambos sob SHOW_TECHNICAL_DETAILS
+             (build time). No bundle de produção esse trecho não existe. -->
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:640},&quot;statusCode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;400&quot;,&quot;401&quot;,&quot;403&quot;,&quot;404&quot;,&quot;408&quot;,&quot;500&quot;,&quot;502&quot;,&quot;503&quot;],&quot;default&quot;:&quot;404&quot;,&quot;tsType&quot;:&quot;400|401|403|404|408|500|502|503&quot;},&quot;errorId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ERR-8F3A-2C91&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;timestamp&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;2026-08-17T13:58:41.207Z&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+// Espelho de STATUS_COPY em ErrorPage.tsx — mantenha os dois em sincronia.
+const STATUS = {
+  400: { kicker: 'Erro 400 · pedido inválido', title: 'Esse pedido não pôde ser processado', msg: 'Alguma informação enviada não está no formato que esperávamos. Volte, revise os dados e envie de novo.', primary: 'home', secondary: 'support' },
+  401: { kicker: 'Erro 401 · sessão expirada', title: 'Sua sessão expirou', msg: 'Por segurança, encerramos sessões inativas. Entre na sua conta para continuar de onde parou.', primary: 'login', secondary: 'home' },
+  403: { kicker: 'Erro 403 · sem permissão', title: 'Você não tem acesso a esta página', msg: 'Sua conta não tem permissão para ver este conteúdo. Se acredita que deveria ter, fale com quem administra a conta.', primary: 'home', secondary: 'support' },
+  404: { kicker: 'Erro 404 · página não encontrada', title: 'Esta página não existe', msg: 'O endereço pode ter mudado ou o link veio incompleto. Confira o endereço ou volte ao início.', primary: 'home', secondary: null },
+  408: { kicker: 'Erro 408 · tempo esgotado', title: 'O pedido demorou demais', msg: 'A conexão levou mais tempo do que o esperado e nós a encerramos. Tente novamente em alguns instantes.', primary: 'retry', secondary: 'home' },
+  500: { kicker: 'Erro 500 · falha interna', title: 'Algo saiu errado do nosso lado', msg: 'O erro não foi causado por você. Já registramos o ocorrido — tente novamente em alguns instantes.', primary: 'retry', secondary: 'home' },
+  502: { kicker: 'Erro 502 · serviço indisponível', title: 'Não conseguimos falar com o serviço', msg: 'Uma parte do sistema não respondeu. Normalmente é passageiro: tente novamente em alguns instantes.', primary: 'retry', secondary: 'home' },
+  503: { kicker: 'Erro 503 · em manutenção', title: 'Estamos em manutenção', msg: 'O serviço está indisponível por pouco tempo enquanto atualizamos o sistema. Tente novamente em alguns minutos.', primary: 'retry', secondary: 'home' },
+};
+
+// Foco inicial no título. Vive em escopo de módulo (avaliado uma vez, nenhum
+// unmount cancela) porque o mount do runtime não sobrevive ao streaming.
+// No app real isso é o useRef + useEffect do ErrorPage.tsx.
+(function watchTitleFocus(sel) {
+  let tries = 0;
+  const tick = () => {
+    const el = document.querySelector(sel);
+    const idle = !document.activeElement || document.activeElement === document.body;
+    if (el && idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    if (el && document.activeElement === el) return;
+    if (++tries < 40) setTimeout(tick, 100);
+  };
+  tick();
+})('section[role="alert"] h1');
+
+class Component extends DCLogic {
+  state = { copied: false, retrying: false };
+
+  // No React normal isso é um useRef + useEffect (ver ErrorPage.tsx).
+  // Aqui a busca é no DOM e re-tenta até o nó definitivo existir.
+  focusTitle = (tries) => {
+    const code = Number(this.props.statusCode || 404);
+    const el = document.querySelector('section[role="alert"] h1');
+    // guard auto-regenerável: só considera pronto se o MESMO nó ainda tem o foco
+    if (this._focused === code && this._focusedNode === el && document.activeElement === el) return;
+    const n = tries || 0;
+    const again = () => { if (n < 30) { clearTimeout(this._f); this._f = setTimeout(() => this.focusTitle(n + 1), 150); } };
+    if (!el) { this._streak = 0; again(); return; }
+    // nunca rouba o foco de um elemento que o usuário focou de propósito
+    const idle = !document.activeElement || document.activeElement === document.body || document.activeElement === el;
+    if (idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    const ok = document.activeElement === el;
+    this._streak = ok ? (this._streak || 0) + 1 : 0;
+    if (ok && this._streak >= 2 && document.readyState === 'complete') {
+      this._focused = code; this._focusedNode = el;
+      // trava com confirmação: se o runtime trocar o nó (ou o foco cair fora),
+      // destrava e reinicia — nunca encerra o watchdog sem reverificar.
+      clearTimeout(this._f);
+      this._f = setTimeout(() => {
+        const cur = document.querySelector('section[role="alert"] h1');
+        if (cur !== this._focusedNode || document.activeElement !== this._focusedNode) {
+          this._focused = null; this._focusedNode = null; this._streak = 0;
+          this.focusTitle(0);
+        }
+      }, 400);
+      return;
+    }
+    again();
+  };
+
+  componentDidUpdate() { this.focusTitle(0); }
+
+  componentWillUnmount() {
+    clearTimeout(this._t); clearTimeout(this._r); clearTimeout(this._f);
+  }
+
+  copyId(text) {
+    const done = () => {
+      clearTimeout(this._t);
+      this.setState({ copied: true });
+      this._t = setTimeout(() => this.setState({ copied: false }), 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else done();
+  }
+
+  renderVals() {
+    const code = Number(this.props.statusCode || 404);
+    const s = STATUS[code] || STATUS[404];
+    const errorId = this.props.errorId || 'ERR-8F3A-2C91';
+    const timestamp = this.props.timestamp || '2026-08-17T13:58:41.207Z';
+
+    // No app real esses handlers vêm por prop (onHome/onRetry/onLogin/onSupport).
+    const labels = { home: 'Voltar ao início', login: 'Fazer login', retry: this.state.retrying ? 'Tentando…' : 'Tentar novamente', support: 'Falar com o suporte' };
+    const act = (kind) => () => {
+      if (kind === 'home') window.location.href = 'Yield2Pay%20Fam%C3%ADlias%20App.dc.html';
+      else if (kind === 'login') window.location.href = 'FixEarn%20Auth.dc.html';
+      else if (kind === 'support') window.location.href = 'mailto:suporte@yield2pay.com.br?subject=' + encodeURIComponent('Erro ' + code + ' — ' + errorId);
+      else {
+        clearTimeout(this._r);
+        this.setState({ retrying: true });
+        this._r = setTimeout(() => this.setState({ retrying: false }), 1100);
+      }
+    };
+
+    return {
+      code: String(code),
+      kicker: s.kicker,
+      title: s.title,
+      msg: s.msg,
+      primaryLabel: labels[s.primary],
+      onPrimary: act(s.primary),
+      hasSecondary: !!s.secondary,
+      secondaryLabel: s.secondary ? labels[s.secondary] : '',
+      onSecondary: s.secondary ? act(s.secondary) : () => {},
+      errorId,
+      timestampFmt: new Date(timestamp).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }),
+      copyIdLabel: this.state.copied ? 'Copiado' : 'Copiar',
+      onCopyId: () => this.copyId(errorId),
+    };
+  }
+}
+</script>
+</body>
+</html>

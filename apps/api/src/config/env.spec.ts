@@ -28,3 +28,16 @@ it('rejects missing required keys', () => {
   const { PRIVY_APP_SECRET, ...rest } = base;
   expect(() => loadEnv(rest)).toThrow();
 });
+
+it('defaults the app env to development', () => {
+  expect(loadEnv(base).appEnv).toBe('development');
+});
+
+it('parses an explicit app env', () => {
+  expect(loadEnv({ ...base, APP_ENV: 'staging' }).appEnv).toBe('staging');
+  expect(loadEnv({ ...base, APP_ENV: 'production' }).appEnv).toBe('production');
+});
+
+it('rejects an unknown app env', () => {
+  expect(() => loadEnv({ ...base, APP_ENV: 'homolog' })).toThrow();
+});

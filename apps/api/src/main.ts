@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { APP_CONFIG } from './config/config.module';
 import type { Env } from './config/env';
 
@@ -36,6 +37,9 @@ async function bootstrap() {
     : true;
   app.enableCors({ origin: corsOrigin, credentials: true });
   const config = app.get<Env>(APP_CONFIG);
+  // Todo erro sai daqui no mesmo formato (ApiErrorPayload) que as telas de erro
+  // consomem; fora de produção o corpo ainda carrega technicalDetails.
+  app.useGlobalFilters(new AllExceptionsFilter(config.appEnv));
   await app.listen(config.port);
 }
 void bootstrap();

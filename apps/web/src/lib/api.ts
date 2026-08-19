@@ -18,15 +18,12 @@ import type {
   SubmitClaimDto,
 } from '@yield2pay/shared';
 
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public body: unknown,
-  ) {
-    super(`ApiError: ${status}`);
-    this.name = 'ApiError';
-  }
-}
+import { ApiError } from './apiError';
+import { buildErrorDetails } from './errorDetails';
+import { publishErrorNotification } from './errorNotifications';
+
+// Reexportado porque as telas e lib/errors.ts sempre importaram ApiError daqui.
+export { ApiError };
 
 type GetToken = () => Promise<string | null>;
 
@@ -88,7 +85,11 @@ export function createApi(getToken: GetToken): ApiMethods {
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
-      throw new ApiError(response.status, errorBody);
+      const error = new ApiError(response.status, errorBody);
+      // Toda falha de chamada abre o popup de erro; o throw continua para quem
+      // já trata o erro inline na própria tela.
+      publishErrorNotification(buildErrorDetails(error));
+      throw error;
     }
 
     if (response.status === 204) return undefined as T;

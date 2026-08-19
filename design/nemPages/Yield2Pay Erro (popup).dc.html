@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0d0f;color:#EDEFF1;font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(192,194,197,.25);color:#fff}
+:focus-visible{outline:2px solid #C0C2C5;outline-offset:2px;border-radius:6px}
+a{color:#C0C2C5;text-decoration:none}
+a:hover{color:#EDEFF1}
+h2:focus{outline:none}
+.brushed{position:relative;background:linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)}
+.brushed::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(118deg,rgba(255,255,255,.04) 0,rgba(255,255,255,.04) 1px,transparent 1px,transparent 4px);opacity:.5;pointer-events:none}
+.btn-shine{position:relative;overflow:hidden}
+.btn-shine::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 26%,rgba(255,255,255,.5) 48%,transparent 68%);transform:translateX(-135%);transition:transform .6s ease;pointer-events:none}
+.btn-shine:hover::before{transform:translateX(135%)}
+@keyframes dlgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes veilIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.btn-shine::before{transition:none}}
+</style>
+</helmet>
+
+<!--
+  ============================================================================
+  Yield2Pay — ERROR DIALOG (popup) · bundle de produção
+  ============================================================================
+  Variante de popup para erros MENOS IMPACTANTES: aqueles em que a página
+  continua válida atrás do diálogo e o usuário pode simplesmente fechar e
+  continuar. A tela cheia (Yield2Pay Erro (produção).dc.html) continua sendo
+  a certa quando não há conteúdo válido atrás.
+
+  ---------------------------------------------------------------------------
+  1. QUANDO USAR POPUP E QUANDO USAR TELA CHEIA
+  ---------------------------------------------------------------------------
+      POPUP        400, 401, 403, 408  → falha de UMA ação (salvar, transferir,
+                   e 500 de ação        abrir um detalhe). A tela atrás segue útil.
+      TELA CHEIA   404, 500, 502, 503  → falhou o carregamento da rota/página.
+                   (de carregamento)     Não há o que preservar atrás.
+  Regra prática: se fechar o popup deixa o usuário num estado utilizável, é popup.
+
+  ---------------------------------------------------------------------------
+  2. COMO ISSO VIRA CÓDIGO NO SEU APP
+  ---------------------------------------------------------------------------
+      <ErrorDialog
+        open={!!error}
+        statusCode={error.statusCode}      // 400|401|403|408|500
+        errorId={error.id}                 // ex "ERR-8F3A-2C91"
+        timestamp={error.timestamp}        // ISO 8601
+        onClose={() => setError(null)}     // × , Esc , clique no veil , "Fechar"
+        onRetry={() => mutate()}           // reexecuta A AÇÃO, não a página
+        onLogin={() => router.push('/entrar')}
+        onSupport={() => open('mailto:suporte@yield2pay.com.br')}
+      />
+  Mesmo STATUS_COPY do ErrorPage.tsx; só as ações mudam (ver bloco 3).
+  O painel de detalhes técnicos NÃO existe nesta variante — em staging o erro
+  completo continua indo para a tela cheia / console. Nada de stack em popup.
+
+  ---------------------------------------------------------------------------
+  3. AÇÕES NO POPUP (diferem da tela cheia)
+  ---------------------------------------------------------------------------
+  A ação secundária é sempre "Fechar" — o usuário volta para o que estava
+  fazendo, então "Voltar ao início" seria uma perda de contexto.
+      400 → "Revisar dados" + Fechar        403 → "Falar com o suporte" + Fechar
+      401 → "Fazer login"   + Fechar        408 → "Tentar novamente" + Fechar
+      500 → "Tentar novamente" + Fechar     (500 de ação isolada, não de página)
+
+  ---------------------------------------------------------------------------
+  4. ACESSIBILIDADE (obrigatório manter)
+  ---------------------------------------------------------------------------
+  - role="alertdialog" + aria-modal="true" + aria-labelledby + aria-describedby.
+  - Foco vai para o título (tabindex="-1") ao abrir; Esc fecha; ao fechar,
+    devolva o foco ao elemento que disparou a ação (no seu app: guarde o ref).
+  - Veil clicável fecha; o card para a propagação do clique.
+  - Conteúdo de trás recebe o atributo `inert` enquanto o diálogo está aberto:
+    tira do Tab e da árvore de acessibilidade. aria-hidden sozinho não basta —
+    foco ainda cairia nos botões de trás. (Fallback: tabindex="-1" nos focáveis.)
+  - Botões com min-height 44px; × com aria-label="Fechar".
+  - Sem role="alert" aqui: alertdialog já anuncia o conteúdo ao abrir.
+
+  ---------------------------------------------------------------------------
+  5. TOKENS (DESIGN-SYSTEM.md — nada novo)
+  ---------------------------------------------------------------------------
+  veil rgba(9,10,11,.74) + blur(3px) · card #1A1C1F · borda #2A2D31
+  raio card 22px · pílula 999px · código engravado 5px
+  cromo linear-gradient(180deg,#E6E8EA,#A8AAAD) sobre #0E0F11
+  chip do código = .brushed + borda #4a4d52 + inset topo
+  Hanken Grotesk no texto · Geist Mono em código/rótulo/timestamp
+  ============================================================================
+-->
+
+<div style="min-height:100vh;background:radial-gradient(120% 50% at 50% -10%,#1b1d20 0%,#0c0d0f 55%)">
+
+  <!-- CONTEXTO — mock rasa da tela que fica atrás do popup. No seu app isto é a
+       página real; nada aqui pertence ao componente ErrorDialog. -->
+  <div aria-hidden="{{ veilAria }}" inert="{{ bgInert }}" style="{{ pageStyle }}">
+    <header style="border-bottom:1px solid #2A2D31">
+      <div style="max-width:1040px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;gap:9px">
+        <span style="width:11px;height:11px;background:linear-gradient(135deg,#E6E8EA,#9A9DA1);transform:rotate(45deg);border-radius:2px"></span>
+        <span style="font-size:16px;font-weight:700;letter-spacing:-.01em;color:#F2F3F4">Yield2Pay</span>
+      </div>
+    </header>
+    <div style="max-width:1040px;margin:0 auto;padding:36px 24px 80px">
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8a8d91">Carteira</div>
+      <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:33px;color:#F2F3F4;margin-top:10px">R$ 92.000,00</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:28px">
+        <div style="height:120px;background:#1A1C1F;border:1px solid #2A2D31;border-radius:18px"></div>
+        <div style="height:120px;background:#1A1C1F;border:1px solid #2A2D31;border-radius:18px"></div>
+        <div style="height:120px;background:#1A1C1F;border:1px solid #2A2D31;border-radius:18px"></div>
+      </div>
+      <button onClick="{{ onReopen }}" tabIndex="{{ reopenTabIndex }}" style="margin-top:28px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9A9DA1;background:rgba(255,255,255,.03);border:1px solid #2A2D31;border-radius:999px;padding:11px 16px;min-height:44px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#EDEFF1">Reabrir o popup</button>
+    </div>
+  </div>
+
+  <!-- ErrorDialog.tsx → veil + <div role="alertdialog" aria-modal="true"> -->
+  <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{ onClose }}" style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(9,10,11,.74);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:veilIn .2s ease both">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc" onClick="{{ stop }}" style="position:relative;width:100%;max-width:452px;background:#1A1C1F;border:1px solid #2A2D31;border-radius:22px;padding:26px;box-shadow:0 34px 80px rgba(0,0,0,.6);animation:dlgIn .24s ease both">
+
+        <!-- linha do topo: chip do código (o "ícone") + kicker + fechar -->
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <span class="brushed" style="flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:38px;border-radius:12px;border:1px solid #4a4d52;box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 8px 18px rgba(0,0,0,.4)"><span style="position:relative;z-index:2;font-family:'Geist Mono',ui-monospace,monospace;font-size:15px;font-weight:500;color:#D4D6D9">{{ code }}</span></span>
+          <span style="flex:1;min-width:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#9A9DA1;line-height:1.6;padding-top:5px">{{ kicker }}</span>
+          <button onClick="{{ onClose }}" aria-label="Fechar" style="flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin:-8px -8px 0 0;font-family:inherit;font-size:20px;line-height:1;color:#9A9DA1;background:none;border:none;border-radius:999px;cursor:pointer;transition:color .2s ease,background .2s ease" style-hover="color:#EDEFF1;background:rgba(255,255,255,.05)">×</button>
+        </div>
+
+        <!-- ErrorDialog.tsx → <h2 ref={titleRef} tabIndex={-1}>: recebe o foco ao abrir -->
+        <h2 id="dlg-title" tabIndex="-1" style="font-size:20px;font-weight:700;letter-spacing:-.015em;line-height:1.25;color:#F2F3F4;margin:18px 0 0;text-wrap:pretty;text-shadow:0 1px 0 rgba(255,255,255,.13),0 -1px 1px rgba(0,0,0,.6)">{{ title }}</h2>
+        <p id="dlg-desc" style="font-size:14.5px;line-height:1.6;color:#9A9DA1;margin:9px 0 0;text-wrap:pretty">{{ msg }}</p>
+
+        <!-- ações: primária por statusCode, secundária sempre "Fechar" -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:22px">
+          <button class="btn-shine" onClick="{{ onPrimary }}" style="font-family:inherit;font-size:14px;font-weight:700;letter-spacing:-.005em;color:#0E0F11;background:linear-gradient(180deg,#E6E8EA,#A8AAAD);border:none;border-radius:999px;padding:12px 20px;min-height:44px;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.45) inset,0 8px 20px rgba(0,0,0,.45);transition:transform .2s ease,filter .2s ease" style-hover="transform:translateY(-1px);filter:brightness(1.05)">{{ primaryLabel }}</button>
+          <button onClick="{{ onClose }}" style="font-family:inherit;font-size:14px;font-weight:600;color:#EDEFF1;background:rgba(255,255,255,.03);border:1px solid #4a4d52;border-radius:999px;padding:12px 18px;min-height:44px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#F2F3F4">Fechar</button>
+        </div>
+
+        <!-- rodapé discreto: mesmo contrato da tela cheia, em uma linha -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)">
+          <code style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:#D4D6D9;background:#16181b;border:1px solid #2A2D31;border-radius:5px;padding:4px 8px;user-select:all">{{ errorId }}</code>
+          <button onClick="{{ onCopyId }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#9A9DA1;background:none;border:1px solid #2A2D31;border-radius:999px;padding:6px 11px;min-height:32px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#EDEFF1">{{ copyIdLabel }}</button>
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#7E8186;margin-left:auto">{{ timestampFmt }}</span>
+          <p style="flex:1 0 100%;font-size:12px;line-height:1.5;color:#7E8186;margin:10px 0 0">Informe este código ao suporte se o erro voltar a acontecer.</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:640},&quot;statusCode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;400&quot;,&quot;401&quot;,&quot;403&quot;,&quot;408&quot;,&quot;500&quot;],&quot;default&quot;:&quot;408&quot;,&quot;tsType&quot;:&quot;400|401|403|408|500&quot;},&quot;errorId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ERR-8F3A-2C91&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;timestamp&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;2026-08-17T13:58:41.207Z&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+// Mesmos títulos/mensagens do ErrorPage.tsx, com a mensagem enxuta para popup.
+// A ação primária muda: reexecuta a AÇÃO, não a página; a secundária é "Fechar".
+const STATUS = {
+  400: { kicker: 'Erro 400 · pedido inválido', title: 'Esse pedido não pôde ser processado', msg: 'Alguma informação não está no formato que esperávamos. Revise os dados e envie de novo.', primary: 'review' },
+  401: { kicker: 'Erro 401 · sessão expirada', title: 'Sua sessão expirou', msg: 'Por segurança, encerramos sessões inativas. Entre na sua conta para continuar.', primary: 'login' },
+  403: { kicker: 'Erro 403 · sem permissão', title: 'Você não tem acesso a isso', msg: 'Sua conta não tem permissão para esta ação. Se acredita que deveria ter, fale com quem administra a conta.', primary: 'support' },
+  408: { kicker: 'Erro 408 · tempo esgotado', title: 'O pedido demorou demais', msg: 'A conexão levou mais tempo do que o esperado. Tente novamente em alguns instantes.', primary: 'retry' },
+  500: { kicker: 'Erro 500 · falha interna', title: 'Não conseguimos concluir agora', msg: 'O erro não foi causado por você e já foi registrado. Tente novamente em alguns instantes.', primary: 'retry' },
+};
+
+// Foco inicial no título do diálogo. Vive em escopo de módulo (avaliado uma vez,
+// nenhum unmount cancela) porque o mount do runtime não sobrevive ao streaming.
+// No app real isso é um useRef + useEffect dentro do ErrorDialog.
+(function watchTitleFocus(sel) {
+  let tries = 0;
+  const tick = () => {
+    const el = document.querySelector(sel);
+    const idle = !document.activeElement || document.activeElement === document.body;
+    if (el && idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    if (el && document.activeElement === el) return;
+    if (++tries < 40) setTimeout(tick, 100);
+  };
+  tick();
+})('[role="alertdialog"] h2');
+
+class Component extends DCLogic {
+  state = { open: true, copied: false, retrying: false };
+
+  // Foco no título ao abrir (no app real: useRef + useEffect no ErrorDialog).
+  // Watchdog: o runtime pode substituir o nó do título depois do primeiro mount,
+  // então re-afirmamos o foco por ~1,5s e só travamos após dois checks seguidos.
+  focusTitle = (tries) => {
+    if (!this.state.open) return;
+    const key = String(this.props.statusCode || 408);
+    const el = document.querySelector('[role="alertdialog"] h2');
+    // guard auto-regenerável: só considera pronto se o MESMO nó ainda tem o foco
+    if (this._focused === key && this._focusedNode === el && document.activeElement === el) return;
+    const n = tries || 0;
+    const again = () => { if (n < 30) { clearTimeout(this._f); this._f = setTimeout(() => this.focusTitle(n + 1), 150); } };
+    if (!el) { this._streak = 0; again(); return; }
+    // nunca rouba o foco de um elemento que o usuário focou de propósito
+    const idle = !document.activeElement || document.activeElement === document.body || document.activeElement === el;
+    if (idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    const ok = document.activeElement === el;
+    this._streak = ok ? (this._streak || 0) + 1 : 0;
+    if (ok && this._streak >= 2 && document.readyState === 'complete') {
+      this._focused = key; this._focusedNode = el;
+      // trava com confirmação: se o runtime trocar o nó (ou o foco cair fora),
+      // destrava e reinicia — nunca encerra o watchdog sem reverificar.
+      clearTimeout(this._f);
+      this._f = setTimeout(() => {
+        const cur = document.querySelector('[role="alertdialog"] h2');
+        if (cur !== this._focusedNode || document.activeElement !== this._focusedNode) {
+          this._focused = null; this._focusedNode = null; this._streak = 0;
+          this.focusTitle(0);
+        }
+      }, 400);
+      return;
+    }
+    again();
+  };
+
+  componentDidMount() {
+    this._onKey = (e) => { if (e.key === 'Escape' && this.state.open) this.close(); };
+    window.addEventListener('keydown', this._onKey);
+    this.focusTitle(0);
+  }
+
+  componentDidUpdate() { this.focusTitle(0); }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._onKey);
+    clearTimeout(this._f); clearTimeout(this._t); clearTimeout(this._r);
+  }
+
+  close() { this._focused = null; this._focusedNode = null; this._streak = 0; this.setState({ open: false }); }
+
+  copyId(text) {
+    const done = () => {
+      clearTimeout(this._t);
+      this.setState({ copied: true });
+      this._t = setTimeout(() => this.setState({ copied: false }), 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else done();
+  }
+
+  renderVals() {
+    const code = Number(this.props.statusCode || 408);
+    const s = STATUS[code] || STATUS[408];
+    const errorId = this.props.errorId || 'ERR-8F3A-2C91';
+    const timestamp = this.props.timestamp || '2026-08-17T13:58:41.207Z';
+    const open = this.state.open;
+
+    const labels = { review: 'Revisar dados', login: 'Fazer login', support: 'Falar com o suporte', retry: this.state.retrying ? 'Tentando…' : 'Tentar novamente' };
+    const act = (kind) => () => {
+      if (kind === 'login') window.location.href = 'FixEarn%20Auth.dc.html';
+      else if (kind === 'support') window.location.href = 'mailto:suporte@yield2pay.com.br?subject=' + encodeURIComponent('Erro ' + code + ' — ' + errorId);
+      else if (kind === 'review') this.close();
+      else {
+        clearTimeout(this._r);
+        this.setState({ retrying: true });
+        this._r = setTimeout(() => this.setState({ retrying: false, open: false }), 1100);
+      }
+    };
+
+    return {
+      isOpen: open,
+      code: String(code),
+      kicker: s.kicker,
+      title: s.title,
+      msg: s.msg,
+      primaryLabel: labels[s.primary],
+      onPrimary: act(s.primary),
+      errorId,
+      timestampFmt: new Date(timestamp).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }),
+      copyIdLabel: this.state.copied ? 'Copiado' : 'Copiar',
+      onCopyId: () => this.copyId(errorId),
+      onClose: () => this.close(),
+      onReopen: () => this.setState({ open: true }),
+      stop: (e) => e.stopPropagation(),
+      // conteúdo de trás fica inerte enquanto o diálogo está aberto:
+      // `inert` remove do fluxo de foco E da árvore de acessibilidade
+      // (aria-hidden sozinho não impede o Tab de cair lá).
+      veilAria: open ? 'true' : null,
+      bgInert: open ? 'true' : null,
+      reopenTabIndex: open ? -1 : 0,
+      pageStyle: open ? { filter: 'saturate(.7)', pointerEvents: 'none', userSelect: 'none' } : {},
+    };
+  }
+}
+</script>
+</body>
+</html>

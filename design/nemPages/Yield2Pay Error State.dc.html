@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0d0f;color:#EDEFF1;font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(192,194,197,.25);color:#fff}
+:focus-visible{outline:2px solid #C0C2C5;outline-offset:2px;border-radius:6px}
+a{color:#C0C2C5;text-decoration:none}
+a:hover{color:#EDEFF1}
+h1{text-shadow:0 1px 0 rgba(255,255,255,.13),0 -1px 1px rgba(0,0,0,.6)}
+h1:focus{outline:none}
+.brushed{position:relative;background:linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)}
+.brushed::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(118deg,rgba(255,255,255,.04) 0,rgba(255,255,255,.04) 1px,transparent 1px,transparent 4px);opacity:.5;pointer-events:none}
+.btn-shine{position:relative;overflow:hidden}
+.btn-shine::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 26%,rgba(255,255,255,.5) 48%,transparent 68%);transform:translateX(-135%);transition:transform .6s ease;pointer-events:none}
+.btn-shine:hover::before{transform:translateX(135%)}
+.err-grid{display:grid;gap:24px;grid-template-columns:1fr;align-items:start}
+.err-grid.all{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))}
+@media (max-width:520px){.err-grid.all{grid-template-columns:1fr}}
+.err-fields{display:grid;grid-template-columns:104px 1fr;gap:10px 16px}
+@media (max-width:520px){.err-fields{grid-template-columns:1fr;gap:3px 0}}
+.err-scroll::-webkit-scrollbar{width:9px}
+.err-scroll::-webkit-scrollbar-thumb{background:#2A2D31;border-radius:999px}
+@keyframes revealIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.btn-shine::before{animation:none;transition:none}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(120% 50% at 50% -10%,#1b1d20 0%,#0c0d0f 55%)">
+
+  <div style="position:sticky;top:0;z-index:30;background:rgba(12,13,15,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid #2A2D31">
+    <div style="max-width:1180px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:9px;margin-right:auto">
+        <span style="width:11px;height:11px;background:linear-gradient(135deg,#E6E8EA,#9A9DA1);transform:rotate(45deg);border-radius:2px"></span>
+        <span style="font-size:15px;font-weight:700;letter-spacing:-.01em;color:#F2F3F4">Yield2Pay</span>
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#7E8186;margin-left:6px">Error state · revisão</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8a8d91">Ambiente</span>
+        <div style="display:flex;gap:3px;background:#16181b;border:1px solid #2A2D31;border-radius:999px;padding:3px">
+          <button onClick="{{ setProd }}" style="{{ prodTabStyle }}">production</button>
+          <button onClick="{{ setStg }}" style="{{ stgTabStyle }}">staging</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8a8d91">Código</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ codeTabs }}" as="c" hint-placeholder-count="9">
+            <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;padding:26px 24px 90px">
+
+    <div class="err-grid {{ gridClass }}">
+      <sc-for list="{{ views }}" as="v" hint-placeholder-count="1">
+        <section role="alert" aria-live="assertive" style="position:relative;background:#1A1C1F;border:1px solid #2A2D31;border-radius:24px;overflow:hidden;min-width:0;box-shadow:0 30px 70px rgba(0,0,0,.45);animation:revealIn .4s ease both">
+
+          <sc-if value="{{ v.isStaging }}" hint-placeholder-val="{{ false }}">
+            <div class="brushed" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 20px;border-bottom:1px solid #4a4d52;box-shadow:0 1px 0 rgba(255,255,255,.12) inset">
+              <span style="position:relative;z-index:2;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#0E0F11;background:linear-gradient(180deg,#E6E8EA,#A8AAAD);border-radius:999px;padding:4px 11px">staging</span>
+              <span style="position:relative;z-index:2;font-size:12.5px;color:#C0C2C5;line-height:1.5">Ambiente de teste. Este erro não vem de produção e os dados abaixo são de depuração.</span>
+            </div>
+          </sc-if>
+
+          <div style="padding:clamp(26px,3.4vw,42px)">
+            <div style="display:flex;align-items:center;gap:14px">
+              <span class="brushed" style="display:flex;align-items:center;justify-content:center;width:64px;height:52px;border-radius:14px;border:1px solid #4a4d52;box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 10px 24px rgba(0,0,0,.4)"><span style="position:relative;z-index:2;font-family:'Geist Mono',ui-monospace,monospace;font-size:20px;font-weight:500;color:#D4D6D9">{{ v.code }}</span></span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#9A9DA1;line-height:1.5">{{ v.kicker }}</span>
+            </div>
+
+            <h1 tabIndex="-1" style="font-size:clamp(25px,2.7vw,34px);font-weight:700;letter-spacing:-.025em;line-height:1.15;color:#F2F3F4;margin:22px 0 0;text-wrap:pretty">{{ v.title }}</h1>
+            <p style="font-size:15.5px;line-height:1.6;color:#9A9DA1;margin:12px 0 0;max-width:52ch;text-wrap:pretty">{{ v.msg }}</p>
+
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+              <button class="btn-shine" onClick="{{ v.onPrimary }}" style="font-family:inherit;font-size:14.5px;font-weight:700;letter-spacing:-.005em;color:#0E0F11;background:linear-gradient(180deg,#E6E8EA,#A8AAAD);border:none;border-radius:999px;padding:13px 24px;min-height:44px;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.45) inset,0 10px 26px rgba(0,0,0,.45);transition:transform .2s ease,filter .2s ease" style-hover="transform:translateY(-1px);filter:brightness(1.05)">{{ v.primaryLabel }}</button>
+              <sc-if value="{{ v.hasSecondary }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ v.onSecondary }}" style="font-family:inherit;font-size:14.5px;font-weight:600;color:#EDEFF1;background:rgba(255,255,255,.03);border:1px solid #4a4d52;border-radius:999px;padding:13px 22px;min-height:44px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#F2F3F4">{{ v.secondaryLabel }}</button>
+              </sc-if>
+            </div>
+
+            <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06)">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8a8d91">Código do erro</span>
+                <code style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:#D4D6D9;background:#16181b;border:1px solid #2A2D31;border-radius:5px;padding:5px 9px;user-select:all">{{ v.errorId }}</code>
+                <button onClick="{{ v.onCopyId }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9A9DA1;background:none;border:1px solid #2A2D31;border-radius:999px;padding:6px 12px;min-height:32px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#EDEFF1">{{ v.copyIdLabel }}</button>
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#7E8186;margin-left:auto">{{ v.timestampFmt }}</span>
+              </div>
+              <p style="font-size:12.5px;line-height:1.55;color:#7E8186;margin:12px 0 0;max-width:56ch">Informe este código ao suporte — com ele conseguimos localizar exatamente o que aconteceu.</p>
+            </div>
+          </div>
+
+          <sc-if value="{{ v.showTech }}" hint-placeholder-val="{{ false }}">
+            <div style="border-top:1px solid #2A2D31;background:#131417">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px clamp(20px,3vw,28px)">
+                <button onClick="{{ v.onToggleTech }}" aria-expanded="{{ v.techOpenStr }}" aria-controls="{{ v.techPanelId }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#C0C2C5;background:none;border:none;padding:8px 0;min-height:36px;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left" style-hover="color:#EDEFF1"><span>Detalhes técnicos</span><span style="color:#7E8186;letter-spacing:.08em">{{ v.techToggleLabel }}</span></button>
+                <button onClick="{{ v.onCopyAll }}" style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9A9DA1;background:rgba(255,255,255,.03);border:1px solid #2A2D31;border-radius:999px;padding:7px 13px;min-height:34px;cursor:pointer;transition:border-color .2s ease,color .2s ease" style-hover="border-color:#C0C2C5;color:#EDEFF1">{{ v.copyAllLabel }}</button>
+              </div>
+              <sc-if value="{{ v.techOpen }}" hint-placeholder-val="{{ true }}">
+                <div id="{{ v.techPanelId }}" class="err-scroll" style="{{ v.techScrollStyle }}">
+                  <div class="err-fields">
+                    <sc-for list="{{ v.fields }}" as="f" hint-placeholder-count="5">
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a8d91;padding-top:2px">{{ f.label }}</span>
+                      <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;line-height:1.55;color:#EDEFF1;word-break:break-word;user-select:text">{{ f.value }}</span>
+                    </sc-for>
+                  </div>
+                  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a8d91;margin:20px 0 8px">Stack trace</div>
+                  <pre style="margin:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;line-height:1.65;color:#C0C2C5;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;user-select:text;background:#0f1113;border:1px solid #2A2D31;border-radius:12px;padding:14px">{{ v.stack }}</pre>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </section>
+      </sc-for>
+    </div>
+
+    <p style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;line-height:1.7;color:#7E8186;margin:30px 0 0;max-width:74ch">Nota de implementação — o painel técnico é gatilhado por <span style="color:#C0C2C5">process.env.NEXT_PUBLIC_APP_ENV === 'staging'</span> resolvido em build time (constante de módulo, ramo eliminado pelo minificador). Em produção o bloco não existe no bundle e o backend não serializa <span style="color:#C0C2C5">technicalDetails</span>. O seletor acima é só do painel de revisão. Fonte tipada: <a href="ErrorPage.tsx">ErrorPage.tsx</a>.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;errorId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ERR-8F3A-2C91&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;techMaxHeight&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:300,&quot;min&quot;:160,&quot;max&quot;:560,&quot;step&quot;:20,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Painel técnico&quot;}}">
+const MONO = "'Geist Mono',ui-monospace,monospace";
+
+const CODES = [400, 401, 403, 404, 408, 500, 502, 503];
+
+const STATUS = {
+  400: {
+    kicker: 'Erro 400 · pedido inválido',
+    title: 'Esse pedido não pôde ser processado',
+    msg: 'Alguma informação enviada não está no formato que esperávamos. Volte, revise os dados e envie de novo.',
+    primary: 'home', secondary: 'support',
+  },
+  401: {
+    kicker: 'Erro 401 · sessão expirada',
+    title: 'Sua sessão expirou',
+    msg: 'Por segurança, encerramos sessões inativas. Entre na sua conta para continuar de onde parou.',
+    primary: 'login', secondary: 'home',
+  },
+  403: {
+    kicker: 'Erro 403 · sem permissão',
+    title: 'Você não tem acesso a esta página',
+    msg: 'Sua conta não tem permissão para ver este conteúdo. Se acredita que deveria ter, fale com quem administra a conta.',
+    primary: 'home', secondary: 'support',
+  },
+  404: {
+    kicker: 'Erro 404 · página não encontrada',
+    title: 'Esta página não existe',
+    msg: 'O endereço pode ter mudado ou o link veio incompleto. Confira o endereço ou volte ao início.',
+    primary: 'home', secondary: null,
+  },
+  408: {
+    kicker: 'Erro 408 · tempo esgotado',
+    title: 'O pedido demorou demais',
+    msg: 'A conexão levou mais tempo do que o esperado e nós a encerramos. Tente novamente em alguns instantes.',
+    primary: 'retry', secondary: 'home',
+  },
+  500: {
+    kicker: 'Erro 500 · falha interna',
+    title: 'Algo saiu errado do nosso lado',
+    msg: 'O erro não foi causado por você. Já registramos o ocorrido — tente novamente em alguns instantes.',
+    primary: 'retry', secondary: 'home',
+  },
+  502: {
+    kicker: 'Erro 502 · serviço indisponível',
+    title: 'Não conseguimos falar com o serviço',
+    msg: 'Uma parte do sistema não respondeu. Normalmente é passageiro: tente novamente em alguns instantes.',
+    primary: 'retry', secondary: 'home',
+  },
+  503: {
+    kicker: 'Erro 503 · em manutenção',
+    title: 'Estamos em manutenção',
+    msg: 'O serviço está indisponível por pouco tempo enquanto atualizamos o sistema. Tente novamente em alguns minutos.',
+    primary: 'retry', secondary: 'home',
+  },
+};
+
+const TECH = {
+  400: { method: 'POST', endpoint: '/api/v1/wallets/transfers', message: 'ValidationError: field "amount" must be a positive integer in cents' },
+  401: { method: 'GET', endpoint: '/api/v1/session', message: 'TokenExpiredError: jwt expired at 2026-08-17T13:58:02.114Z' },
+  403: { method: 'GET', endpoint: '/api/v1/families/9f21/members', message: 'ForbiddenError: role "member" cannot read scope families:admin' },
+  404: { method: 'GET', endpoint: '/api/v1/families/9f21/goals/8812', message: 'NotFoundError: goal 8812 does not exist' },
+  408: { method: 'POST', endpoint: '/api/v1/yield/settle', message: 'RequestTimeoutError: upstream did not respond within 15000ms' },
+  500: { method: 'POST', endpoint: '/api/v1/yield/allocate', message: 'TypeError: Cannot read properties of undefined (reading "balanceCents")' },
+  502: { method: 'GET', endpoint: '/api/v1/custody/positions', message: 'BadGatewayError: custody-gateway returned 502 (upstream: b3-ledger)' },
+  503: { method: 'GET', endpoint: '/api/v1/dashboard/summary', message: 'ServiceUnavailableError: node draining, retry-after 120s' },
+};
+
+const STACKS = {
+  400: 'ValidationError: field "amount" must be a positive integer in cents\n    at validateTransfer (/srv/api/src/wallets/transfer.schema.ts:64:11)\n    at TransferController.create (/srv/api/src/wallets/transfer.controller.ts:38:5)\n    at dispatch (/srv/api/node_modules/@y2p/http/dispatch.js:112:19)',
+  401: 'TokenExpiredError: jwt expired\n    at verifyAccessToken (/srv/api/src/auth/token.service.ts:81:15)\n    at SessionGuard.canActivate (/srv/api/src/auth/session.guard.ts:29:24)\n    at runGuards (/srv/api/node_modules/@y2p/http/guards.js:44:12)',
+  403: 'ForbiddenError: role "member" cannot read scope families:admin\n    at assertScope (/srv/api/src/auth/scopes.ts:47:9)\n    at MembersController.list (/srv/api/src/families/members.controller.ts:52:5)\n    at dispatch (/srv/api/node_modules/@y2p/http/dispatch.js:112:19)',
+  404: 'NotFoundError: goal 8812 does not exist\n    at GoalsRepository.findOrFail (/srv/api/src/goals/goals.repository.ts:73:13)\n    at GoalsController.show (/srv/api/src/goals/goals.controller.ts:41:22)\n    at dispatch (/srv/api/node_modules/@y2p/http/dispatch.js:112:19)',
+  408: 'RequestTimeoutError: upstream did not respond within 15000ms\n    at Timeout.<anonymous> (/srv/api/src/http/timeout.ts:22:11)\n    at listOnTimeout (node:internal/timers:573:17)\n    at processTimers (node:internal/timers:514:7)',
+  500: 'TypeError: Cannot read properties of undefined (reading "balanceCents")\n    at computeYieldSplit (/srv/api/src/yield/allocate.service.ts:128:34)\n    at AllocateService.run (/srv/api/src/yield/allocate.service.ts:64:20)\n    at AllocateController.post (/srv/api/src/yield/allocate.controller.ts:31:12)\n    at dispatch (/srv/api/node_modules/@y2p/http/dispatch.js:112:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)',
+  502: 'BadGatewayError: custody-gateway returned 502\n    at CustodyClient.request (/srv/api/src/custody/client.ts:96:15)\n    at CustodyClient.positions (/srv/api/src/custody/client.ts:141:24)\n    at PositionsController.index (/srv/api/src/custody/positions.controller.ts:27:30)',
+  503: 'ServiceUnavailableError: node draining, retry-after 120s\n    at DrainGuard.check (/srv/api/src/ops/drain.guard.ts:18:11)\n    at dispatch (/srv/api/node_modules/@y2p/http/dispatch.js:112:19)',
+};
+
+// Foco inicial no título do primeiro card. Escopo de módulo (avaliado uma vez,
+// nenhum unmount cancela) porque o mount do runtime não sobrevive ao streaming.
+(function watchTitleFocus(sel) {
+  let tries = 0;
+  const tick = () => {
+    const el = document.querySelector(sel);
+    const idle = !document.activeElement || document.activeElement === document.body;
+    if (el && idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    if (el && document.activeElement === el) return;
+    if (++tries < 40) setTimeout(tick, 100);
+  };
+  tick();
+})('section[role="alert"] h1');
+
+class Component extends DCLogic {
+  state = {
+    env: 'production',
+    code: 404,
+    all: false,
+    open: {},
+    copied: null,
+    retrying: null,
+    mobile: typeof window !== 'undefined' && window.innerWidth <= 760,
+  };
+
+  componentDidMount() {
+    this._onResize = () => {
+      const mobile = window.innerWidth <= 760;
+      if (mobile !== this.state.mobile) this.setState({ mobile });
+    };
+    window.addEventListener('resize', this._onResize);
+  }
+
+  componentDidUpdate() { this.focusTitle(0); }
+
+  // Foco no título do primeiro card. O ref do template não é invocado por este
+  // runtime, então busca no DOM e re-tenta até o nó definitivo existir.
+  focusTitle = (tries) => {
+    const key = this.state.env + '-' + (this.state.all ? 'all' : this.state.code);
+    const el = document.querySelector('section[role="alert"] h1');
+    // guard auto-regenerável: só considera pronto se o MESMO nó ainda tem o foco
+    if (this._focusedKey === key && this._focusedNode === el && document.activeElement === el) return;
+    const n = tries || 0;
+    const again = () => { if (n < 30) { clearTimeout(this._focusT); this._focusT = setTimeout(() => this.focusTitle(n + 1), 150); } };
+    if (!el) { this._streak = 0; again(); return; }
+    // nunca rouba o foco de um elemento que o usuário focou de propósito
+    const idle = !document.activeElement || document.activeElement === document.body || document.activeElement === el;
+    if (idle) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+    const ok = document.activeElement === el;
+    this._streak = ok ? (this._streak || 0) + 1 : 0;
+    if (ok && this._streak >= 2 && document.readyState === 'complete') {
+      this._focusedKey = key; this._focusedNode = el;
+      // trava com confirmação: se o runtime trocar o nó (ou o foco cair fora),
+      // destrava e reinicia — nunca encerra o watchdog sem reverificar.
+      clearTimeout(this._focusT);
+      this._focusT = setTimeout(() => {
+        const cur = document.querySelector('section[role="alert"] h1');
+        if (cur !== this._focusedNode || document.activeElement !== this._focusedNode) {
+          this._focusedKey = null; this._focusedNode = null; this._streak = 0;
+          this.focusTitle(0);
+        }
+      }, 400);
+      return;
+    }
+    again();
+  };
+
+
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this._onResize);
+    clearTimeout(this._copyT);
+    clearTimeout(this._retryT);
+    clearTimeout(this._focusT);
+  }
+
+  copy(text, key) {
+    const done = () => {
+      clearTimeout(this._copyT);
+      this.setState({ copied: key });
+      this._copyT = setTimeout(() => this.setState({ copied: null }), 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  }
+
+  buildView(code, envIsStaging, timestamp) {
+    const s = STATUS[code];
+    const key = (envIsStaging ? 's' : 'p') + '-' + code;
+    const errorId = this.props.errorId || 'ERR-8F3A-2C91';
+    const requestId = 'req_' + String(code) + 'k4q7pz1m';
+    const t = TECH[code];
+    const stack = STACKS[code];
+    const maxH = this.props.techMaxHeight || 300;
+
+    const labels = {
+      home: 'Voltar ao início',
+      login: 'Fazer login',
+      retry: this.state.retrying === key ? 'Tentando…' : 'Tentar novamente',
+      support: 'Falar com o suporte',
+    };
+    const act = (kind) => () => {
+      if (kind === 'home') window.location.href = 'Yield2Pay%20Fam%C3%ADlias%20App.dc.html';
+      else if (kind === 'login') window.location.href = 'FixEarn%20Auth.dc.html';
+      else if (kind === 'support') window.location.href = 'mailto:suporte@yield2pay.com.br?subject=' + encodeURIComponent('Erro ' + code + ' — ' + errorId);
+      else {
+        clearTimeout(this._retryT);
+        this.setState({ retrying: key });
+        this._retryT = setTimeout(() => this.setState({ retrying: null }), 1100);
+      }
+    };
+
+    const techOpen = this.state.open[key] !== undefined ? this.state.open[key] : !this.state.mobile;
+    const payload = {
+      errorId, statusCode: code, environment: envIsStaging ? 'staging' : 'production',
+      timestamp, endpoint: t.endpoint, method: t.method, requestId, message: t.message, stack,
+    };
+
+    return {
+      key,
+      code: String(code),
+      kicker: s.kicker,
+      title: s.title,
+      msg: s.msg,
+      isStaging: envIsStaging,
+      showTech: envIsStaging,
+      primaryLabel: labels[s.primary],
+      onPrimary: act(s.primary),
+      hasSecondary: !!s.secondary,
+      secondaryLabel: s.secondary ? labels[s.secondary] : '',
+      onSecondary: s.secondary ? act(s.secondary) : () => {},
+      errorId,
+      timestampFmt: new Date(timestamp).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }),
+      copyIdLabel: this.state.copied === key + '-id' ? 'Copiado' : 'Copiar',
+      onCopyId: () => this.copy(errorId, key + '-id'),
+      copyAllLabel: this.state.copied === key + '-all' ? 'Copiado' : 'Copiar tudo',
+      onCopyAll: () => this.copy(JSON.stringify(payload, null, 2), key + '-all'),
+      techOpen,
+      techOpenStr: techOpen ? 'true' : 'false',
+      techPanelId: 'tech-' + key,
+      techToggleLabel: techOpen ? '— ocultar' : '+ mostrar',
+      onToggleTech: () => this.setState((st) => ({ open: Object.assign({}, st.open, { [key]: !techOpen }) })),
+      techScrollStyle: { maxHeight: maxH + 'px', overflowY: 'auto', overscrollBehavior: 'contain', padding: '4px clamp(20px,3vw,28px) 24px' },
+      fields: [
+        { label: 'endpoint', value: t.endpoint },
+        { label: 'método', value: t.method },
+        { label: 'statusCode', value: String(code) },
+        { label: 'requestId', value: requestId },
+        { label: 'message', value: t.message },
+      ],
+      stack,
+    };
+  }
+
+  renderVals() {
+    const envIsStaging = this.state.env === 'staging';
+    const timestamp = '2026-08-17T13:58:41.207Z';
+    const codes = this.state.all ? CODES : [this.state.code];
+
+    const tabBase = { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, letterSpacing: '.04em', padding: '6px 13px', minHeight: '30px', borderRadius: '999px', border: '1px solid transparent', cursor: 'pointer', transition: 'color .2s ease,background .2s ease' };
+    const tab = (on) => Object.assign({}, tabBase, on
+      ? { background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontWeight: 600 }
+      : { background: 'transparent', color: '#9A9DA1' });
+    const chip = (on) => Object.assign({}, tabBase, on
+      ? { background: '#2E3136', color: '#F2F3F4', borderColor: '#4a4d52' }
+      : { background: '#16181b', color: '#9A9DA1', borderColor: '#2A2D31' });
+
+    const codeTabs = CODES.map((c) => ({
+      label: String(c),
+      style: chip(!this.state.all && this.state.code === c),
+      onClick: () => this.setState({ all: false, code: c }),
+    }));
+    codeTabs.push({
+      label: 'todos',
+      style: chip(this.state.all),
+      onClick: () => this.setState({ all: true }),
+    });
+
+    return {
+      prodTabStyle: tab(!envIsStaging),
+      stgTabStyle: tab(envIsStaging),
+      setProd: () => this.setState({ env: 'production' }),
+      setStg: () => this.setState({ env: 'staging' }),
+      codeTabs,
+      gridClass: this.state.all ? 'all' : '',
+      views: codes.map((c) => this.buildView(c, envIsStaging, timestamp)),
+    };
+  }
+}
+</script>
+</body>
+</html>

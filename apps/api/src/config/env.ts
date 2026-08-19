@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AppEnv } from '@yield2pay/shared';
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -12,11 +13,21 @@ const schema = z.object({
   SOROBAN_RPC_URL: z.string().url(),
   FEE_SPONSOR_SECRET_KEY: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
+  // Ambiente lógico da aplicação. Governa o quanto o erro expõe: só fora de
+  // 'production' a resposta de erro carrega technicalDetails (stack, endpoint,
+  // requestId). Não derivamos de NODE_ENV porque o build de homologação também
+  // roda como production.
+  APP_ENV: z
+    .enum(['production', 'staging', 'development'])
+    .default('development'),
   DEMO_YIELD_BPS: z.coerce.number().int().nonnegative().default(0),
   DEMO_RETURNS_CHANGE_PERCENT: z.string().default('3.2'),
   // Etherfuse on/off-ramp integration. Ausente = mock mode automático.
   ETHERFUSE_API_KEY: z.string().optional(),
-  ETHERFUSE_BASE_URL: z.string().url().default('https://api.sand.etherfuse.com'),
+  ETHERFUSE_BASE_URL: z
+    .string()
+    .url()
+    .default('https://api.sand.etherfuse.com'),
   // Override do customerId/org (default: 3º segmento da API key).
   ETHERFUSE_CUSTOMER_ID: z.string().optional(),
   // Moeda fiat do ramp: BRL (Pix) ou MXN (SPEI). Default BRL.
@@ -35,6 +46,7 @@ export type Env = {
   sorobanRpcUrl: string;
   feeSponsorSecretKey: string;
   port: number;
+  appEnv: AppEnv;
   demoYieldBps: number;
   demoReturnsChangePercent: string;
   etherfuseApiKey: string | undefined;
@@ -57,6 +69,7 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     sorobanRpcUrl: parsed.SOROBAN_RPC_URL,
     feeSponsorSecretKey: parsed.FEE_SPONSOR_SECRET_KEY,
     port: parsed.PORT,
+    appEnv: parsed.APP_ENV,
     demoYieldBps: parsed.DEMO_YIELD_BPS,
     demoReturnsChangePercent: parsed.DEMO_RETURNS_CHANGE_PERCENT,
     etherfuseApiKey: parsed.ETHERFUSE_API_KEY,

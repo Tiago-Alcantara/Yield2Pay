@@ -24,6 +24,10 @@ services:
           property: connectionString
       - key: STELLAR_NETWORK
         value: testnet
+      # Ambiente lógico. Em homologação use 'staging' para a resposta de erro
+      # trazer technicalDetails; em produção deixe 'production'.
+      - key: APP_ENV
+        value: staging
       - key: DEFINDEX_BASE_URL
         value: https://api.defindex.io
       - key: SOROBAN_RPC_URL
