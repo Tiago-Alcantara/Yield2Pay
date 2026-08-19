@@ -12,7 +12,9 @@
     "db:migrate": "pnpm --filter @yield2pay/api exec prisma migrate deploy",
     "db:studio": "pnpm --filter @yield2pay/api exec prisma studio",
     "api:dev": "pnpm --filter @yield2pay/api start:dev",
-    "api:test": "pnpm --filter @yield2pay/api test"
+    "api:test": "pnpm --filter @yield2pay/api test",
+    "web:test": "pnpm --filter @yield2pay/web test",
+    "test": "pnpm -r test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
