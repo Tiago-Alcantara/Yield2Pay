@@ -1,0 +1,177 @@
+﻿diff --git a/apps/web/src/components/MoveDrawer.test.tsx b/apps/web/src/components/MoveDrawer.test.tsx
+index 4e6e5dc..4a0a146 100644
+--- a/apps/web/src/components/MoveDrawer.test.tsx
++++ b/apps/web/src/components/MoveDrawer.test.tsx
+@@ -1,24 +1,38 @@
+ import React from 'react';
+ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import { vi, describe, it, expect, beforeEach } from 'vitest';
+ 
+ const mockDeposit = vi.fn();
+ const mockWithdraw = vi.fn();
+-vi.mock('@/lib/useStellarTx', () => ({
+-  useStellarTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
++vi.mock('@/lib/useVenueTx', () => ({
++  useVenueTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
++}));
++
++vi.mock('@privy-io/react-auth', () => ({
++  usePrivy: () => ({ getAccessToken: async () => 'tok' }),
++}));
++
++vi.mock('@/lib/api', () => ({
++  createApi: () => ({
++    getAccountChain: vi.fn().mockResolvedValue({
++      selectedChain: 'stellar',
++      unlockedChains: ['stellar'],
++    }),
++  }),
+ }));
+ 
+ import { MoveDrawer } from './MoveDrawer';
+ 
+ const baseProps = {
++  venue: { chain: 'stellar', protocol: 'blend' } as const,
+   maxBaseUnits: '1000000000', // 100.00
+   apyPercent: '12.00',
+   onClose: vi.fn(),
+   onSuccess: vi.fn(),
+ };
+ 
+ describe('MoveDrawer', () => {
+   beforeEach(() => {
+     mockDeposit.mockReset();
+     mockWithdraw.mockReset();
+diff --git a/apps/web/src/components/MoveDrawer.tsx b/apps/web/src/components/MoveDrawer.tsx
+index c83d3b7..68c49ba 100644
+--- a/apps/web/src/components/MoveDrawer.tsx
++++ b/apps/web/src/components/MoveDrawer.tsx
+@@ -1,70 +1,99 @@
+ 'use client';
+ 
+-import React, { useState } from 'react';
++import React, { useEffect, useMemo, useState } from 'react';
++import { usePrivy } from '@privy-io/react-auth';
+ import { MetalCard } from './MetalCard';
+ import { Button } from './Button';
+ import { Input } from './Input';
+ import { TxErrorBox } from './TxErrorBox';
+-import { useStellarTx } from '@/lib/useStellarTx';
++import { useVenueTx } from '@/lib/useVenueTx';
++import { createApi } from '@/lib/api';
++import { resolveVenueFromAccount, type VenueIdPath } from '@/lib/resolveVenueFromAccount';
+ import { toBaseUnits, formatUsdc } from '@/lib/money';
+ import { validateAmount } from '@/lib/validateAmount';
+ import { getErrorMessage } from '@/lib/errors';
+ 
+ export interface MoveDrawerProps {
+   mode: 'deposit' | 'withdraw';
++  /** When omitted, resolved once on mount from account chain. */
++  venue?: VenueIdPath;
+   /** M├íximo mov├¡vel, em base units (deposit = spendable da carteira; withdraw = posi├º├úo do vault). */
+   maxBaseUnits: string;
+   apyPercent: string;
+   onClose: () => void;
+   onSuccess: () => void;
+ }
+ 
++const FALLBACK_VENUE: VenueIdPath = { chain: 'stellar', protocol: 'blend' };
++
+ const COPY = {
+   deposit: { title: 'Aportar no vault', cta: 'Confirmar aporte', source: 'Da carteira', success: 'Aporte confirmado!' },
+   withdraw: { title: 'Sacar do vault', cta: 'Confirmar saque', source: 'Do vault', success: 'Saque confirmado!' },
+ } as const;
+ 
+-export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
+-  const tx = useStellarTx();
++export function MoveDrawer({ mode, venue: venueProp, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
++  const { getAccessToken } = usePrivy();
++  const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
++  const [loadedVenue, setLoadedVenue] = useState<VenueIdPath | null>(null);
++
++  useEffect(() => {
++    if (venueProp) return;
++
++    let cancelled = false;
++    void (async () => {
++      const account = await api.getAccountChain();
++      if (!cancelled) {
++        setLoadedVenue(resolveVenueFromAccount(account));
++      }
++    })();
++
++    return () => {
++      cancelled = true;
++    };
++  }, [venueProp, api]);
++
++  const activeVenue = venueProp ?? loadedVenue;
++  const tx = useVenueTx(activeVenue ?? FALLBACK_VENUE);
+   const copy = COPY[mode];
+ 
+   const [amountRaw, setAmountRaw] = useState('');
+   const [touched, setTouched] = useState(false);
+   const [txHash, setTxHash] = useState<string | null>(null);
+   const [txError, setTxError] = useState<string | null>(null);
+   const [submitting, setSubmitting] = useState(false);
+ 
+   const formatError = validateAmount(amountRaw);
+   const overMax =
+     formatError === null && BigInt(toBaseUnits(amountRaw)) > BigInt(maxBaseUnits);
+   const validationError = formatError ?? (overMax ? 'Acima do dispon├¡vel' : null);
+   const isValid = validationError === null;
++  const venueReady = activeVenue !== null;
+ 
+   // Preview de rendimento mensal (informativo): valor ├ù apy% / 12.
+   const previewMonthly = (() => {
+     if (formatError !== null) return null;
+     const apyBps = Math.round(parseFloat(apyPercent || '0') * 100);
+     if (!apyBps) return null;
+     const monthly = (BigInt(toBaseUnits(amountRaw)) * BigInt(apyBps)) / BigInt(10000) / BigInt(12);
+     return formatUsdc(monthly.toString());
+   })();
+ 
+   function fillMax() {
+     setTouched(true);
+     // Trunca pra 2 casas (escala 10^(7-2)) pra nunca arredondar acima do m├íximo.
+     const truncated = (BigInt(maxBaseUnits) / BigInt(100000)) * BigInt(100000);
+     setAmountRaw(formatUsdc(truncated.toString()));
+   }
+ 
+   async function handleConfirm() {
+-    if (!isValid) return;
++    if (!isValid || !venueReady) return;
+     setSubmitting(true);
+     setTxError(null);
+     try {
+       const hash = await tx[mode](toBaseUnits(amountRaw));
+       setTxHash(hash);
+     } catch (err) {
+       setTxError(getErrorMessage(err));
+     } finally {
+       setSubmitting(false);
+     }
+@@ -134,21 +163,21 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess
+             />
+           </div>
+           {mode === 'deposit' && previewMonthly && (
+             <div style={{ marginTop: 14, fontFamily: 'var(--fx-font-mono)', fontSize: 13, color: 'var(--fx-text-2)' }}>
+               Rende ~${previewMonthly}/m├¬s ({apyPercent}% a.a.)
+             </div>
+           )}
+           {txError && <TxErrorBox message={txError} />}
+           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+             <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+-            <Button onClick={handleConfirm} disabled={!isValid || submitting}>
++            <Button onClick={handleConfirm} disabled={!isValid || submitting || !venueReady}>
+               {submitting ? 'ConfirmandoÔÇª' : copy.cta}
+             </Button>
+           </div>
+         </div>
+       </MetalCard>
+     </Overlay>
+   );
+ }
+ 
+ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {

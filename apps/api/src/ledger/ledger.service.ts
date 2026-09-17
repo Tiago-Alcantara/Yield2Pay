@@ -24,10 +24,11 @@ export class LedgerService {
     companyId: string,
     amount: bigint,
     txHash: string,
+    venueId = 'stellar:blend',
     rampOrderId?: string,
   ): Promise<void> {
     await this.prisma.deposit.create({
-      data: { companyId, amount, txHash, rampOrderId },
+      data: { companyId, amount, txHash, venueId, rampOrderId },
     });
   }
 
@@ -35,28 +36,32 @@ export class LedgerService {
     companyId: string,
     amount: bigint,
     txHash: string,
+    venueId = 'stellar:blend',
   ): Promise<void> {
     // Lançamento negativo: reduz o principal agregado em principal().
     await this.prisma.deposit.create({
-      data: { companyId, amount: -amount, txHash },
+      data: { companyId, amount: -amount, txHash, venueId },
     });
   }
 
-  async principal(companyId: string): Promise<bigint> {
+  async principal(companyId: string, venueId?: string): Promise<bigint> {
+    const principalVenueId = venueId ?? 'stellar:blend';
     const depositAggregate = await this.prisma.deposit.aggregate({
-      where: { companyId },
+      where: { companyId, venueId: principalVenueId },
       _sum: { amount: true },
     });
     const sum = depositAggregate._sum.amount ?? 0n;
     return sum > 0n ? sum : 0n;
   }
 
-  async computeSpendable(companyId: string) {
+  async computeSpendable(companyId: string, venueId?: string) {
     // getAddress e principal são consultas independentes ao DB → rodam em
     // paralelo. getPositionValue depende do address, então vem depois.
+    // Vault read permanece Stellar-only; sem venue explícita, principal também
+    // usa Stellar para nunca misturar unidades de 6 e 7 casas decimais.
     const [address, principal] = await Promise.all([
       this.wallet.getAddress(companyId),
-      this.principal(companyId),
+      this.principal(companyId, venueId),
     ]);
     let vaultValue = await this.vault.getPositionValue(address);
     // Demo: injeta rendimento sintético quando DEMO_YIELD_BPS > 0, para

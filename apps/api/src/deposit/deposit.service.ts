@@ -49,6 +49,7 @@ export class DepositService {
       companyId,
       parseBaseUnits(dto.amount),
       txHash,
+      'stellar:blend',
       dto.rampOrderId,
     );
     return { txHash };

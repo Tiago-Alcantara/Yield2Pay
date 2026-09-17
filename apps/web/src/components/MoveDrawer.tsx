@@ -1,17 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { MetalCard } from './MetalCard';
 import { Button } from './Button';
 import { Input } from './Input';
 import { TxErrorBox } from './TxErrorBox';
-import { useStellarTx } from '@/lib/useStellarTx';
-import { toBaseUnits, formatUsdc } from '@/lib/money';
+import { useVenueTx } from '@/lib/useVenueTx';
+import { createApi } from '@/lib/api';
+import { resolveVenueFromAccount, type VenueIdPath } from '@/lib/resolveVenueFromAccount';
+import { toBaseUnitsForVenue, formatUsdc } from '@/lib/money';
 import { validateAmount } from '@/lib/validateAmount';
 import { getErrorMessage } from '@/lib/errors';
 
 export interface MoveDrawerProps {
   mode: 'deposit' | 'withdraw';
+  /** When omitted, resolved once on mount from account chain. */
+  venue?: VenueIdPath;
   /** Máximo movível, em base units (deposit = spendable da carteira; withdraw = posição do vault). */
   maxBaseUnits: string;
   apyPercent: string;
@@ -19,13 +24,44 @@ export interface MoveDrawerProps {
   onSuccess: () => void;
 }
 
+const FALLBACK_VENUE: VenueIdPath = { chain: 'stellar', protocol: 'blend' };
+
 const COPY = {
   deposit: { title: 'Aportar no vault', cta: 'Confirmar aporte', source: 'Da carteira', success: 'Aporte confirmado!' },
   withdraw: { title: 'Sacar do vault', cta: 'Confirmar saque', source: 'Do vault', success: 'Saque confirmado!' },
 } as const;
 
-export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
-  const tx = useStellarTx();
+export function MoveDrawer({ mode, venue: venueProp, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
+  const { getAccessToken } = usePrivy();
+  const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
+  const [loadedVenue, setLoadedVenue] = useState<VenueIdPath | null>(null);
+  const [venueLoadError, setVenueLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (venueProp) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const account = await api.getAccountChain();
+        if (!cancelled) {
+          setLoadedVenue(resolveVenueFromAccount(account));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setVenueLoadError(getErrorMessage(error));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [venueProp, api]);
+
+  const activeVenue = venueProp ?? loadedVenue;
+  const venueDecimals = activeVenue?.chain === 'solana' ? 6 : 7;
+  const tx = useVenueTx(activeVenue ?? FALLBACK_VENUE);
   const copy = COPY[mode];
 
   const [amountRaw, setAmountRaw] = useState('');
@@ -34,18 +70,25 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
   const [txError, setTxError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const formatError = validateAmount(amountRaw);
+  const formatError = validateAmount(amountRaw, venueDecimals);
   const overMax =
-    formatError === null && BigInt(toBaseUnits(amountRaw)) > BigInt(maxBaseUnits);
+    formatError === null &&
+    BigInt(toBaseUnitsForVenue(amountRaw, venueDecimals)) >
+      BigInt(maxBaseUnits);
   const validationError = formatError ?? (overMax ? 'Acima do disponível' : null);
   const isValid = validationError === null;
+  const venueReady = activeVenue !== null;
 
   // Preview de rendimento mensal (informativo): valor × apy% / 12.
   const previewMonthly = (() => {
     if (formatError !== null) return null;
     const apyBps = Math.round(parseFloat(apyPercent || '0') * 100);
     if (!apyBps) return null;
-    const monthly = (BigInt(toBaseUnits(amountRaw)) * BigInt(apyBps)) / BigInt(10000) / BigInt(12);
+    const monthly =
+      (BigInt(toBaseUnitsForVenue(amountRaw, venueDecimals)) *
+        BigInt(apyBps)) /
+      BigInt(10000) /
+      BigInt(12);
     return formatUsdc(monthly.toString());
   })();
 
@@ -57,11 +100,13 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
   }
 
   async function handleConfirm() {
-    if (!isValid) return;
+    if (!isValid || !venueReady) return;
     setSubmitting(true);
     setTxError(null);
     try {
-      const hash = await tx[mode](toBaseUnits(amountRaw));
+      const hash = await tx[mode](
+        toBaseUnitsForVenue(amountRaw, venueDecimals),
+      );
       setTxHash(hash);
     } catch (err) {
       setTxError(getErrorMessage(err));
@@ -138,10 +183,12 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
               Rende ~${previewMonthly}/mês ({apyPercent}% a.a.)
             </div>
           )}
-          {txError && <TxErrorBox message={txError} />}
+          {(txError || venueLoadError) && (
+            <TxErrorBox message={txError ?? venueLoadError ?? ''} />
+          )}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
             <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleConfirm} disabled={!isValid || submitting}>
+            <Button onClick={handleConfirm} disabled={!isValid || submitting || !venueReady}>
               {submitting ? 'Confirmando…' : copy.cta}
             </Button>
           </div>

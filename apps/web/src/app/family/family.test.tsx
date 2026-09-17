@@ -122,4 +122,13 @@ describe('painel /family/dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sacar meu saldo' }));
     expect(push).toHaveBeenCalledWith('/family/saque');
   });
+
+  it('leva ao investir e sacar-cofre pelos botões on-chain do cofre', () => {
+    renderInFamily(<FamilyDashboardPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Investir no cofre' }));
+    expect(push).toHaveBeenCalledWith('/family/investir');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sacar do cofre' }));
+    expect(push).toHaveBeenCalledWith('/family/sacar-cofre');
+  });
 });

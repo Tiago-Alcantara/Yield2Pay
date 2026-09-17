@@ -9,11 +9,11 @@ const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 // down — including the public landing. Gate it so the app still renders for
 // local preview; auth-dependent screens (login, the (app) group) require a
 // real id set in apps/web/.env.local.
-const hasValidAppId =
+export const isPrivyConfigured =
   !!appId && appId !== 'placeholder-app-id' && appId.length >= 20;
 
 export function PrivyProviderWrapper({ children }: { children: React.ReactNode }) {
-  if (!hasValidAppId) {
+  if (!isPrivyConfigured) {
     if (typeof window !== 'undefined') {
       console.warn(
         '[Yield2Pay] NEXT_PUBLIC_PRIVY_APP_ID is missing or invalid — running without Privy. ' +

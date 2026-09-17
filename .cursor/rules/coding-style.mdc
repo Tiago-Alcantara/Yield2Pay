@@ -1,0 +1,43 @@
+---
+description: Follow docs/Preference - Coding Style.md whenever writing or editing code
+alwaysApply: true
+---
+
+# Coding Style Reference
+
+Before writing or editing any code, read and follow:
+
+`docs/Preference - Coding Style.md`
+
+That file is the source of truth for style in this project. Prefer it over generic AI defaults when they conflict.
+
+## Apply on every code change
+
+- Match the project's existing language, stack, and local conventions first.
+- Prefer explicit, readable, linear code over compact or clever code.
+- Use very explicit names; clarity beats brevity.
+- Prefer larger, linear functions/components when that keeps the flow easier to follow.
+- Comment mainly complex code; explain intent, tradeoffs, and reasoning.
+- Avoid unnecessary dependencies; reuse what the project/platform already has.
+- Avoid `any` by default; use clearer types unless there is a strong reason.
+- Large cohesive files are acceptable; do not split only to reduce file size.
+- Do not create pass-through helpers that only call another function unless they add real clarity, reuse, or separation of concerns.
+- Avoid implicit magic, early abstractions, and generic names.
+- Act directly on routine implementation choices; confirm only for architecture changes, new dependencies, or meaningful product risk.
+
+## Naming (unless the project has a hard conflicting convention)
+
+- Classes / modules: `PascalCase`
+- Variables / functions / methods: `camelCase`
+- CSS: BEM
+- JS hooks / behavior / DOM markers: `js-` + `kebab-case` (e.g. `js-modal-trigger`)
+
+## Do not
+
+- Grow dependencies without need
+- Over-abstract or hide behavior
+- Use generic names when a clearer name exists
+- Casually use `any`
+- Add worthless wrapper helpers
+
+If `docs/Preference - Coding Style.md` is updated, follow the updated document.

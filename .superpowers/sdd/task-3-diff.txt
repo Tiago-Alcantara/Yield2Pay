@@ -1,0 +1,103 @@
+﻿diff --git a/apps/web/src/app/(app)/dashboard/page.tsx b/apps/web/src/app/(app)/dashboard/page.tsx
+index 412b826..3ee387c 100644
+--- a/apps/web/src/app/(app)/dashboard/page.tsx
++++ b/apps/web/src/app/(app)/dashboard/page.tsx
+@@ -4,16 +4,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
+ import { useRouter } from 'next/navigation';
+ import { usePrivy } from '@privy-io/react-auth';
+ import { createApi } from '@/lib/api';
+ import { formatUsdc } from '@/lib/money';
+ import type { SpendableView, Bill } from '@yield2pay/shared';
+ import ServiceCatalog from './ServiceCatalog';
+ import { MoneyPanel } from './MoneyPanel';
+ import { MoveDrawer } from '@/components/MoveDrawer';
++import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
+ import { SegmentedControl } from '@/components/SegmentedControl';
+ import { useIsMobile } from '@/lib/useIsMobile';
+ 
+ // ÔöÇÔöÇ i18n dictionary (dashboard-specific, mirrors the reference HTML) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+ 
+ const T = {
+   en: {
+     nav: {
+@@ -766,16 +767,27 @@ export default function DashboardPage() {
+             walletBalance={walletBalance ? walletBalance.balance : null}
+             spendable={walletBalance ? walletBalance.spendable : '0'}
+             vaultValue={dash.vaultValue}
+             apyPercent={dash.apyPercent}
+             onDeposit={() => setDrawer('deposit')}
+             onWithdraw={() => setDrawer('withdraw')}
+           />
+ 
++          <div
++            style={{
++              background: '#1A1C1F',
++              border: '1px solid #2A2D31',
++              borderRadius: 18,
++              padding: 22,
++            }}
++          >
++            <ChainUnlockPanel />
++          </div>
++
+           {/* ÔöÇÔöÇ Stat panels (capital / monthly returns / available) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
+           <div
+             style={{
+               display: 'grid',
+               gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
+               gap: 16,
+             }}
+           >
+diff --git a/apps/web/src/app/family/dashboard/page.tsx b/apps/web/src/app/family/dashboard/page.tsx
+index 28f9bf5..88fcb89 100644
+--- a/apps/web/src/app/family/dashboard/page.tsx
++++ b/apps/web/src/app/family/dashboard/page.tsx
+@@ -23,16 +23,17 @@ import {
+ import {
+   CoverageBar,
+   MetalPanel,
+   StatCard,
+   StatusPill,
+   SubDot,
+ } from '../_components/FamilyUI';
+ import { DashboardHeader } from '../_components/DashboardHeader';
++import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
+ 
+ export default function FamilyDashboardPage() {
+   const router = useRouter();
+   const { t, state, addSub } = useFamily();
+   const [adding, setAdding] = useState(false);
+   const [newName, setNewName] = useState('');
+   const [newPrice, setNewPrice] = useState('');
+ 
+@@ -310,16 +311,30 @@ export default function FamilyDashboardPage() {
+               </div>
+               <div style={{ fontSize: 11.5, lineHeight: 1.5, color: C.text4, marginTop: 12 }}>
+                 {t.dash.scenarioNoteShort(rateLabel)}
+               </div>
+             </div>
+           </div>
+         </div>
+ 
++        {/* ÔöÇÔöÇ Redes blockchain ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
++        <div
++          style={{
++            background: C.card,
++            border: `1px solid ${C.border}`,
++            borderRadius: 20,
++            padding: 'var(--fam-card-pad)',
++            marginTop: 16,
++            color: C.text,
++          }}
++        >
++          <ChainUnlockPanel />
++        </div>
++
+         {/* ÔöÇÔöÇ Assinaturas ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
+         <div
+           style={{
+             background: C.card,
+             border: `1px solid ${C.border}`,
+             borderRadius: 20,
+             padding: 'var(--fam-card-pad)',
+             marginTop: 16,

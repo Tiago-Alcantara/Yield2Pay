@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   assertCanUseChain,
+  decodeMockOp,
   defaultAccountChains,
   defaultVenueIdForChain,
   selectChain,
@@ -49,6 +50,34 @@ function moneyFor(plugin: VenuePlugin, amount: bigint): Money {
     asset: 'USDC',
     chainId: plugin.chainId,
   };
+}
+
+function assertMockAmountMatches(
+  plugin: VenuePlugin,
+  signed: SignedTx,
+  amount: bigint,
+): void {
+  if (plugin.mode !== 'mock') {
+    // TODO: Parse the live Stellar XDR (and Solana transaction) amount before
+    // trusting the request amount for ledger writes.
+    return;
+  }
+
+  try {
+    const encodedOperation =
+      signed.chain === 'stellar'
+        ? signed.xdr
+        : Buffer.from(signed.signedTransactionBase64, 'base64').toString(
+            'utf8',
+          );
+    const operation = decodeMockOp(encodedOperation);
+    if (BigInt(operation.amount) !== amount) {
+      throw new BadRequestException('submitted amount does not match transaction');
+    }
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    throw new BadRequestException('invalid mock transaction');
+  }
 }
 
 function mapChainError(e: unknown): never {
@@ -152,8 +181,9 @@ export class VenueService {
     const plugin = await this.pluginForCompany(companyId, chain, protocol);
     const owner = await this.ownerAddress(companyId, plugin.chainId);
     const signed = this.toSignedTx(plugin, owner, body);
+    assertMockAmountMatches(plugin, signed, amount);
     const { txRef } = await plugin.submit(signed);
-    await this.ledger.recordDeposit(companyId, amount, txRef);
+    await this.ledger.recordDeposit(companyId, amount, txRef, plugin.id);
     return { txHash: txRef, txRef };
   }
 
@@ -174,8 +204,9 @@ export class VenueService {
     const plugin = await this.pluginForCompany(companyId, chain, protocol);
     const owner = await this.ownerAddress(companyId, plugin.chainId);
     const signed = this.toSignedTx(plugin, owner, body);
+    assertMockAmountMatches(plugin, signed, amount);
     const { txRef } = await plugin.submit(signed);
-    await this.ledger.recordWithdraw(companyId, amount, txRef);
+    await this.ledger.recordWithdraw(companyId, amount, txRef, plugin.id);
     return { txHash: txRef, txRef };
   }
 

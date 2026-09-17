@@ -14,10 +14,17 @@ export function formatUsdc(baseUnits: string): string {
   return neg && rounded !== BigInt(0) ? `-${out}` : out;
 }
 
-export function toBaseUnits(human: string): string {
+export function toBaseUnitsForVenue(human: string, decimals: number): string {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new Error('invalid decimals');
+  }
   if (!/^\d+(\.\d+)?$/.test(human)) throw new Error('invalid amount');
   const [whole, frac = ''] = human.split('.');
-  if (frac.length > DECIMALS) throw new Error('too many decimals');
-  const base = whole + frac.padEnd(DECIMALS, '0');
+  if (frac.length > decimals) throw new Error('too many decimals');
+  const base = whole + frac.padEnd(decimals, '0');
   return BigInt(base).toString(); // normalizes leading zeros
+}
+
+export function toBaseUnits(human: string): string {
+  return toBaseUnitsForVenue(human, DECIMALS);
 }

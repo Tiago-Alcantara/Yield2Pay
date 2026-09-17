@@ -39,7 +39,13 @@ it('submit: attaches sig, submits, records deposit', async () => {
 
   const r = await svc.submit('co_1', { xdr: 'X', signatureHex: '0xsig', stellarAddress: 'GADDR', amount: '1000000' });
   expect(stellar.attachAndSubmit).toHaveBeenCalledWith('X', 'GADDR', '0xsig');
-  expect(ledger.recordDeposit).toHaveBeenCalledWith('co_1', 1000000n, 'TX9', undefined);
+  expect(ledger.recordDeposit).toHaveBeenCalledWith(
+    'co_1',
+    1000000n,
+    'TX9',
+    'stellar:blend',
+    undefined,
+  );
   expect(r).toEqual({ txHash: 'TX9' });
 });
 

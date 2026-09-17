@@ -85,11 +85,37 @@ describe('VenueService', () => {
       stellarAddress: 'GADDR',
     });
     expect(result.txHash).toMatch(/^stellar-mock-/);
-    expect(ledger.recordDeposit).toHaveBeenCalled();
+    expect(ledger.recordDeposit).toHaveBeenCalledWith(
+      'co_1',
+      10000000n,
+      expect.stringMatching(/^stellar-mock-/),
+      'stellar:blend',
+    );
+  });
+
+  it('rejeita amount diferente do depósito codificado no mock', async () => {
+    const { service, ledger } = svc();
+    const unsigned = await service.buildDeposit(
+      'co_1',
+      'stellar',
+      'blend',
+      '10000000',
+    );
+    if (!('xdr' in unsigned)) throw new Error('expected stellar');
+
+    await expect(
+      service.submitDeposit('co_1', 'stellar', 'blend', {
+        amount: '90000000',
+        xdr: unsigned.xdr,
+        signatureHex: '0xdemo',
+        stellarAddress: 'GADDR',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(ledger.recordDeposit).not.toHaveBeenCalled();
   });
 
   it('unlock + select libera kamino mock', async () => {
-    const { service } = svc({
+    const { service, ledger } = svc({
       solanaAddress: 'So11111111111111111111111111111111111111112',
     });
     await service.unlock('co_1', 'solana');
@@ -101,6 +127,38 @@ describe('VenueService', () => {
       signedTransactionBase64: unsigned.transactionBase64,
     });
     expect(result.txHash).toMatch(/^solana-mock-/);
+    expect(ledger.recordDeposit).toHaveBeenCalledWith(
+      'co_1',
+      1000000n,
+      expect.stringMatching(/^solana-mock-/),
+      'solana:kamino',
+    );
+  });
+
+  it('rejeita amount diferente do saque codificado no mock Solana', async () => {
+    const { service, ledger } = svc({
+      company: {
+        selectedChain: 'solana',
+        unlockedChains: ['stellar', 'solana'],
+      },
+    });
+    const unsigned = await service.buildWithdraw(
+      'co_1',
+      'solana',
+      'kamino',
+      '1000000',
+    );
+    if (!('transactionBase64' in unsigned)) {
+      throw new Error('expected solana');
+    }
+
+    await expect(
+      service.submitWithdraw('co_1', 'solana', 'kamino', {
+        amount: '9000000',
+        signedTransactionBase64: unsigned.transactionBase64,
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(ledger.recordWithdraw).not.toHaveBeenCalled();
   });
 
   it('select sem unlock falha', async () => {

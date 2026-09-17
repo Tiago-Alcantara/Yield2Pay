@@ -1,4 +1,4 @@
-import { formatUsdc, toBaseUnits } from './money';
+import { formatUsdc, toBaseUnits, toBaseUnitsForVenue } from './money';
 
 describe('formatUsdc (display: 2 decimals)', () => {
   it('always renders exactly 2 decimal places, rounding half-up', () => {
@@ -22,5 +22,21 @@ describe('toBaseUnits', () => {
   });
   it('rejects more than 7 decimal places', () => {
     expect(() => toBaseUnits('1.12345678')).toThrow();
+  });
+});
+
+describe('toBaseUnitsForVenue', () => {
+  it('converts Solana USDC with 6 decimals', () => {
+    expect(toBaseUnitsForVenue('10.25', 6)).toBe('10250000');
+  });
+
+  it('converts Stellar USDC with 7 decimals', () => {
+    expect(toBaseUnitsForVenue('10.25', 7)).toBe('102500000');
+  });
+
+  it('rejects precision beyond the venue decimals', () => {
+    expect(() => toBaseUnitsForVenue('1.1234567', 6)).toThrow(
+      'too many decimals',
+    );
   });
 });

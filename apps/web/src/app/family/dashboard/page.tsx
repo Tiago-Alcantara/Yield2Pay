@@ -28,6 +28,7 @@ import {
   SubDot,
 } from '../_components/FamilyUI';
 import { DashboardHeader } from '../_components/DashboardHeader';
+import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
 
 export default function FamilyDashboardPage() {
   const router = useRouter();
@@ -246,6 +247,25 @@ export default function FamilyDashboardPage() {
                 </button>
                 <button
                   type="button"
+                  className="btn-shine"
+                  onClick={() => router.push('/family/investir')}
+                  style={{
+                    fontFamily: 'inherit',
+                    fontSize: 14.5,
+                    fontWeight: 600,
+                    color: C.chromeInk,
+                    background: C.chromeSoft,
+                    border: 'none',
+                    borderRadius: 12,
+                    padding: '13px 22px',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 0 rgba(255,255,255,.5) inset,0 8px 22px rgba(0,0,0,.4)',
+                  }}
+                >
+                  Investir no cofre
+                </button>
+                <button
+                  type="button"
                   className="fam-outline"
                   onClick={() => router.push('/family/saque')}
                   style={{
@@ -262,6 +282,25 @@ export default function FamilyDashboardPage() {
                   }}
                 >
                   {t.dash.vaultWithdraw}
+                </button>
+                <button
+                  type="button"
+                  className="fam-outline"
+                  onClick={() => router.push('/family/sacar-cofre')}
+                  style={{
+                    fontFamily: 'inherit',
+                    fontSize: 14.5,
+                    fontWeight: 600,
+                    color: C.textStrong,
+                    background: 'rgba(255,255,255,.03)',
+                    border: `1px solid ${C.borderMetal}`,
+                    borderRadius: 12,
+                    padding: '13px 22px',
+                    cursor: 'pointer',
+                    transition: 'border-color .2s ease',
+                  }}
+                >
+                  Sacar do cofre
                 </button>
               </div>
             </div>
@@ -313,6 +352,20 @@ export default function FamilyDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Redes blockchain ──────────────────────────────────────────── */}
+        <div
+          style={{
+            background: C.card,
+            border: `1px solid ${C.border}`,
+            borderRadius: 20,
+            padding: 'var(--fam-card-pad)',
+            marginTop: 16,
+            color: C.text,
+          }}
+        >
+          <ChainUnlockPanel />
         </div>
 
         {/* ── Assinaturas ───────────────────────────────────────────────── */}

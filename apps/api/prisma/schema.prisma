@@ -87,14 +87,17 @@ model Deposit {
   /// USDC amount in base units (7 decimal places)
   amount    BigInt
   txHash    String   @unique @map("tx_hash")
+  /// Venue plugin id (ex.: stellar:blend, solana:kamino).
+  venueId   String   @default("stellar:blend") @map("venue_id")
   /// Liga o depósito à order de on-ramp (jornada Pix→cofre). Null = depósito direto.
   rampOrderId String? @map("ramp_order_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id])
 
-  // principal() agrega deposits por companyId; índice evita full-scan.
+  // principal() agrega deposits por companyId (e opcionalmente venueId).
   @@index([companyId])
+  @@index([companyId, venueId])
   @@map("deposits")
 }
 

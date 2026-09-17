@@ -88,6 +88,11 @@ Sem env = mock. **Live Solana/Kamino** ainda precisa do adapter (não copiamos `
 
 Depósito/saque **antigos** (`/deposit`, `/withdraw`) continuam; o produto novo fala só com o registry.
 
+## Produto (family vs PIX)
+
+- **Venues:** `/family/investir`, `/family/sacar-cofre` e o `MoveDrawer` no dashboard usam o registry (`/venues/...` via `useVenueTx`).
+- **Legacy:** PIX (ramp) e as rotas `/deposit` / `/withdraw` mantêm o fluxo antigo (DeFindex directo na API), fora do registry.
+
 ## Segredos
 
 Não copies `.env` do worktree. Fee sponsor e Privy ficam no Yield2Pay.

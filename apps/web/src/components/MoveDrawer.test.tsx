@@ -5,13 +5,27 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const mockDeposit = vi.fn();
 const mockWithdraw = vi.fn();
-vi.mock('@/lib/useStellarTx', () => ({
-  useStellarTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
+vi.mock('@/lib/useVenueTx', () => ({
+  useVenueTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
+}));
+
+vi.mock('@privy-io/react-auth', () => ({
+  usePrivy: () => ({ getAccessToken: async () => 'tok' }),
+}));
+
+vi.mock('@/lib/api', () => ({
+  createApi: () => ({
+    getAccountChain: vi.fn().mockResolvedValue({
+      selectedChain: 'stellar',
+      unlockedChains: ['stellar'],
+    }),
+  }),
 }));
 
 import { MoveDrawer } from './MoveDrawer';
 
 const baseProps = {
+  venue: { chain: 'stellar', protocol: 'blend' } as const,
   maxBaseUnits: '1000000000', // 100.00
   apyPercent: '12.00',
   onClose: vi.fn(),
@@ -40,6 +54,20 @@ describe('MoveDrawer', () => {
     await userEvent.type(input, '10');
     fireEvent.click(screen.getByRole('button', { name: /confirmar saque/i }));
     await waitFor(() => expect(mockWithdraw).toHaveBeenCalledWith('100000000'));
+  });
+
+  it('converte valores Solana com 6 casas decimais', async () => {
+    mockDeposit.mockResolvedValue('txdep');
+    render(
+      <MoveDrawer
+        mode="deposit"
+        {...baseProps}
+        venue={{ chain: 'solana', protocol: 'kamino' }}
+      />,
+    );
+    await userEvent.type(screen.getByLabelText(/valor/i), '10');
+    fireEvent.click(screen.getByRole('button', { name: /confirmar aporte/i }));
+    await waitFor(() => expect(mockDeposit).toHaveBeenCalledWith('10000000'));
   });
 
   it('botão max preenche o valor com o máximo disponível', async () => {

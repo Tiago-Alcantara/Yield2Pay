@@ -1,0 +1,648 @@
+﻿ apps/api/prisma/schema.prisma                   |  5 ++-
+ apps/api/src/deposit/deposit.service.spec.ts    |  8 +++-
+ apps/api/src/deposit/deposit.service.ts         |  1 +
+ apps/api/src/ledger/ledger.service.spec.ts      | 51 +++++++++++++++++++++++-
+ apps/api/src/ledger/ledger.service.ts           | 15 ++++---
+ apps/api/src/venue/venue.service.spec.ts        | 15 ++++++-
+ apps/api/src/venue/venue.service.ts             |  4 +-
+ apps/web/src/app/(app)/dashboard/page.tsx       | 12 ++++++
+ apps/web/src/app/family/dashboard/page.tsx      | 53 +++++++++++++++++++++++++
+ apps/web/src/app/family/family.test.tsx         |  9 +++++
+ apps/web/src/components/MoveDrawer.test.tsx     | 18 ++++++++-
+ apps/web/src/components/MoveDrawer.tsx          | 41 ++++++++++++++++---
+ apps/web/src/providers/PrivyProviderWrapper.tsx |  4 +-
+ docs/APPLY-VENUES.md                            |  5 +++
+ 14 files changed, 218 insertions(+), 23 deletions(-)
+
+===== DIFF =====
+
+diff --git a/apps/api/prisma/schema.prisma b/apps/api/prisma/schema.prisma
+index 3cc0055..975fa79 100644
+--- a/apps/api/prisma/schema.prisma
++++ b/apps/api/prisma/schema.prisma
+@@ -85,18 +85,21 @@ model Deposit {
+   id        String   @id @default(cuid())
+   companyId String   @map("company_id")
+   /// USDC amount in base units (7 decimal places)
+   amount    BigInt
+   txHash    String   @unique @map("tx_hash")
++  /// Venue plugin id (ex.: stellar:blend, solana:kamino).
++  venueId   String   @default("stellar:blend") @map("venue_id")
+   /// Liga o dep├│sito ├á order de on-ramp (jornada PixÔåÆcofre). Null = dep├│sito direto.
+   rampOrderId String? @map("ramp_order_id")
+   createdAt DateTime @default(now()) @map("created_at")
+ 
+   company Company @relation(fields: [companyId], references: [id])
+ 
+-  // principal() agrega deposits por companyId; ├¡ndice evita full-scan.
++  // principal() agrega deposits por companyId (e opcionalmente venueId).
+   @@index([companyId])
++  @@index([companyId, venueId])
+   @@map("deposits")
+ }
+ 
+ model RecurringBill {
+   id          String   @id @default(cuid())
+diff --git a/apps/api/src/deposit/deposit.service.spec.ts b/apps/api/src/deposit/deposit.service.spec.ts
+index b802c92..3cfb519 100644
+--- a/apps/api/src/deposit/deposit.service.spec.ts
++++ b/apps/api/src/deposit/deposit.service.spec.ts
+@@ -37,11 +37,17 @@ it('submit: attaches sig, submits, records deposit', async () => {
+   const ledger = { recordDeposit: vi.fn().mockResolvedValue(undefined) };
+   const svc = new DepositService({} as any, stellar as any, ledger as any, wallet as any);
+ 
+   const r = await svc.submit('co_1', { xdr: 'X', signatureHex: '0xsig', stellarAddress: 'GADDR', amount: '1000000' });
+   expect(stellar.attachAndSubmit).toHaveBeenCalledWith('X', 'GADDR', '0xsig');
+-  expect(ledger.recordDeposit).toHaveBeenCalledWith('co_1', 1000000n, 'TX9', undefined);
++  expect(ledger.recordDeposit).toHaveBeenCalledWith(
++    'co_1',
++    1000000n,
++    'TX9',
++    'stellar:blend',
++    undefined,
++  );
+   expect(r).toEqual({ txHash: 'TX9' });
+ });
+ 
+ it('submit: rejeita com Forbidden quando o address n├úo bate com a wallet registrada', async () => {
+   const wallet = { getAddress: vi.fn().mockResolvedValue('GADDR') };
+diff --git a/apps/api/src/deposit/deposit.service.ts b/apps/api/src/deposit/deposit.service.ts
+index 629b25d..0fce70f 100644
+--- a/apps/api/src/deposit/deposit.service.ts
++++ b/apps/api/src/deposit/deposit.service.ts
+@@ -47,10 +47,11 @@ export class DepositService {
+     );
+     await this.ledger.recordDeposit(
+       companyId,
+       parseBaseUnits(dto.amount),
+       txHash,
++      'stellar:blend',
+       dto.rampOrderId,
+     );
+     return { txHash };
+   }
+ }
+diff --git a/apps/api/src/ledger/ledger.service.spec.ts b/apps/api/src/ledger/ledger.service.spec.ts
+index c751695..37850d7 100644
+--- a/apps/api/src/ledger/ledger.service.spec.ts
++++ b/apps/api/src/ledger/ledger.service.spec.ts
+@@ -137,16 +137,65 @@ describe('LedgerService', () => {
+       demoReturnsChangePercent: '3.2',
+     });
+     expect(await svc.getReturnsChangePercent('co_1', 32000n)).toBe('+3.2');
+   });
+ 
++  it('recordDeposit stores venueId', async () => {
++    const prisma = { deposit: { create: vi.fn().mockResolvedValue({}) } } as any;
++    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
++    await svc.recordDeposit('co_1', 1_000_000n, 'tx1', 'solana:kamino');
++    expect(prisma.deposit.create).toHaveBeenCalledWith({
++      data: {
++        companyId: 'co_1',
++        amount: 1_000_000n,
++        txHash: 'tx1',
++        venueId: 'solana:kamino',
++        rampOrderId: undefined,
++      },
++    });
++  });
++
+   it('recordWithdraw: grava um lan├ºamento negativo (reduz principal)', async () => {
+     const prisma = { deposit: { create: vi.fn().mockResolvedValue({}) } } as any;
+     const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
+     await svc.recordWithdraw('co_1', 250000n, 'TXW');
+     expect(prisma.deposit.create).toHaveBeenCalledWith({
+-      data: { companyId: 'co_1', amount: -250000n, txHash: 'TXW' },
++      data: {
++        companyId: 'co_1',
++        amount: -250000n,
++        txHash: 'TXW',
++        venueId: 'stellar:blend',
++      },
++    });
++  });
++
++  it('principal filters by venueId', async () => {
++    const prisma = {
++      deposit: {
++        aggregate: vi.fn().mockResolvedValue({ _sum: { amount: 500000n } }),
++      },
++    } as any;
++    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
++    const result = await svc.principal('co_1', 'solana:kamino');
++    expect(prisma.deposit.aggregate).toHaveBeenCalledWith({
++      where: { companyId: 'co_1', venueId: 'solana:kamino' },
++      _sum: { amount: true },
++    });
++    expect(result).toBe(500000n);
++  });
++
++  it('principal omits venue filter when venueId not passed', async () => {
++    const prisma = {
++      deposit: {
++        aggregate: vi.fn().mockResolvedValue({ _sum: { amount: 1500000n } }),
++      },
++    } as any;
++    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
++    await svc.principal('co_1');
++    expect(prisma.deposit.aggregate).toHaveBeenCalledWith({
++      where: { companyId: 'co_1' },
++      _sum: { amount: true },
+     });
+   });
+ 
+   it('principal: clampa em 0 quando a soma ├® negativa', async () => {
+     const prisma = {
+diff --git a/apps/api/src/ledger/ledger.service.ts b/apps/api/src/ledger/ledger.service.ts
+index ef07191..6365de0 100644
+--- a/apps/api/src/ledger/ledger.service.ts
++++ b/apps/api/src/ledger/ledger.service.ts
+@@ -22,43 +22,46 @@ export class LedgerService {
+ 
+   async recordDeposit(
+     companyId: string,
+     amount: bigint,
+     txHash: string,
++    venueId = 'stellar:blend',
+     rampOrderId?: string,
+   ): Promise<void> {
+     await this.prisma.deposit.create({
+-      data: { companyId, amount, txHash, rampOrderId },
++      data: { companyId, amount, txHash, venueId, rampOrderId },
+     });
+   }
+ 
+   async recordWithdraw(
+     companyId: string,
+     amount: bigint,
+     txHash: string,
++    venueId = 'stellar:blend',
+   ): Promise<void> {
+     // Lan├ºamento negativo: reduz o principal agregado em principal().
+     await this.prisma.deposit.create({
+-      data: { companyId, amount: -amount, txHash },
++      data: { companyId, amount: -amount, txHash, venueId },
+     });
+   }
+ 
+-  async principal(companyId: string): Promise<bigint> {
++  async principal(companyId: string, venueId?: string): Promise<bigint> {
+     const depositAggregate = await this.prisma.deposit.aggregate({
+-      where: { companyId },
++      where: venueId === undefined ? { companyId } : { companyId, venueId },
+       _sum: { amount: true },
+     });
+     const sum = depositAggregate._sum.amount ?? 0n;
+     return sum > 0n ? sum : 0n;
+   }
+ 
+-  async computeSpendable(companyId: string) {
++  async computeSpendable(companyId: string, venueId?: string) {
+     // getAddress e principal s├úo consultas independentes ao DB ÔåÆ rodam em
+     // paralelo. getPositionValue depende do address, ent├úo vem depois.
++    // Vault read permanece Stellar-only por enquanto; venueId filtra s├│ principal.
+     const [address, principal] = await Promise.all([
+       this.wallet.getAddress(companyId),
+-      this.principal(companyId),
++      this.principal(companyId, venueId),
+     ]);
+     let vaultValue = await this.vault.getPositionValue(address);
+     // Demo: injeta rendimento sint├®tico quando DEMO_YIELD_BPS > 0, para
+     // demonstrar rendimento j├í no primeiro m├¬s (dep├│sito rec├®m-feito ainda
+     // n├úo rendeu). Em produ├º├úo a flag fica 0 e nada muda.
+diff --git a/apps/api/src/venue/venue.service.spec.ts b/apps/api/src/venue/venue.service.spec.ts
+index 5924a44..91c6f6c 100644
+--- a/apps/api/src/venue/venue.service.spec.ts
++++ b/apps/api/src/venue/venue.service.spec.ts
+@@ -83,15 +83,20 @@ describe('VenueService', () => {
+       xdr: unsigned.xdr,
+       signatureHex: '0xdemo',
+       stellarAddress: 'GADDR',
+     });
+     expect(result.txHash).toMatch(/^stellar-mock-/);
+-    expect(ledger.recordDeposit).toHaveBeenCalled();
++    expect(ledger.recordDeposit).toHaveBeenCalledWith(
++      'co_1',
++      10000000n,
++      expect.stringMatching(/^stellar-mock-/),
++      'stellar:blend',
++    );
+   });
+ 
+   it('unlock + select libera kamino mock', async () => {
+-    const { service } = svc({
++    const { service, ledger } = svc({
+       solanaAddress: 'So11111111111111111111111111111111111111112',
+     });
+     await service.unlock('co_1', 'solana');
+     await service.select('co_1', 'solana');
+     const unsigned = await service.buildDeposit('co_1', 'solana', 'kamino', '1000000');
+@@ -99,10 +104,16 @@ describe('VenueService', () => {
+     const result = await service.submitDeposit('co_1', 'solana', 'kamino', {
+       amount: '1000000',
+       signedTransactionBase64: unsigned.transactionBase64,
+     });
+     expect(result.txHash).toMatch(/^solana-mock-/);
++    expect(ledger.recordDeposit).toHaveBeenCalledWith(
++      'co_1',
++      1000000n,
++      expect.stringMatching(/^solana-mock-/),
++      'solana:kamino',
++    );
+   });
+ 
+   it('select sem unlock falha', async () => {
+     const { service } = svc();
+     await expect(service.select('co_1', 'solana')).rejects.toThrow(
+diff --git a/apps/api/src/venue/venue.service.ts b/apps/api/src/venue/venue.service.ts
+index cd42038..680eb9d 100644
+--- a/apps/api/src/venue/venue.service.ts
++++ b/apps/api/src/venue/venue.service.ts
+@@ -151,11 +151,11 @@ export class VenueService {
+     const amount = parseBaseUnits(body.amount);
+     const plugin = await this.pluginForCompany(companyId, chain, protocol);
+     const owner = await this.ownerAddress(companyId, plugin.chainId);
+     const signed = this.toSignedTx(plugin, owner, body);
+     const { txRef } = await plugin.submit(signed);
+-    await this.ledger.recordDeposit(companyId, amount, txRef);
++    await this.ledger.recordDeposit(companyId, amount, txRef, plugin.id);
+     return { txHash: txRef, txRef };
+   }
+ 
+   async submitWithdraw(
+     companyId: string,
+@@ -173,11 +173,11 @@ export class VenueService {
+     const amount = parseBaseUnits(body.amount);
+     const plugin = await this.pluginForCompany(companyId, chain, protocol);
+     const owner = await this.ownerAddress(companyId, plugin.chainId);
+     const signed = this.toSignedTx(plugin, owner, body);
+     const { txRef } = await plugin.submit(signed);
+-    await this.ledger.recordWithdraw(companyId, amount, txRef);
++    await this.ledger.recordWithdraw(companyId, amount, txRef, plugin.id);
+     return { txHash: txRef, txRef };
+   }
+ 
+   private async persist(companyId: string, next: AccountChains) {
+     await this.prisma.company.update({
+diff --git a/apps/web/src/app/(app)/dashboard/page.tsx b/apps/web/src/app/(app)/dashboard/page.tsx
+index 412b826..3ee387c 100644
+--- a/apps/web/src/app/(app)/dashboard/page.tsx
++++ b/apps/web/src/app/(app)/dashboard/page.tsx
+@@ -7,10 +7,11 @@ import { createApi } from '@/lib/api';
+ import { formatUsdc } from '@/lib/money';
+ import type { SpendableView, Bill } from '@yield2pay/shared';
+ import ServiceCatalog from './ServiceCatalog';
+ import { MoneyPanel } from './MoneyPanel';
+ import { MoveDrawer } from '@/components/MoveDrawer';
++import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
+ import { SegmentedControl } from '@/components/SegmentedControl';
+ import { useIsMobile } from '@/lib/useIsMobile';
+ 
+ // ÔöÇÔöÇ i18n dictionary (dashboard-specific, mirrors the reference HTML) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+ 
+@@ -769,10 +770,21 @@ export default function DashboardPage() {
+             apyPercent={dash.apyPercent}
+             onDeposit={() => setDrawer('deposit')}
+             onWithdraw={() => setDrawer('withdraw')}
+           />
+ 
++          <div
++            style={{
++              background: '#1A1C1F',
++              border: '1px solid #2A2D31',
++              borderRadius: 18,
++              padding: 22,
++            }}
++          >
++            <ChainUnlockPanel />
++          </div>
++
+           {/* ÔöÇÔöÇ Stat panels (capital / monthly returns / available) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
+           <div
+             style={{
+               display: 'grid',
+               gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))',
+diff --git a/apps/web/src/app/family/dashboard/page.tsx b/apps/web/src/app/family/dashboard/page.tsx
+index 28f9bf5..8fc3091 100644
+--- a/apps/web/src/app/family/dashboard/page.tsx
++++ b/apps/web/src/app/family/dashboard/page.tsx
+@@ -26,10 +26,11 @@ import {
+   StatCard,
+   StatusPill,
+   SubDot,
+ } from '../_components/FamilyUI';
+ import { DashboardHeader } from '../_components/DashboardHeader';
++import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
+ 
+ export default function FamilyDashboardPage() {
+   const router = useRouter();
+   const { t, state, addSub } = useFamily();
+   const [adding, setAdding] = useState(false);
+@@ -242,10 +243,29 @@ export default function FamilyDashboardPage() {
+                     boxShadow: '0 1px 0 rgba(255,255,255,.5) inset,0 8px 22px rgba(0,0,0,.4)',
+                   }}
+                 >
+                   {t.dash.vaultDeposit}
+                 </button>
++                <button
++                  type="button"
++                  className="btn-shine"
++                  onClick={() => router.push('/family/investir')}
++                  style={{
++                    fontFamily: 'inherit',
++                    fontSize: 14.5,
++                    fontWeight: 600,
++                    color: C.chromeInk,
++                    background: C.chromeSoft,
++                    border: 'none',
++                    borderRadius: 12,
++                    padding: '13px 22px',
++                    cursor: 'pointer',
++                    boxShadow: '0 1px 0 rgba(255,255,255,.5) inset,0 8px 22px rgba(0,0,0,.4)',
++                  }}
++                >
++                  Investir no cofre
++                </button>
+                 <button
+                   type="button"
+                   className="fam-outline"
+                   onClick={() => router.push('/family/saque')}
+                   style={{
+@@ -261,10 +281,29 @@ export default function FamilyDashboardPage() {
+                     transition: 'border-color .2s ease',
+                   }}
+                 >
+                   {t.dash.vaultWithdraw}
+                 </button>
++                <button
++                  type="button"
++                  className="fam-outline"
++                  onClick={() => router.push('/family/sacar-cofre')}
++                  style={{
++                    fontFamily: 'inherit',
++                    fontSize: 14.5,
++                    fontWeight: 600,
++                    color: C.textStrong,
++                    background: 'rgba(255,255,255,.03)',
++                    border: `1px solid ${C.borderMetal}`,
++                    borderRadius: 12,
++                    padding: '13px 22px',
++                    cursor: 'pointer',
++                    transition: 'border-color .2s ease',
++                  }}
++                >
++                  Sacar do cofre
++                </button>
+               </div>
+             </div>
+ 
+             <div
+               style={{
+@@ -313,10 +352,24 @@ export default function FamilyDashboardPage() {
+               </div>
+             </div>
+           </div>
+         </div>
+ 
++        {/* ÔöÇÔöÇ Redes blockchain ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
++        <div
++          style={{
++            background: C.card,
++            border: `1px solid ${C.border}`,
++            borderRadius: 20,
++            padding: 'var(--fam-card-pad)',
++            marginTop: 16,
++            color: C.text,
++          }}
++        >
++          <ChainUnlockPanel />
++        </div>
++
+         {/* ÔöÇÔöÇ Assinaturas ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */}
+         <div
+           style={{
+             background: C.card,
+             border: `1px solid ${C.border}`,
+diff --git a/apps/web/src/app/family/family.test.tsx b/apps/web/src/app/family/family.test.tsx
+index f16518b..c7b7ad7 100644
+--- a/apps/web/src/app/family/family.test.tsx
++++ b/apps/web/src/app/family/family.test.tsx
+@@ -120,6 +120,15 @@ describe('painel /family/dashboard', () => {
+     expect(push).toHaveBeenCalledWith('/family/deposito');
+ 
+     fireEvent.click(screen.getByRole('button', { name: 'Sacar meu saldo' }));
+     expect(push).toHaveBeenCalledWith('/family/saque');
+   });
++
++  it('leva ao investir e sacar-cofre pelos bot├Áes on-chain do cofre', () => {
++    renderInFamily(<FamilyDashboardPage />);
++    fireEvent.click(screen.getByRole('button', { name: 'Investir no cofre' }));
++    expect(push).toHaveBeenCalledWith('/family/investir');
++
++    fireEvent.click(screen.getByRole('button', { name: 'Sacar do cofre' }));
++    expect(push).toHaveBeenCalledWith('/family/sacar-cofre');
++  });
+ });
+diff --git a/apps/web/src/components/MoveDrawer.test.tsx b/apps/web/src/components/MoveDrawer.test.tsx
+index 4e6e5dc..4a0a146 100644
+--- a/apps/web/src/components/MoveDrawer.test.tsx
++++ b/apps/web/src/components/MoveDrawer.test.tsx
+@@ -3,17 +3,31 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import { vi, describe, it, expect, beforeEach } from 'vitest';
+ 
+ const mockDeposit = vi.fn();
+ const mockWithdraw = vi.fn();
+-vi.mock('@/lib/useStellarTx', () => ({
+-  useStellarTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
++vi.mock('@/lib/useVenueTx', () => ({
++  useVenueTx: () => ({ deposit: mockDeposit, withdraw: mockWithdraw }),
++}));
++
++vi.mock('@privy-io/react-auth', () => ({
++  usePrivy: () => ({ getAccessToken: async () => 'tok' }),
++}));
++
++vi.mock('@/lib/api', () => ({
++  createApi: () => ({
++    getAccountChain: vi.fn().mockResolvedValue({
++      selectedChain: 'stellar',
++      unlockedChains: ['stellar'],
++    }),
++  }),
+ }));
+ 
+ import { MoveDrawer } from './MoveDrawer';
+ 
+ const baseProps = {
++  venue: { chain: 'stellar', protocol: 'blend' } as const,
+   maxBaseUnits: '1000000000', // 100.00
+   apyPercent: '12.00',
+   onClose: vi.fn(),
+   onSuccess: vi.fn(),
+ };
+diff --git a/apps/web/src/components/MoveDrawer.tsx b/apps/web/src/components/MoveDrawer.tsx
+index c83d3b7..68c49ba 100644
+--- a/apps/web/src/components/MoveDrawer.tsx
++++ b/apps/web/src/components/MoveDrawer.tsx
+@@ -1,33 +1,61 @@
+ 'use client';
+ 
+-import React, { useState } from 'react';
++import React, { useEffect, useMemo, useState } from 'react';
++import { usePrivy } from '@privy-io/react-auth';
+ import { MetalCard } from './MetalCard';
+ import { Button } from './Button';
+ import { Input } from './Input';
+ import { TxErrorBox } from './TxErrorBox';
+-import { useStellarTx } from '@/lib/useStellarTx';
++import { useVenueTx } from '@/lib/useVenueTx';
++import { createApi } from '@/lib/api';
++import { resolveVenueFromAccount, type VenueIdPath } from '@/lib/resolveVenueFromAccount';
+ import { toBaseUnits, formatUsdc } from '@/lib/money';
+ import { validateAmount } from '@/lib/validateAmount';
+ import { getErrorMessage } from '@/lib/errors';
+ 
+ export interface MoveDrawerProps {
+   mode: 'deposit' | 'withdraw';
++  /** When omitted, resolved once on mount from account chain. */
++  venue?: VenueIdPath;
+   /** M├íximo mov├¡vel, em base units (deposit = spendable da carteira; withdraw = posi├º├úo do vault). */
+   maxBaseUnits: string;
+   apyPercent: string;
+   onClose: () => void;
+   onSuccess: () => void;
+ }
+ 
++const FALLBACK_VENUE: VenueIdPath = { chain: 'stellar', protocol: 'blend' };
++
+ const COPY = {
+   deposit: { title: 'Aportar no vault', cta: 'Confirmar aporte', source: 'Da carteira', success: 'Aporte confirmado!' },
+   withdraw: { title: 'Sacar do vault', cta: 'Confirmar saque', source: 'Do vault', success: 'Saque confirmado!' },
+ } as const;
+ 
+-export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
+-  const tx = useStellarTx();
++export function MoveDrawer({ mode, venue: venueProp, maxBaseUnits, apyPercent, onClose, onSuccess }: MoveDrawerProps) {
++  const { getAccessToken } = usePrivy();
++  const api = useMemo(() => createApi(getAccessToken), [getAccessToken]);
++  const [loadedVenue, setLoadedVenue] = useState<VenueIdPath | null>(null);
++
++  useEffect(() => {
++    if (venueProp) return;
++
++    let cancelled = false;
++    void (async () => {
++      const account = await api.getAccountChain();
++      if (!cancelled) {
++        setLoadedVenue(resolveVenueFromAccount(account));
++      }
++    })();
++
++    return () => {
++      cancelled = true;
++    };
++  }, [venueProp, api]);
++
++  const activeVenue = venueProp ?? loadedVenue;
++  const tx = useVenueTx(activeVenue ?? FALLBACK_VENUE);
+   const copy = COPY[mode];
+ 
+   const [amountRaw, setAmountRaw] = useState('');
+   const [touched, setTouched] = useState(false);
+   const [txHash, setTxHash] = useState<string | null>(null);
+@@ -37,10 +65,11 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess
+   const formatError = validateAmount(amountRaw);
+   const overMax =
+     formatError === null && BigInt(toBaseUnits(amountRaw)) > BigInt(maxBaseUnits);
+   const validationError = formatError ?? (overMax ? 'Acima do dispon├¡vel' : null);
+   const isValid = validationError === null;
++  const venueReady = activeVenue !== null;
+ 
+   // Preview de rendimento mensal (informativo): valor ├ù apy% / 12.
+   const previewMonthly = (() => {
+     if (formatError !== null) return null;
+     const apyBps = Math.round(parseFloat(apyPercent || '0') * 100);
+@@ -55,11 +84,11 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess
+     const truncated = (BigInt(maxBaseUnits) / BigInt(100000)) * BigInt(100000);
+     setAmountRaw(formatUsdc(truncated.toString()));
+   }
+ 
+   async function handleConfirm() {
+-    if (!isValid) return;
++    if (!isValid || !venueReady) return;
+     setSubmitting(true);
+     setTxError(null);
+     try {
+       const hash = await tx[mode](toBaseUnits(amountRaw));
+       setTxHash(hash);
+@@ -139,11 +168,11 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess
+             </div>
+           )}
+           {txError && <TxErrorBox message={txError} />}
+           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+             <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+-            <Button onClick={handleConfirm} disabled={!isValid || submitting}>
++            <Button onClick={handleConfirm} disabled={!isValid || submitting || !venueReady}>
+               {submitting ? 'ConfirmandoÔÇª' : copy.cta}
+             </Button>
+           </div>
+         </div>
+       </MetalCard>
+diff --git a/apps/web/src/providers/PrivyProviderWrapper.tsx b/apps/web/src/providers/PrivyProviderWrapper.tsx
+index 6d941c2..8b10841 100644
+--- a/apps/web/src/providers/PrivyProviderWrapper.tsx
++++ b/apps/web/src/providers/PrivyProviderWrapper.tsx
+@@ -7,15 +7,15 @@ const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+ // A real Privy app id is a ~25-char token (e.g. "cmxxxxxxxxxxxxxxxxxxxxxxx").
+ // Without a valid one, mounting PrivyProvider throws and takes the whole app
+ // down ÔÇö including the public landing. Gate it so the app still renders for
+ // local preview; auth-dependent screens (login, the (app) group) require a
+ // real id set in apps/web/.env.local.
+-const hasValidAppId =
++export const isPrivyConfigured =
+   !!appId && appId !== 'placeholder-app-id' && appId.length >= 20;
+ 
+ export function PrivyProviderWrapper({ children }: { children: React.ReactNode }) {
+-  if (!hasValidAppId) {
++  if (!isPrivyConfigured) {
+     if (typeof window !== 'undefined') {
+       console.warn(
+         '[Yield2Pay] NEXT_PUBLIC_PRIVY_APP_ID is missing or invalid ÔÇö running without Privy. ' +
+           'Set a real Privy app id in apps/web/.env.local to enable login and the authenticated screens.',
+       );
+diff --git a/docs/APPLY-VENUES.md b/docs/APPLY-VENUES.md
+index 186c2fd..1866958 100644
+--- a/docs/APPLY-VENUES.md
++++ b/docs/APPLY-VENUES.md
+@@ -86,8 +86,13 @@ Sem env = mock. **Live Solana/Kamino** ainda precisa do adapter (n├úo copiamos `
+ 
+ `:chain/:protocol` = `stellar/blend` ou `solana/kamino` (o `:` do VenueId n├úo vai na URL).
+ 
+ Dep├│sito/saque **antigos** (`/deposit`, `/withdraw`) continuam; o produto novo fala s├│ com o registry.
+ 
++## Produto (family vs PIX)
++
++- **Venues:** `/family/investir`, `/family/sacar-cofre` e o `MoveDrawer` no dashboard usam o registry (`/venues/...` via `useVenueTx`).
++- **Legacy:** PIX (ramp) e as rotas `/deposit` / `/withdraw` mant├¬m o fluxo antigo (DeFindex directo na API), fora do registry.
++
+ ## Segredos
+ 
+ N├úo copies `.env` do worktree. Fee sponsor e Privy ficam no Yield2Pay.
+
+===== UNTRACKED =====
+
+apps/api/prisma/migrations/20260917120000_deposit_venue/migration.sql
+apps/api/src/venue/venue.module.spec.ts
+apps/web/src/app/family/_components/VenueMoveForm.test.tsx
+apps/web/src/app/family/_components/VenueMoveForm.tsx
+apps/web/src/app/family/investir/page.test.tsx
+apps/web/src/app/family/investir/page.tsx
+apps/web/src/app/family/sacar-cofre/page.test.tsx
+apps/web/src/app/family/sacar-cofre/page.tsx
+apps/web/src/components/ChainUnlockPanel.test.tsx
+apps/web/src/components/ChainUnlockPanel.tsx
+apps/web/src/lib/resolveVenueFromAccount.test.ts
+apps/web/src/lib/resolveVenueFromAccount.ts
+docs/superpowers/plans/2026-09-17-multichain-venue-product.md
+docs/superpowers/specs/2026-09-17-multichain-venue-product-design.md

@@ -38,13 +38,17 @@ import { VENUE_REGISTRY } from './venue.tokens';
         const env = venueModeEnv(config);
         const registry = new VenueRegistry();
         const stellarMode = resolveVenueMode('stellar', env);
+        const solanaMode = resolveVenueMode('solana', {
+          ...env,
+          VENUE_MODE: env.SOLANA_VENUE_MODE ?? 'mock',
+        });
         registry.register(
           createStellarBlendPlugin({
             env,
             live: stellarMode === 'live' ? stellarLive : undefined,
           }),
         );
-        registry.register(createSolanaKaminoPlugin({ env }));
+        registry.register(createSolanaKaminoPlugin({ env, mode: solanaMode }));
         return registry;
       },
       inject: [APP_CONFIG, StellarDefindexLiveAdapter],

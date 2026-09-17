@@ -1,0 +1,46 @@
+﻿ M apps/api/prisma/schema.prisma
+ M apps/api/src/deposit/deposit.service.spec.ts
+ M apps/api/src/deposit/deposit.service.ts
+ M apps/api/src/ledger/ledger.service.spec.ts
+ M apps/api/src/ledger/ledger.service.ts
+ M apps/api/src/venue/venue.service.spec.ts
+ M apps/api/src/venue/venue.service.ts
+ M apps/web/src/app/(app)/dashboard/page.tsx
+ M apps/web/src/app/family/dashboard/page.tsx
+ M apps/web/src/app/family/family.test.tsx
+ M apps/web/src/components/MoveDrawer.test.tsx
+ M apps/web/src/components/MoveDrawer.tsx
+ M apps/web/src/providers/PrivyProviderWrapper.tsx
+ M docs/APPLY-VENUES.md
+?? .cursor/
+?? .superpowers/sdd/final-status.txt
+?? .superpowers/sdd/progress.md
+?? .superpowers/sdd/task-1-brief.md
+?? .superpowers/sdd/task-1-diff.txt
+?? .superpowers/sdd/task-1-report.md
+?? .superpowers/sdd/task-2-brief.md
+?? .superpowers/sdd/task-2-diff.txt
+?? .superpowers/sdd/task-2-report.md
+?? .superpowers/sdd/task-3-brief.md
+?? .superpowers/sdd/task-3-diff.txt
+?? .superpowers/sdd/task-3-report.md
+?? .superpowers/sdd/task-4-brief.md
+?? .superpowers/sdd/task-4-report.md
+?? .superpowers/sdd/task-5-brief.md
+?? .superpowers/sdd/task-5-report.md
+?? .superpowers/sdd/task-6-brief.md
+?? .superpowers/sdd/task-6-report.md
+?? .superpowers/sdd/task-7-brief.md
+?? .superpowers/sdd/task-7-report.md
+?? apps/api/prisma/migrations/20260917120000_deposit_venue/
+?? apps/api/src/venue/venue.module.spec.ts
+?? apps/web/src/app/family/_components/VenueMoveForm.test.tsx
+?? apps/web/src/app/family/_components/VenueMoveForm.tsx
+?? apps/web/src/app/family/investir/
+?? apps/web/src/app/family/sacar-cofre/
+?? apps/web/src/components/ChainUnlockPanel.test.tsx
+?? apps/web/src/components/ChainUnlockPanel.tsx
+?? apps/web/src/lib/resolveVenueFromAccount.test.ts
+?? apps/web/src/lib/resolveVenueFromAccount.ts
+?? docs/superpowers/plans/2026-09-17-multichain-venue-product.md
+?? docs/superpowers/specs/2026-09-17-multichain-venue-product-design.md

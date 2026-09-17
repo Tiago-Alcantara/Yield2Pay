@@ -139,12 +139,61 @@ describe('LedgerService', () => {
     expect(await svc.getReturnsChangePercent('co_1', 32000n)).toBe('+3.2');
   });
 
+  it('recordDeposit stores venueId', async () => {
+    const prisma = { deposit: { create: vi.fn().mockResolvedValue({}) } } as any;
+    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
+    await svc.recordDeposit('co_1', 1_000_000n, 'tx1', 'solana:kamino');
+    expect(prisma.deposit.create).toHaveBeenCalledWith({
+      data: {
+        companyId: 'co_1',
+        amount: 1_000_000n,
+        txHash: 'tx1',
+        venueId: 'solana:kamino',
+        rampOrderId: undefined,
+      },
+    });
+  });
+
   it('recordWithdraw: grava um lançamento negativo (reduz principal)', async () => {
     const prisma = { deposit: { create: vi.fn().mockResolvedValue({}) } } as any;
     const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
     await svc.recordWithdraw('co_1', 250000n, 'TXW');
     expect(prisma.deposit.create).toHaveBeenCalledWith({
-      data: { companyId: 'co_1', amount: -250000n, txHash: 'TXW' },
+      data: {
+        companyId: 'co_1',
+        amount: -250000n,
+        txHash: 'TXW',
+        venueId: 'stellar:blend',
+      },
+    });
+  });
+
+  it('principal filters by venueId', async () => {
+    const prisma = {
+      deposit: {
+        aggregate: vi.fn().mockResolvedValue({ _sum: { amount: 500000n } }),
+      },
+    } as any;
+    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
+    const result = await svc.principal('co_1', 'solana:kamino');
+    expect(prisma.deposit.aggregate).toHaveBeenCalledWith({
+      where: { companyId: 'co_1', venueId: 'solana:kamino' },
+      _sum: { amount: true },
+    });
+    expect(result).toBe(500000n);
+  });
+
+  it('principal defaults to Stellar when venueId is not passed', async () => {
+    const prisma = {
+      deposit: {
+        aggregate: vi.fn().mockResolvedValue({ _sum: { amount: 1500000n } }),
+      },
+    } as any;
+    const svc = new LedgerService(prisma, {} as any, {} as any, {} as any);
+    await svc.principal('co_1');
+    expect(prisma.deposit.aggregate).toHaveBeenCalledWith({
+      where: { companyId: 'co_1', venueId: 'stellar:blend' },
+      _sum: { amount: true },
     });
   });
 

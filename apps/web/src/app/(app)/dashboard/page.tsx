@@ -9,6 +9,7 @@ import type { SpendableView, Bill } from '@yield2pay/shared';
 import ServiceCatalog from './ServiceCatalog';
 import { MoneyPanel } from './MoneyPanel';
 import { MoveDrawer } from '@/components/MoveDrawer';
+import { ChainUnlockPanel } from '@/components/ChainUnlockPanel';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useIsMobile } from '@/lib/useIsMobile';
 
@@ -770,6 +771,17 @@ export default function DashboardPage() {
             onDeposit={() => setDrawer('deposit')}
             onWithdraw={() => setDrawer('withdraw')}
           />
+
+          <div
+            style={{
+              background: '#1A1C1F',
+              border: '1px solid #2A2D31',
+              borderRadius: 18,
+              padding: 22,
+            }}
+          >
+            <ChainUnlockPanel />
+          </div>
 
           {/* ── Stat panels (capital / monthly returns / available) ───────── */}
           <div

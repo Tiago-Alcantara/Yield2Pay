@@ -1,0 +1,28 @@
+---
+description: Never create git commits; never add Cursor as co-author or contributor
+alwaysApply: true
+---
+
+# No Git Commits / No Cursor Attribution
+
+## Commits
+
+- **Never** run `git commit`, `git commit --amend`, or any command that creates a commit.
+- **Never** stage files for the purpose of committing (`git add` only when the user explicitly asks to prepare a commit — and even then, do not commit).
+- If the user asks to commit, refuse and remind them that this project forbids the agent from committing. They must commit themselves.
+- Preparing a commit message draft in chat is allowed when asked; executing the commit is not.
+
+## Attribution
+
+- **Never** add Cursor (or any AI) as co-author, contributor, or committer.
+- Do **not** include trailers such as:
+  - `Co-authored-by: Cursor ...`
+  - `Co-authored-by: Claude ...`
+  - `Signed-off-by:` for the agent
+- Do **not** suggest or insert agent names into `AUTHORS`, `CONTRIBUTORS`, `package.json` contributors, changelog credits, or PR descriptions as co-authors.
+- Commit author must remain the human user only.
+
+## Allowed git actions
+
+Read-only / inspection is fine when needed: `git status`, `git diff`, `git log`, `git show`, branch listing.
+Do not push, force-push, rebase, reset --hard, or rewrite history unless the user explicitly requests it — and still never commit.
