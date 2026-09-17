@@ -11,9 +11,13 @@ const mockCreateBill = vi.fn();
 const mockDeleteBill = vi.fn();
 const mockPush = vi.fn();
 
-vi.mock('@/lib/api', () => ({
-  createApi: () => ({ createBill: mockCreateBill, deleteBill: mockDeleteBill }),
-}));
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    createApi: () => ({ createBill: mockCreateBill, deleteBill: mockDeleteBill }),
+  };
+});
 vi.mock('@privy-io/react-auth', () => ({
   usePrivy: () => ({ getAccessToken: async () => 'mock-token' }),
 }));

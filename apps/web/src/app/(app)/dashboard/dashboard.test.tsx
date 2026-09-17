@@ -2,25 +2,33 @@
  * dashboard.test.tsx
  * Behavior tests for the Dashboard page.
  * Mocks @/lib/api — no real network.
+ * Default UI language is PT.
  */
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-// --- mock @/lib/api ---
 const mockGetDashboard = vi.fn();
 const mockListBills = vi.fn();
 const mockGetWalletBalance = vi.fn();
 
-vi.mock('@/lib/api', () => ({
-  createApi: () => ({
-    getDashboard: mockGetDashboard,
-    listBills: mockListBills,
-    getWalletBalance: mockGetWalletBalance,
-  }),
-}));
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    createApi: () => ({
+      getDashboard: mockGetDashboard,
+      listBills: mockListBills,
+      getWalletBalance: mockGetWalletBalance,
+      getAccountChain: vi.fn().mockResolvedValue({
+        selectedChain: 'stellar',
+        unlockedChains: ['stellar'],
+      }),
+      setAccountChain: vi.fn(),
+    }),
+  };
+});
 
-// Stub do MoveDrawer: vira um marcador clicável que dispara onSuccess.
 vi.mock('@/components/MoveDrawer', () => ({
   MoveDrawer: ({ mode, onSuccess }: { mode: string; onSuccess: () => void }) => (
     <div data-testid="move-drawer">
@@ -30,21 +38,20 @@ vi.mock('@/components/MoveDrawer', () => ({
   ),
 }));
 
-// --- mock @privy-io/react-auth (needed for createApi(getAccessToken) and logout) ---
+vi.mock('@/components/ChainUnlockPanel', () => ({
+  ChainUnlockPanel: () => <div data-testid="chain-unlock-panel" />,
+}));
+
 vi.mock('@privy-io/react-auth', () => ({
   usePrivy: () => ({ getAccessToken: async () => 'mock-token', logout: vi.fn() }),
 }));
 
-// --- mock next/navigation ---
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/dashboard',
 }));
 
 import DashboardPage from './page';
-
-// Localized strings used in assertions (mirror the page's EN dictionary).
-const T_ERROR = 'Error loading dashboard.';
 
 const DASHBOARD_DATA = {
   vaultValue: '10750000',
@@ -69,30 +76,26 @@ describe('Dashboard page', () => {
     mockGetDashboard.mockReset();
     mockListBills.mockReset();
     mockGetWalletBalance.mockReset();
-    // Saldo é não-bloqueante: dá um default resolvido pros testes que não usam setup().
     mockGetWalletBalance.mockResolvedValue({ balance: '0', spendable: '0' });
   });
 
   it('shows loading state initially', () => {
-    mockGetDashboard.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGetDashboard.mockReturnValue(new Promise(() => {}));
     mockListBills.mockReturnValue(new Promise(() => {}));
     render(<DashboardPage />);
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByText(/carregando/i)).toBeInTheDocument();
   });
 
   it('renders vaultValue via formatUsdc after data loads', async () => {
     setup();
-    // formatUsdc('10750000') = '1.08'
+    // MoneyPanel vault shows `$` + formatUsdc('10750000') = `$1.08`
     await waitFor(() => {
-      expect(screen.getByText('1.08')).toBeInTheDocument();
+      expect(screen.getByText('$1.08')).toBeInTheDocument();
     });
   });
 
   it('renders spendable via formatUsdc after data loads', async () => {
     setup();
-    // formatUsdc('750000') = '0.08'. With the default data, monthly returns
-    // (vaultValue − principal) also equals 750000, so the value can appear
-    // in more than one panel — assert at least one occurrence.
     await waitFor(() => {
       expect(screen.getAllByText('0.08').length).toBeGreaterThan(0);
     });
@@ -100,8 +103,6 @@ describe('Dashboard page', () => {
 
   it('renders apyPercent as percentage after data loads', async () => {
     setup();
-    // APY aparece no badge do gráfico ("Annual yield: 7.50%") e no MoneyPanel
-    // ("~7.50% a.a.") — assert ao menos uma ocorrência.
     await waitFor(() => {
       expect(screen.getAllByText(/7\.50%/).length).toBeGreaterThan(0);
     });
@@ -110,7 +111,6 @@ describe('Dashboard page', () => {
   it('renders bill vendor name after data loads', async () => {
     setup();
     await waitFor(() => {
-      // vendor appears in both the subscriptions grid and the virtual-card list
       expect(screen.getAllByText('OpenAI').length).toBeGreaterThan(0);
     });
   });
@@ -124,8 +124,6 @@ describe('Dashboard page', () => {
     });
     mockListBills.mockResolvedValue([]);
     render(<DashboardPage />);
-    // 20000000 − 10000000 = 10000000 → formatUsdc('10000000') = '1.00'
-    // Appears in the "Monthly returns" stat card and the bar legend total.
     await waitFor(() => {
       expect(screen.getAllByText('1.00').length).toBeGreaterThan(0);
     });
@@ -138,24 +136,22 @@ describe('Dashboard page', () => {
       { id: 'b2', vendor: 'Notion', monthlyCost: '3000000', type: 'software', status: 'active' },
     ]);
     render(<DashboardPage />);
-    // committed = 2000000 + 3000000 = 5000000 → formatUsdc('5000000') = '0.50'
     await waitFor(() => {
       expect(screen.getByText('0.50')).toBeInTheDocument();
     });
   });
 
-  it('shows error state with the localized message when getDashboard rejects', async () => {
+  it('shows error state with the rejection message when getDashboard rejects', async () => {
     mockGetDashboard.mockRejectedValue(new Error('Server error'));
     mockListBills.mockResolvedValue([]);
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByText(T_ERROR)).toBeInTheDocument();
+      expect(screen.getByText('Server error')).toBeInTheDocument();
     });
   });
 
   it('mostra o MoneyPanel com o saldo da carteira', async () => {
     setup();
-    // formatUsdc('1200000000') = '120.00'
     await waitFor(() => expect(screen.getByText('$120.00')).toBeInTheDocument());
   });
 

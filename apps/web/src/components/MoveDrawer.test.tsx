@@ -13,14 +13,18 @@ vi.mock('@privy-io/react-auth', () => ({
   usePrivy: () => ({ getAccessToken: async () => 'tok' }),
 }));
 
-vi.mock('@/lib/api', () => ({
-  createApi: () => ({
-    getAccountChain: vi.fn().mockResolvedValue({
-      selectedChain: 'stellar',
-      unlockedChains: ['stellar'],
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    createApi: () => ({
+      getAccountChain: vi.fn().mockResolvedValue({
+        selectedChain: 'stellar',
+        unlockedChains: ['stellar'],
+      }),
     }),
-  }),
-}));
+  };
+});
 
 import { MoveDrawer } from './MoveDrawer';
 

@@ -10,7 +10,7 @@ import { useIsMobile } from '@/lib/useIsMobile';
 import { Badge } from '@/components/Badge';
 import { Toggle } from '@/components/Toggle';
 import type { Bill } from '@yield2pay/shared';
-import { SERVICE_CATALOG } from './serviceCatalog';
+import { SERVICE_CATALOG } from './catalogServices';
 
 export interface ServiceCatalogProps {
   /** Bills owned by the parent (dashboard). */

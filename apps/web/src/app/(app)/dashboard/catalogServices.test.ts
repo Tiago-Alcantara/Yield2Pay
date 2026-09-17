@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatUsdc } from '@/lib/money';
-import { SERVICE_CATALOG } from './serviceCatalog';
+import { SERVICE_CATALOG } from './catalogServices';
 
 describe('SERVICE_CATALOG', () => {
   it('contains the 8 curated services', () => {

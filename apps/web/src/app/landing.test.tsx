@@ -1,31 +1,18 @@
 /**
  * landing.test.tsx — Structure/smoke tests for the public landing page.
  *
- * Asserts:
- *   1. Eyebrow text "BANKING, REINVENTED FOR SOFTWARE" is rendered
- *   2. Nav labels: How it works / Services / Why Yield2Pay
- *   3. Hero CTA ("Get started") is present
- *   4. Clicking the CTA calls router.push('/login')
- *
- * Privy is mocked (the CTA may optionally call login() OR navigate;
- * we assert routing to /login).
+ * Default language is PT. Asserts Portuguese copy + CTA routing to /login.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 
-// ── Next.js router mock ────────────────────────────────────────────────────────
-
 const mockPush = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
-
-// next/link renders as <a> in jsdom — no extra mock needed.
-
-// ── Privy mock ─────────────────────────────────────────────────────────────────
 
 const mockLogin = vi.fn();
 
@@ -37,8 +24,6 @@ vi.mock('@privy-io/react-auth', () => ({
     user: null,
   })),
 }));
-
-// ── IntersectionObserver mock (jsdom doesn't have it) ─────────────────────────
 
 const observeMock = vi.fn();
 const unobserveMock = vi.fn();
@@ -53,7 +38,6 @@ beforeEach(() => {
     disconnect = disconnectMock;
     constructor(_cb: unknown, _opts?: unknown) {}
   };
-  // matchMedia stub for tilt effect guards
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query) => ({
@@ -69,40 +53,30 @@ beforeEach(() => {
   });
 });
 
-// ── Component under test ───────────────────────────────────────────────────────
-
 import LandingPage from './page';
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 describe('LandingPage', () => {
-  it('renders the eyebrow: BANKING, REINVENTED FOR SOFTWARE', () => {
+  it('renders the PT hero tagline', () => {
     render(<LandingPage />);
-    // The eyebrow is the heroTagline rendered in uppercase via CSS;
-    // the text node itself should contain the exact string (case-insensitive match).
-    const eyebrow = screen.getByText(/banking,\s+reinvented\s+for\s+software/i);
-    expect(eyebrow).toBeTruthy();
+    expect(screen.getAllByText(/o banco que paga seus softwares/i).length).toBeGreaterThan(0);
   });
 
-  it('renders nav labels: How it works, Services, Why Yield2Pay', () => {
+  it('renders PT nav labels', () => {
     render(<LandingPage />);
-    expect(screen.getAllByText(/how it works/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/services/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/why yield2pay/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/como funciona/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/serviços/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/por que yield2pay/i).length).toBeGreaterThan(0);
   });
 
-  it('renders the hero CTA button "Get started"', () => {
+  it('renders the hero CTA "Começar agora"', () => {
     render(<LandingPage />);
-    // There may be multiple "Get started" buttons (hero + nav header + final CTA).
-    const ctaBtns = screen.getAllByRole('button', { name: /get started/i });
+    const ctaBtns = screen.getAllByRole('button', { name: /começar agora/i });
     expect(ctaBtns.length).toBeGreaterThan(0);
   });
 
   it('clicking the hero CTA routes to /login', () => {
     render(<LandingPage />);
-    // The hero primary CTA button should navigate to /login.
-    const ctaBtns = screen.getAllByRole('button', { name: /get started/i });
-    // Click the first one (hero CTA)
+    const ctaBtns = screen.getAllByRole('button', { name: /começar agora/i });
     fireEvent.click(ctaBtns[0]);
     expect(mockPush).toHaveBeenCalledWith('/login');
   });
