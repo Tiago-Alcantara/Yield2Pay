@@ -1,0 +1,1 @@
+export const VENUE_REGISTRY = 'VENUE_REGISTRY';

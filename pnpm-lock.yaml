@@ -13,9 +13,6 @@ importers:
       '@defindex/sdk':
         specifier: ^0.3.0
         version: 0.3.0
-      '@yield2pay/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -43,6 +40,18 @@ importers:
       '@stellar/stellar-sdk':
         specifier: ^16.0.1
         version: 16.0.1
+      '@yield2pay/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@yield2pay/venue-core':
+        specifier: workspace:*
+        version: link:../../packages/venue-core
+      '@yield2pay/venue-solana-kamino':
+        specifier: workspace:*
+        version: link:../../venues/solana-kamino
+      '@yield2pay/venue-stellar-blend':
+        specifier: workspace:*
+        version: link:../../venues/stellar-blend
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -143,12 +152,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@yield2pay/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@privy-io/react-auth':
         specifier: ^3.32.2
         version: 3.32.2(@solana-program/system@0.10.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana-program/token@0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@solana/sysvars@5.5.1(typescript@5.9.3))(@tanstack/query-core@5.101.1)(@tanstack/react-query@5.101.1(react@19.2.4))(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.4))(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@yield2pay/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: 16.2.9
         version: 16.2.9(@babel/core@7.29.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -197,6 +206,20 @@ importers:
         version: 4.1.9(@types/node@20.19.43)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.1.0(@types/node@20.19.43)(jiti@2.7.0)(terser@5.48.0))
 
   packages/shared: {}
+
+  packages/venue-core: {}
+
+  venues/solana-kamino:
+    dependencies:
+      '@yield2pay/venue-core':
+        specifier: workspace:*
+        version: link:../../packages/venue-core
+
+  venues/stellar-blend:
+    dependencies:
+      '@yield2pay/venue-core':
+        specifier: workspace:*
+        version: link:../../packages/venue-core
 
 packages:
 
@@ -12377,7 +12400,7 @@ snapshots:
 
   extension-port-stream@3.0.0:
     dependencies:
-      readable-stream: 3.6.2
+      readable-stream: 4.7.0
       webextension-polyfill: 0.10.0
 
   eyes@0.1.8: {}

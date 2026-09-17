@@ -16,6 +16,10 @@ import type {
   OrderClaim,
   OrderBurn,
   SubmitClaimDto,
+  VenueUnsignedTx,
+  VenueSubmitTxDto,
+  VenueView,
+  AccountChainView,
 } from '@yield2pay/shared';
 
 import { ApiError } from './apiError';
@@ -51,6 +55,13 @@ interface ApiMethods {
   submitOrderClaim(orderId: string, body: SubmitClaimDto): Promise<{ txHash: string }>;
   getOrderBurn(orderId: string): Promise<OrderBurn>;
   submitOrderBurn(orderId: string, body: SubmitClaimDto): Promise<{ txHash: string }>;
+  listVenues(): Promise<VenueView[]>;
+  getAccountChain(): Promise<AccountChainView>;
+  setAccountChain(body: { action: 'unlock' | 'select'; chainId: 'stellar' | 'solana' }): Promise<AccountChainView>;
+  buildVenueDeposit(venue: { chain: string; protocol: string }, amount: string): Promise<VenueUnsignedTx>;
+  submitVenueDeposit(venue: { chain: string; protocol: string }, body: VenueSubmitTxDto): Promise<SubmitTxResponse>;
+  buildVenueWithdraw(venue: { chain: string; protocol: string }, amount: string): Promise<VenueUnsignedTx>;
+  submitVenueWithdraw(venue: { chain: string; protocol: string }, body: VenueSubmitTxDto): Promise<SubmitTxResponse>;
 }
 
 export function createApi(getToken: GetToken): ApiMethods {
@@ -137,5 +148,16 @@ export function createApi(getToken: GetToken): ApiMethods {
     getOrderBurn: (orderId) => request(`/ramp/order/${orderId}/burn`),
     submitOrderBurn: (orderId, body) =>
       request(`/ramp/order/${orderId}/burn`, 'POST', body),
+    listVenues: () => request('/venues'),
+    getAccountChain: () => request('/account/chain'),
+    setAccountChain: (body) => request('/account/chain', 'POST', body),
+    buildVenueDeposit: (venue, amount) =>
+      request(`/venues/${venue.chain}/${venue.protocol}/deposit/build`, 'POST', { amount }),
+    submitVenueDeposit: (venue, body) =>
+      request(`/venues/${venue.chain}/${venue.protocol}/deposit/submit`, 'POST', body),
+    buildVenueWithdraw: (venue, amount) =>
+      request(`/venues/${venue.chain}/${venue.protocol}/withdraw/build`, 'POST', { amount }),
+    submitVenueWithdraw: (venue, body) =>
+      request(`/venues/${venue.chain}/${venue.protocol}/withdraw/submit`, 'POST', body),
   };
 }

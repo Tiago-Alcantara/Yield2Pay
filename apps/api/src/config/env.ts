@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { AppEnv } from '@yield2pay/shared';
 
+const venueMode = z.enum(['live', 'mock']);
+
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   PRIVY_APP_ID: z.string().min(1),
@@ -13,25 +15,21 @@ const schema = z.object({
   SOROBAN_RPC_URL: z.string().url(),
   FEE_SPONSOR_SECRET_KEY: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
-  // Ambiente lógico da aplicação. Governa o quanto o erro expõe: só fora de
-  // 'production' a resposta de erro carrega technicalDetails (stack, endpoint,
-  // requestId). Não derivamos de NODE_ENV porque o build de homologação também
-  // roda como production.
   APP_ENV: z
     .enum(['production', 'staging', 'development'])
     .default('development'),
   DEMO_YIELD_BPS: z.coerce.number().int().nonnegative().default(0),
   DEMO_RETURNS_CHANGE_PERCENT: z.string().default('3.2'),
-  // Etherfuse on/off-ramp integration. Ausente = mock mode automático.
   ETHERFUSE_API_KEY: z.string().optional(),
   ETHERFUSE_BASE_URL: z
     .string()
     .url()
     .default('https://api.sand.etherfuse.com'),
-  // Override do customerId/org (default: 3º segmento da API key).
   ETHERFUSE_CUSTOMER_ID: z.string().optional(),
-  // Moeda fiat do ramp: BRL (Pix) ou MXN (SPEI). Default BRL.
   ETHERFUSE_FIAT_CURRENCY: z.enum(['BRL', 'MXN']).default('BRL'),
+  VENUE_MODE: venueMode.optional(),
+  STELLAR_VENUE_MODE: venueMode.optional(),
+  SOLANA_VENUE_MODE: venueMode.optional(),
 });
 
 export type Env = {
@@ -53,6 +51,9 @@ export type Env = {
   etherfuseBaseUrl: string;
   etherfuseCustomerId: string | undefined;
   etherfuseFiatCurrency: 'BRL' | 'MXN';
+  venueMode: 'live' | 'mock' | undefined;
+  stellarVenueMode: 'live' | 'mock' | undefined;
+  solanaVenueMode: 'live' | 'mock' | undefined;
 };
 
 export function loadEnv(raw: Record<string, string | undefined>): Env {
@@ -76,5 +77,17 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     etherfuseBaseUrl: parsed.ETHERFUSE_BASE_URL,
     etherfuseCustomerId: parsed.ETHERFUSE_CUSTOMER_ID,
     etherfuseFiatCurrency: parsed.ETHERFUSE_FIAT_CURRENCY,
+    venueMode: parsed.VENUE_MODE,
+    stellarVenueMode: parsed.STELLAR_VENUE_MODE,
+    solanaVenueMode: parsed.SOLANA_VENUE_MODE,
+  };
+}
+
+/** Dict the plugin factories read (`resolveVenueMode`). */
+export function venueModeEnv(config: Env): NodeJS.Dict<string> {
+  return {
+    VENUE_MODE: config.venueMode,
+    STELLAR_VENUE_MODE: config.stellarVenueMode,
+    SOLANA_VENUE_MODE: config.solanaVenueMode,
   };
 }

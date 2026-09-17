@@ -60,3 +60,27 @@ export interface ApiErrorPayload {
   message: string;
   technicalDetails?: ErrorTechnicalDetails;
 }
+
+export type VenueView = {
+  id: string;
+  chainId: 'stellar' | 'solana';
+  protocol: string;
+  privyChainType: string;
+  mode: 'live' | 'mock';
+  capabilities: { ramp: boolean; mock: boolean };
+};
+export type AccountChainView = {
+  selectedChain: 'stellar' | 'solana';
+  unlockedChains: Array<'stellar' | 'solana'>;
+};
+export type VenueUnsignedTx =
+  | { chain: 'stellar'; xdr: string; hash: string }
+  | { chain: 'solana'; transactionBase64: string };
+export type VenueSubmitTxDto = {
+  amount: string;
+  xdr?: string;
+  signatureHex?: string;
+  stellarAddress?: string;
+  address?: string;
+  signedTransactionBase64?: string;
+};

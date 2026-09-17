@@ -24,6 +24,9 @@ model Company {
   privyUserId String   @unique @map("privy_user_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  selectedChain     String   @default("stellar") @map("selected_chain")
+  unlockedChains    String[] @default(["stellar"]) @map("unlocked_chains")
+
   wallet            Wallet?
   deposits          Deposit[]
   snapshots         YieldSnapshot[]
@@ -70,6 +73,7 @@ model Wallet {
   id             String   @id @default(cuid())
   companyId      String   @unique @map("company_id")
   stellarAddress String   @unique @map("stellar_address")
+  solanaAddress  String?  @map("solana_address")
   createdAt      DateTime @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id])

@@ -16,7 +16,10 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@yield2pay/shared": ["../../packages/shared/src/index.ts"]
+      "@yield2pay/shared": ["../../packages/shared/src/index.ts"],
+      "@yield2pay/venue-core": ["../../packages/venue-core/src/index.ts"],
+      "@yield2pay/venue-stellar-blend": ["../../venues/stellar-blend/src/index.ts"],
+      "@yield2pay/venue-solana-kamino": ["../../venues/solana-kamino/src/index.ts"]
     },
     "incremental": true,
     "skipLibCheck": true,

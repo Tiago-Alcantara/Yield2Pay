@@ -18,6 +18,18 @@ export default defineConfig({
         '../../packages/shared/src/index.ts',
         import.meta.url,
       ).pathname,
+      '@yield2pay/venue-core': new URL(
+        '../../packages/venue-core/src/index.ts',
+        import.meta.url,
+      ).pathname,
+      '@yield2pay/venue-stellar-blend': new URL(
+        '../../venues/stellar-blend/src/index.ts',
+        import.meta.url,
+      ).pathname,
+      '@yield2pay/venue-solana-kamino': new URL(
+        '../../venues/solana-kamino/src/index.ts',
+        import.meta.url,
+      ).pathname,
     },
   },
   plugins: [swc.vite({ module: { type: 'es6' } })],

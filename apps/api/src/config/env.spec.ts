@@ -41,3 +41,21 @@ it('parses an explicit app env', () => {
 it('rejects an unknown app env', () => {
   expect(() => loadEnv({ ...base, APP_ENV: 'homolog' })).toThrow();
 });
+
+it('defaults venue mode fields to undefined (plugins then mock)', () => {
+  const env = loadEnv(base);
+  expect(env.venueMode).toBeUndefined();
+  expect(env.stellarVenueMode).toBeUndefined();
+});
+
+it('parses venue mode overrides', () => {
+  const env = loadEnv({
+    ...base,
+    VENUE_MODE: 'mock',
+    STELLAR_VENUE_MODE: 'live',
+    SOLANA_VENUE_MODE: 'mock',
+  });
+  expect(env.venueMode).toBe('mock');
+  expect(env.stellarVenueMode).toBe('live');
+  expect(env.solanaVenueMode).toBe('mock');
+});

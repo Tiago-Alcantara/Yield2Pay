@@ -34,6 +34,12 @@ export class WalletService {
     return wallet.stellarAddress;
   }
 
+  async getSolanaAddress(companyId: string): Promise<string | null> {
+    const wallet = await this.prisma.wallet.findUnique({ where: { companyId } });
+    if (!wallet) throw new NotFoundException('wallet not registered');
+    return wallet.solanaAddress;
+  }
+
   async getBalance(
     companyId: string,
   ): Promise<{ balance: string; spendable: string }> {

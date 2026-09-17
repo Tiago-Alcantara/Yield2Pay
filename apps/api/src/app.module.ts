@@ -12,6 +12,7 @@ import { WithdrawModule } from './withdraw/withdraw.module';
 import { BillsModule } from './bills/bills.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RampModule } from './ramp/ramp.module';
+import { VenueModule } from './venue/venue.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RampModule } from './ramp/ramp.module';
     BillsModule,
     JobsModule,
     RampModule,
+    VenueModule,
   ],
   controllers: [HealthController],
   providers: [],
