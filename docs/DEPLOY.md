@@ -27,17 +27,19 @@ included; the Dockerfile is portable to **Railway / Fly / any** host).
 
 ---
 
-## 2. Backend → Render (`apps/api`) via the blueprint
+## 2. Backend → Render (`apps/api`)
 
-1. Render → New → **Blueprint**, point at this repo. `render.yaml` provisions a
-   free Postgres (`yield2pay-db`) and a Docker web service (`yield2pay-api`) with a
-   `/health` check. `DATABASE_URL` is wired from the database automatically.
-2. After the first deploy, set the secret env vars in the Render dashboard
-   (marked `sync: false`): `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
-   `DEFINDEX_API_KEY`, `VAULT_ADDRESS`, `USDC_ADDRESS`, and `CORS_ORIGIN`
-   (= your Vercel web origin, e.g. `https://yield2pay.vercel.app`).
-3. Migrations run automatically on each deploy (`prisma migrate deploy` in the
-   container start command). The app listens on Render's injected `PORT`.
+Blueprint no repo. Depois do primeiro deploy, no dashboard:
+
+1. Postgres **não** pode ficar `free`. Conferir plano `basic-256mb` (ou maior) e backups automáticos ligados. Fazer um restore de teste uma vez.
+2. Web service **não** pode ficar `free` (dorme e o `/health` falha no despertar). Plano `starter` / `0.5c-512mb` ou maior.
+3. Env obrigatória:
+   - `APP_ENV=production` (o blueprint já manda isso; conferir se um override antigo ficou `staging`)
+   - `CORS_ORIGIN=https://<dominio-vercel>` (sem barra no fim; várias origens separadas por vírgula)
+   - `PRIVY_APP_ID`, `PRIVY_APP_SECRET`
+   - `DATABASE_URL` (Render injeta)
+   - Segredos web3 que o `loadEnv` ainda exige no boot (`DEFINDEX_*`, `VAULT_ADDRESS`, `USDC_ADDRESS`, `FEE_SPONSOR_SECRET_KEY`, `STELLAR_NETWORK`, `SOROBAN_RPC_URL`) — valores de testnet servem para o processo subir; este plano não liga mainnet.
+4. Confirmar `GET https://<api>/health` → `{"status":"ok"}` com o banco no ar. Parar o Postgres de staging uma vez e ver o health virar 503.
 
 ### Alternative: Railway / Fly / any container host
 
@@ -52,13 +54,31 @@ Fly auto-detect the Dockerfile; point the build context at the repo root.
 
 ---
 
-## 3. After both are up
+## 3. Frontend → Vercel + Privy
 
-- Set the frontend's `NEXT_PUBLIC_API_BASE_URL` to the backend URL and redeploy
-  (Vercel redeploys on push).
-- Set the backend's `CORS_ORIGIN` to the Vercel web origin so browser calls are
-  allowed.
-- For real on-chain flows you still need: a funded Stellar wallet/vault, a real
-  DeFindex API key + vault address, and the deferred integration points pinned
-  (see the spec §10.1). Until then, money figures on the dashboard are the
-  documented placeholders.
+Além do `NEXT_PUBLIC_PRIVY_APP_ID` e `NEXT_PUBLIC_API_BASE_URL`:
+
+- `NEXT_PUBLIC_APP_ENV=production` em Production (sem isso o default do front é `development`).
+- No dashboard Privy: origem `https://<dominio-vercel>` e previews `https://*.vercel.app` se forem usar login em preview.
+- `CORS_ORIGIN` da API tem que ser **o mesmo** origin do Privy (scheme + host, sem path).
+
+---
+
+## 4. Legal (humano)
+
+Rascunho de `/termos` e `/privacidade` está no repo. Advogado revisa antes de anúncio público. Pedidos LGPD: `GET /account/export` e `DELETE /account` (este último recusa se houver depósito).
+
+---
+
+## 5. Human gate (não automatizar)
+
+O implementer (humano) marca à mão:
+
+- [ ] Render Postgres pago + backup
+- [ ] Render API não-free
+- [ ] `CORS_ORIGIN` preenchido
+- [ ] `APP_ENV=production` na API
+- [ ] `NEXT_PUBLIC_APP_ENV=production` na Vercel
+- [ ] Origens Privy
+- [ ] `/health` ok no domínio real
+- [ ] Advogado viu termos/privacidade

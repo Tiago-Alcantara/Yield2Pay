@@ -13,6 +13,7 @@ import { BillsModule } from './bills/bills.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RampModule } from './ramp/ramp.module';
 import { VenueModule } from './venue/venue.module';
+import { AccountModule } from './account/account.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { VenueModule } from './venue/venue.module';
     JobsModule,
     RampModule,
     VenueModule,
+    AccountModule,
   ],
   controllers: [HealthController],
   providers: [],

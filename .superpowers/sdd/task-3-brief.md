@@ -1,38 +1,107 @@
-### Task 3: Chain unlock panel (UI burra)
+### Task 3: Desligar rotas de sandbox em production
 
 **Files:**
-- Create: `apps/web/src/components/ChainUnlockPanel.tsx`
-- Test: `apps/web/src/components/ChainUnlockPanel.test.tsx`
+- Create: `apps/api/src/common/assert-sandbox.ts`
+- Create: `apps/api/src/common/assert-sandbox.spec.ts`
+- Create: `apps/api/src/ramp/ramp.controller.spec.ts`
+- Modify: `apps/api/src/ramp/ramp.controller.ts`
 
 **Interfaces:**
-- Consumes: `api.getAccountChain()`, `api.setAccountChain({ action, chainId })`.
-- Produces: UI showing selected + unlocked; buttons Unlock Solana / Select Stellar / Select Solana.
+- Consumes: `Env.appEnv`
+- Produces: `assertSandboxEnabled(appEnv: AppEnv): void` — no-op fora de production; `ForbiddenException` em production
 
-- [ ] **Step 1: Failing RTL tests**
+Do not change env.ts (Task 1 already added corsOrigins). Keep every other RampController method unchanged.
 
-```tsx
-it('shows selected chain and unlocks solana', async () => {
-  const setAccountChain = vi.fn().mockResolvedValue({
-    selectedChain: 'stellar',
-    unlockedChains: ['stellar', 'solana'],
-  });
-  // render with mocked api returning stellar-only first
-  // click Unlock Solana → expect setAccountChain({ action: 'unlock', chainId: 'solana' })
+- [ ] **Step 1: Write the failing test**
+
+`apps/api/src/common/assert-sandbox.spec.ts`:
+
+```ts
+import { ForbiddenException } from '@nestjs/common';
+import { assertSandboxEnabled } from './assert-sandbox';
+
+it('allows sandbox outside production', () => {
+  expect(() => assertSandboxEnabled('development')).not.toThrow();
+  expect(() => assertSandboxEnabled('staging')).not.toThrow();
 });
 
-it('selects solana when unlocked', async () => {
-  // unlocked includes solana; click Select Solana
-  // expect setAccountChain({ action: 'select', chainId: 'solana' })
+it('forbids sandbox in production', () => {
+  expect(() => assertSandboxEnabled('production')).toThrow(ForbiddenException);
 });
 ```
 
-- [ ] **Step 2: Run — FAIL**
+`apps/api/src/ramp/ramp.controller.spec.ts`:
 
-- [ ] **Step 3: Implement linear panel** — explicit names, no cards-for-decoration; one section: chain state + actions. Portuguese copy OK to match família.
+```ts
+import { ForbiddenException } from '@nestjs/common';
+import { RampController } from './ramp.controller';
 
-- [ ] **Step 4: Mount on** `apps/web/src/app/family/dashboard/page.tsx` (and optionally B2B dashboard). Do not remove PIX CTAs.
+function makeController(appEnv: 'production' | 'staging') {
+  const ramp = {
+    markKycApproved: vi.fn().mockResolvedValue(undefined),
+    simulateFiatReceived: vi.fn().mockResolvedValue(undefined),
+  };
+  const config = { appEnv };
+  return {
+    ctrl: new RampController(ramp as any, config as any),
+    ramp,
+  };
+}
 
-- [ ] **Step 5: Tests PASS + commit draft**  
-`feat(web): dumb chain unlock/select panel`
+it('blocks kyc-approved in production before calling the service', async () => {
+  const { ctrl, ramp } = makeController('production');
+  await expect(
+    ctrl.markKycApproved({ companyId: 'co_1' } as any),
+  ).rejects.toBeInstanceOf(ForbiddenException);
+  expect(ramp.markKycApproved).not.toHaveBeenCalled();
+});
 
----
+it('blocks onramp/simulate in production before calling the service', async () => {
+  const { ctrl, ramp } = makeController('production');
+  await expect(
+    ctrl.simulateFiatReceived({ companyId: 'co_1' } as any, { orderId: 'o1' }),
+  ).rejects.toBeInstanceOf(ForbiddenException);
+  expect(ramp.simulateFiatReceived).not.toHaveBeenCalled();
+});
+
+it('delegates kyc-approved in staging', async () => {
+  const { ctrl, ramp } = makeController('staging');
+  await ctrl.markKycApproved({ companyId: 'co_1' } as any);
+  expect(ramp.markKycApproved).toHaveBeenCalledWith('co_1');
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/common/assert-sandbox.spec.ts src/ramp/ramp.controller.spec.ts
+```
+
+If pnpm is not on PATH, use `node apps/api/node_modules/vitest/vitest.mjs` from apps/api, or `node node_modules/vitest/vitest.mjs` from repo root with filter paths. Expected: FAIL — files missing; RampController today only takes RampService.
+
+- [ ] **Step 3: Write minimal implementation**
+
+`apps/api/src/common/assert-sandbox.ts`:
+
+```ts
+import { ForbiddenException } from '@nestjs/common';
+import type { AppEnv } from '@yield2pay/shared';
+
+export function assertSandboxEnabled(appEnv: AppEnv): void {
+  if (appEnv === 'production') {
+    throw new ForbiddenException('sandbox routes are disabled in production');
+  }
+}
+```
+
+In `ramp.controller.ts`, add Inject/APP_CONFIG/Env/assertSandboxEnabled. Constructor becomes `(ramp, @Inject(APP_CONFIG) config: Env)`. In `markKycApproved` and `simulateFiatReceived` only: call `assertSandboxEnabled(this.config.appEnv)` before the service. Keep all other methods identical.
+
+- [ ] **Step 4: Run tests**
+
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/common/assert-sandbox.spec.ts src/ramp/ramp.controller.spec.ts src/ramp/ramp.service.spec.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Do not commit**

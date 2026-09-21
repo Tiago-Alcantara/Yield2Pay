@@ -80,4 +80,15 @@ describe('LandingPage', () => {
     fireEvent.click(ctaBtns[0]);
     expect(mockPush).toHaveBeenCalledWith('/login');
   });
+
+  it('footer legal links go to /termos and /privacidade', () => {
+    render(<LandingPage />);
+    expect(screen.getByRole('link', { name: 'Termos' }).getAttribute('href')).toBe(
+      '/termos',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Privacidade' }).getAttribute('href'),
+    ).toBe('/privacidade');
+  });
 });
+

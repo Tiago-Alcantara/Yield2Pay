@@ -32,7 +32,6 @@ const L = {
     google: 'Continue with Google',
     loading: 'Redirecting…',
     error: 'Could not start Google sign-in. Please try again.',
-    legal: 'By continuing you agree to our Terms and Privacy Policy.',
   },
   pt: {
     brandTitle: 'Coloque seu capital parado para trabalhar.',
@@ -47,7 +46,6 @@ const L = {
     google: 'Continuar com Google',
     loading: 'Redirecionando…',
     error: 'Não foi possível iniciar o login com Google. Tente novamente.',
-    legal: 'Ao continuar, você concorda com nossos Termos e Política de Privacidade.',
   },
 } as const;
 
@@ -252,7 +250,31 @@ export default function LoginPage() {
             )}
 
             <p style={{ fontSize: 12.5, lineHeight: 1.5, color: '#7E8186', margin: '20px 0 0' }}>
-              {t.legal}
+              {lang === 'pt' ? (
+                <>
+                  Ao continuar, você concorda com nossos{' '}
+                  <Link href="/termos" style={{ color: 'inherit' }}>
+                    Termos
+                  </Link>{' '}
+                  e{' '}
+                  <Link href="/privacidade" style={{ color: 'inherit' }}>
+                    Política de Privacidade
+                  </Link>
+                  .
+                </>
+              ) : (
+                <>
+                  By continuing you agree to our{' '}
+                  <Link href="/termos" style={{ color: 'inherit' }}>
+                    Terms
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacidade" style={{ color: 'inherit' }}>
+                    Privacy Policy
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           </div>
         </section>

@@ -1,106 +1,90 @@
-# Task 1 Report: `resolveVenueFromAccount` (web)
+# Task 1 Report: CORS falha fechado em production
 
-## Status
+## What was implemented
 
-**DONE_WITH_CONCERNS** — Implementation and tests match the brief exactly; automated test runs could not be executed in this environment (Node.js / pnpm not available on PATH; no `node_modules` installed).
+- Added `CORS_ORIGIN` to the Zod schema in `env.ts` as an optional string.
+- Added `corsOrigins: string[] | undefined` to the `Env` type.
+- Added `parseCorsOrigins()` that:
+  - Throws `CORS_ORIGIN is required when APP_ENV=production` when `APP_ENV=production` and no origins are present.
+  - Parses comma-separated origins (trimmed, empty parts filtered).
+  - Returns `undefined` outside production when `CORS_ORIGIN` is unset or empty.
+- Mapped `corsOrigins` in `loadEnv()` via `parseCorsOrigins(parsed.APP_ENV, parsed.CORS_ORIGIN)`.
+- Updated `main.ts` to read CORS config from `Env` (`config.corsOrigins ?? true`) instead of `process.env.CORS_ORIGIN` directly; moved `config` resolution before `enableCors`.
+- Updated `.env.example` comment to state `CORS_ORIGIN` is required in production.
+- Added three new tests per the brief; updated existing `parses an explicit app env` test to supply `CORS_ORIGIN` for the production case (required after fail-closed behavior was added).
 
----
+## What was tested and test results
 
-## TDD: RED Phase
-
-### Step 1 — Failing test written
-
-Created `apps/web/src/lib/resolveVenueFromAccount.test.ts` with three cases verbatim from the brief:
-
-- `stellar` → `{ chain: 'stellar', protocol: 'blend' }`
-- `solana` → `{ chain: 'solana', protocol: 'kamino' }`
-- unknown (`polygon`) → `{ chain: 'stellar', protocol: 'blend' }`
-
-### Step 2 — Run test (expected FAIL)
-
-**Command attempted:**
+Command:
 
 ```bash
-pnpm --filter @yield2pay/web exec vitest run src/lib/resolveVenueFromAccount.test.ts
+pnpm --filter @yield2pay/api exec vitest run src/config/env.spec.ts
 ```
 
-**Result:** Could not run. `pnpm`, `node`, and `corepack` are not on PATH; `node_modules` is absent at repo root and under `apps/web`. WSL also lacks Node/pnpm.
+Result: **11 passed, 0 failed** (all tests in the env spec suite).
 
-**Expected failure (per brief):** Module not found for `./resolveVenueFromAccount` — this would occur because only the test file existed at RED time.
+## TDD Evidence
 
----
+### RED — failing test run (before implementation)
 
-## TDD: GREEN Phase
-
-### Step 3 — Implementation
-
-Created `apps/web/src/lib/resolveVenueFromAccount.ts` exactly as specified in the brief:
-
-```ts
-export type VenueIdPath = { chain: 'stellar' | 'solana'; protocol: string };
-
-export function resolveVenueFromAccount(account: {
-  selectedChain: string;
-}): VenueIdPath {
-  if (account.selectedChain === 'solana') {
-    return { chain: 'solana', protocol: 'kamino' };
-  }
-  return { chain: 'stellar', protocol: 'blend' };
-}
-```
-
-### Step 4 — Run test (expected PASS)
-
-**Command:** Same as Step 2.
-
-**Result:** Not executed (environment blocker). Logic review confirms all three test assertions would pass.
-
-**Local verification command for human:**
+Command:
 
 ```bash
-pnpm install
-pnpm --filter @yield2pay/web exec vitest run src/lib/resolveVenueFromAccount.test.ts
+pnpm --filter @yield2pay/api exec vitest run src/config/env.spec.ts
 ```
 
----
+Output (excerpt):
 
-## Files Changed
+```
+❯ src/config/env.spec.ts (11 tests | 2 failed) 19ms
+   × rejects production without CORS_ORIGIN 5ms
+   × parses comma-separated CORS origins in production 3ms
 
-| File | Action |
+ FAIL  src/config/env.spec.ts > rejects production without CORS_ORIGIN
+AssertionError: expected [Function] to throw an error
+
+ FAIL  src/config/env.spec.ts > parses comma-separated CORS origins in production
+AssertionError: expected undefined to deeply equal [ Array(2) ]
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 9 passed (11)
+```
+
+### GREEN — passing test run (after implementation + existing test fix)
+
+Command:
+
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/config/env.spec.ts
+```
+
+Output (excerpt):
+
+```
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Duration  559ms
+```
+
+## Files changed
+
+| File | Change |
 |------|--------|
-| `apps/web/src/lib/resolveVenueFromAccount.test.ts` | Created |
-| `apps/web/src/lib/resolveVenueFromAccount.ts` | Created |
+| `apps/api/src/config/env.ts` | Schema field, `Env.corsOrigins`, `parseCorsOrigins`, mapping in `loadEnv` |
+| `apps/api/src/config/env.spec.ts` | Three new CORS tests; production case in existing app-env test updated |
+| `apps/api/src/main.ts` | CORS from `config.corsOrigins ?? true`; removed direct `process.env` read |
+| `apps/api/.env.example` | Comment: `CORS_ORIGIN` required in production |
 
-No other files modified. No git commit (project rule).
+## Self-review findings
 
----
+- Implementation matches the task brief verbatim (schema, type, `parseCorsOrigins`, `main.ts` CORS block).
+- Fail-closed behavior is enforced at `loadEnv` time, so `ConfigModule`'s `useFactory: () => loadEnv(process.env)` prevents the API from booting in production without `CORS_ORIGIN`.
+- Non-production environments with unset `CORS_ORIGIN` still get `corsOrigins: undefined`, and Nest receives `origin: true` (reflect any origin) — unchanged dev behavior.
+- No new TypeScript errors; no manual `Env` object literals elsewhere required updating.
+- No linter issues on modified source files.
 
-## Self-Review
+## Issues or concerns
 
-### Correctness
-
-- Mapping matches brief: `solana` → kamino; everything else (including `stellar` and unknown chains) → stellar/blend.
-- Function accepts `{ selectedChain: string }`, compatible with `AccountChainView` from `@yield2pay/shared` (which includes `selectedChain` and `unlockedChains`).
-- Pure helper, no side effects, no UI — appropriate for Task 1.
-
-### Style
-
-- Linear, explicit control flow per `docs/Preference - Coding Style.md`.
-- No unnecessary abstractions or dependencies.
-- Test file follows existing vitest patterns (e.g. `validateAmount.test.ts`).
-
-### Concerns / follow-ups (out of scope for Task 1)
-
-1. **`VenueIdPath` duplication:** `useVenueTx.ts` already exports an identical `VenueIdPath` type. A later task may consolidate to a single export (e.g. re-export from `resolveVenueFromAccount.ts` or a shared types module).
-2. **Tests not run:** Requires local `pnpm install` + vitest run to confirm GREEN in CI-like conditions.
-3. **Step 5 commit skipped:** Per project rule; suggested message for human: `feat(web): resolve venue path from selectedChain`.
-
-### Linter
-
-No linter errors reported on the new files.
-
----
-
-## Summary
-
-Task 1 deliverables are in place per the plan brief. TDD RED/GREEN workflow was followed structurally; GREEN verification is pending a local test run once Node/pnpm and dependencies are available.
+- **Existing test adjustment:** The pre-existing `parses an explicit app env` test called `loadEnv` with `APP_ENV: 'production'` without `CORS_ORIGIN`; it had to be updated or it would fail. This is expected given the new requirement.
+- **Staging behavior:** `APP_ENV=staging` without `CORS_ORIGIN` still allows reflect-any-origin CORS. The brief only mandates fail-closed for production; staging is unchanged.
+- **Deploy checklist:** Production deploys must set `CORS_ORIGIN` before the API starts, or startup will throw.

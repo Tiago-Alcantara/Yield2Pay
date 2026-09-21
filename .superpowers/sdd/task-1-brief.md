@@ -1,66 +1,110 @@
-### Task 1: `resolveVenueFromAccount` (web)
+### Task 1: CORS falha fechado em production
 
 **Files:**
-- Create: `apps/web/src/lib/resolveVenueFromAccount.ts`
-- Test: `apps/web/src/lib/resolveVenueFromAccount.test.ts`
+- Modify: `apps/api/src/config/env.ts`
+- Modify: `apps/api/src/config/env.spec.ts`
+- Modify: `apps/api/src/main.ts`
+- Modify: `apps/api/.env.example` (comentário: obrigatório em production)
 
 **Interfaces:**
-- Consumes: `AccountChainView` from `@yield2pay/shared` / `api.ts` (`selectedChain`, `unlockedChains`).
-- Produces: `resolveVenueFromAccount(account: { selectedChain: string }): { chain: 'stellar' \| 'solana'; protocol: string }` — `stellar`→`blend`, `solana`→`kamino`; unknown → treat as stellar/blend.
+- Consumes: `loadEnv` atual (`APP_ENV` já existe)
+- Produces: `Env.corsOrigins: string[] | undefined` — `undefined` só fora de production (Nest `origin: true`). Em production, array com ≥1 origem, senão `loadEnv` lança.
 
 - [ ] **Step 1: Write the failing test**
 
+Acrescentar no fim de `apps/api/src/config/env.spec.ts`:
+
 ```ts
-import { describe, it, expect } from 'vitest';
-import { resolveVenueFromAccount } from './resolveVenueFromAccount';
+it('rejects production without CORS_ORIGIN', () => {
+  expect(() => loadEnv({ ...base, APP_ENV: 'production' })).toThrow(
+    /CORS_ORIGIN/,
+  );
+});
 
-describe('resolveVenueFromAccount', () => {
-  it('maps stellar to blend', () => {
-    expect(resolveVenueFromAccount({ selectedChain: 'stellar' })).toEqual({
-      chain: 'stellar',
-      protocol: 'blend',
-    });
+it('parses comma-separated CORS origins in production', () => {
+  const env = loadEnv({
+    ...base,
+    APP_ENV: 'production',
+    CORS_ORIGIN: 'https://yield2pay.vercel.app, https://www.yield2pay.com',
   });
+  expect(env.corsOrigins).toEqual([
+    'https://yield2pay.vercel.app',
+    'https://www.yield2pay.com',
+  ]);
+});
 
-  it('maps solana to kamino', () => {
-    expect(resolveVenueFromAccount({ selectedChain: 'solana' })).toEqual({
-      chain: 'solana',
-      protocol: 'kamino',
-    });
-  });
-
-  it('falls back to stellar/blend for unknown', () => {
-    expect(resolveVenueFromAccount({ selectedChain: 'polygon' })).toEqual({
-      chain: 'stellar',
-      protocol: 'blend',
-    });
-  });
+it('leaves corsOrigins undefined when CORS_ORIGIN is unset outside production', () => {
+  expect(loadEnv(base).corsOrigins).toBeUndefined();
 });
 ```
 
-- [ ] **Step 2: Run test — expect FAIL**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @yield2pay/web exec vitest run src/lib/resolveVenueFromAccount.test.ts`  
-Expected: FAIL (module not found).
+Run:
 
-- [ ] **Step 3: Implement**
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/config/env.spec.ts
+```
+
+Expected: FAIL — `corsOrigins` does not exist / production without CORS_ORIGIN still parses.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Em `apps/api/src/config/env.ts`, no `schema`:
 
 ```ts
-export type VenueIdPath = { chain: 'stellar' | 'solana'; protocol: string };
+CORS_ORIGIN: z.string().optional(),
+```
 
-export function resolveVenueFromAccount(account: {
-  selectedChain: string;
-}): VenueIdPath {
-  if (account.selectedChain === 'solana') {
-    return { chain: 'solana', protocol: 'kamino' };
+No tipo `Env`, adicionar `corsOrigins: string[] | undefined`.
+
+Em `loadEnv`, depois do `schema.parse`:
+
+```ts
+function parseCorsOrigins(
+  appEnv: AppEnv,
+  raw: string | undefined,
+): string[] | undefined {
+  const parts = (raw ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  if (appEnv === 'production') {
+    if (parts.length === 0) {
+      throw new Error('CORS_ORIGIN is required when APP_ENV=production');
+    }
+    return parts;
   }
-  return { chain: 'stellar', protocol: 'blend' };
+  return parts.length > 0 ? parts : undefined;
 }
 ```
 
-- [ ] **Step 4: Run test — expect PASS**
+Mapear `corsOrigins: parseCorsOrigins(parsed.APP_ENV, parsed.CORS_ORIGIN)`.
 
-- [ ] **Step 5: Commit draft (human)**  
-Message: `feat(web): resolve venue path from selectedChain`
+Em `apps/api/src/main.ts`, trocar o bloco CORS por:
 
----
+```ts
+const config = app.get<Env>(APP_CONFIG);
+app.enableCors({
+  origin: config.corsOrigins ?? true,
+  credentials: true,
+});
+```
+
+Mover `const config = app.get<Env>(APP_CONFIG)` para **antes** de `enableCors` (hoje o `config` só é lido depois). Remover a leitura direta de `process.env.CORS_ORIGIN`.
+
+Atualizar o comentário em `apps/api/.env.example`: production exige `CORS_ORIGIN`.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run:
+
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/config/env.spec.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Do not commit**
+
+Repo forbids agent commits. Stop here.

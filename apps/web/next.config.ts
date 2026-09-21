@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { SECURITY_HEADERS } from "./src/lib/securityHeaders";
 
 const nextConfig: NextConfig = {
   // @yield2pay/shared is a source-only workspace package (TS in src/); Next must
@@ -8,6 +9,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@yield2pay/shared"],
   turbopack: {
     root: path.resolve(__dirname, "../.."),
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 };
 

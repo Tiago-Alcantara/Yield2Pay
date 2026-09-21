@@ -4,7 +4,7 @@ import { PAGE_COPY, DIALOG_COPY, DIALOG_STATUS_CODES } from './errorCopy';
 describe('PAGE_COPY', () => {
   it('covers every status the error page can receive', () => {
     expect(Object.keys(PAGE_COPY).map(Number).sort((a, b) => a - b)).toEqual([
-      400, 401, 403, 404, 408, 500, 502, 503,
+      400, 401, 403, 404, 408, 429, 500, 502, 503,
     ]);
   });
 
@@ -25,7 +25,7 @@ describe('PAGE_COPY', () => {
 
 describe('DIALOG_COPY', () => {
   it('covers only the statuses that leave a usable screen behind the dialog', () => {
-    expect(DIALOG_STATUS_CODES).toEqual([400, 401, 403, 408, 500]);
+    expect(DIALOG_STATUS_CODES).toEqual([400, 401, 403, 408, 429, 500]);
   });
 
   it('keeps the same kicker as the full page', () => {

@@ -37,7 +37,8 @@ export type AppEnv = 'production' | 'staging' | 'development';
  * Conjunto fechado de status que as telas de erro sabem apresentar. O filter da
  * API normaliza qualquer outro status para um destes antes de responder.
  */
-export type ErrorStatusCode = 400 | 401 | 403 | 404 | 408 | 500 | 502 | 503;
+export type ErrorStatusCode =
+  | 400 | 401 | 403 | 404 | 408 | 429 | 500 | 502 | 503;
 
 /** Bloco de depuração — presente apenas fora de produção. */
 export interface ErrorTechnicalDetails {

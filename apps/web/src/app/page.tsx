@@ -1705,7 +1705,7 @@ export default function LandingPage() {
                 {t.footLegalLinks.map((link, i) => (
                   <a
                     key={i}
-                    href="#"
+                    href={i === 0 ? '/termos' : '/privacidade'}
                     style={{
                       fontSize: '14px',
                       color: '#C8CACD',

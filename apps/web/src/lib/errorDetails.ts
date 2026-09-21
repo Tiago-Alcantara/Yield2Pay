@@ -7,7 +7,7 @@ import { ApiError } from './apiError';
 import { SHOW_TECHNICAL_DETAILS } from './appEnv';
 
 /** Status que ErrorPage e ErrorDialog sabem apresentar (ver errorCopy.ts). */
-const RENDERABLE_STATUS_CODES: ErrorStatusCode[] = [400, 401, 403, 404, 408, 500, 502, 503];
+const RENDERABLE_STATUS_CODES: ErrorStatusCode[] = [400, 401, 403, 404, 408, 429, 500, 502, 503];
 
 /** Tudo que as telas de erro precisam para se desenhar. */
 export interface ErrorDetails {

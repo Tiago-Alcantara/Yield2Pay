@@ -13,7 +13,7 @@ export const isPrivyConfigured =
   !!appId && appId !== 'placeholder-app-id' && appId.length >= 20;
 
 export function PrivyProviderWrapper({ children }: { children: React.ReactNode }) {
-  if (!isPrivyConfigured) {
+  if (!appId || !isPrivyConfigured) {
     if (typeof window !== 'undefined') {
       console.warn(
         '[Yield2Pay] NEXT_PUBLIC_PRIVY_APP_ID is missing or invalid — running without Privy. ' +

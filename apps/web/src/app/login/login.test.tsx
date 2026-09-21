@@ -63,4 +63,15 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     expect(mockReplace).toHaveBeenCalledWith('/dashboard');
   });
+
+  it('links terms and privacy to real routes', () => {
+    render(<LoginPage />);
+    expect(screen.getByRole('link', { name: /termos/i }).getAttribute('href')).toBe(
+      '/termos',
+    );
+    expect(
+      screen.getByRole('link', { name: /privacidade/i }).getAttribute('href'),
+    ).toBe('/privacidade');
+  });
 });
+

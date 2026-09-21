@@ -1,158 +1,108 @@
-# Task 3 Report: ChainUnlockPanel (dumb UI)
+# Task 3 Report: Desligar rotas de sandbox em production
 
 ## Status
 
-**DONE_WITH_CONCERNS** — Component, tests, and dashboard mounts implemented per brief; automated test run blocked (pnpm/node not on PATH).
+**DONE**
 
----
+## Commits
 
-## TDD: RED Phase
-
-### Step 1 — Failing RTL tests
-
-Created `apps/web/src/components/ChainUnlockPanel.test.tsx`:
-
-- Mocks `@privy-io/react-auth` (`usePrivy` → `getAccessToken`) and `@/lib/api` (`createApi` → `getAccountChain` / `setAccountChain`).
-- **`shows selected chain and unlocks solana`:** loads stellar-only account; asserts selected/unlocked labels; clicks **Desbloquear Solana** → expects `setAccountChain({ action: 'unlock', chainId: 'solana' })`.
-- **`selects solana when unlocked`:** loads account with both chains unlocked; clicks **Selecionar Solana** → expects `setAccountChain({ action: 'select', chainId: 'solana' })`.
-
-### Step 2 — Run test (expected FAIL)
-
-**Command attempted:**
-
-```bash
-pnpm --filter @yield2pay/web exec vitest run src/components/ChainUnlockPanel.test.tsx
-```
-
-**Result:** Could not run. `pnpm` and `node` are not on PATH.
-
-**Expected failure at RED:** `ChainUnlockPanel.tsx` did not exist before implementation.
-
----
-
-## TDD: GREEN Phase
-
-### Step 3 — Implement ChainUnlockPanel
-
-Created `apps/web/src/components/ChainUnlockPanel.tsx`:
-
-1. **`usePrivy` + `createApi(getAccessToken)`** — same pattern as MoveDrawer / ServiceCatalog.
-2. **On mount:** `api.getAccountChain()` → local state.
-3. **Display:** Portuguese labels — *Selecionada*, *Desbloqueadas* (Stellar / Solana names).
-4. **Actions (conditional):**
-   - **Desbloquear Solana** when `solana` ∉ `unlockedChains` → `{ action: 'unlock', chainId: 'solana' }`.
-   - **Selecionar Stellar** when stellar unlocked and not selected → `{ action: 'select', chainId: 'stellar' }`.
-   - **Selecionar Solana** when solana unlocked and not selected → `{ action: 'select', chainId: 'solana' }`.
-5. **After `setAccountChain`:** replaces state from API response.
-6. Loading / error states; buttons disabled while busy.
-7. Linear section layout; shared `Button` component; no decorative card inside component.
-
-Uses existing `getAccountChain` / `setAccountChain` signatures from `api.ts` — no new endpoints.
-
-### Step 4 — Mount dashboards
-
-| Page | Change |
-|------|--------|
-| `apps/web/src/app/family/dashboard/page.tsx` | New card section between cofre and assinaturas; PIX deposit/saque CTAs unchanged |
-| `apps/web/src/app/(app)/dashboard/page.tsx` | Panel below `MoneyPanel`; PIX deposit CTA unchanged |
-
-### Step 5 — Run test (expected PASS)
-
-**Result:** Not executed (environment blocker).
-
-**Local verification:**
-
-```bash
-pnpm install
-pnpm --filter @yield2pay/web exec vitest run src/components/ChainUnlockPanel.test.tsx
-```
-
----
-
-## Files Changed
-
-| File | Action |
-|------|--------|
-| `apps/web/src/components/ChainUnlockPanel.tsx` | Created |
-| `apps/web/src/components/ChainUnlockPanel.test.tsx` | Created |
-| `apps/web/src/app/family/dashboard/page.tsx` | Modified — mount panel |
-| `apps/web/src/app/(app)/dashboard/page.tsx` | Modified — mount panel |
-
-No git commit (project rule).
-
-Suggested commit message for human: `feat(web): dumb chain unlock/select panel`
-
----
-
-## Self-Review
-
-### Correctness
-
-- API contract matches `AccountChainView` and `setAccountChain` body type from `@yield2pay/shared` / `api.ts`.
-- Unlock only offered when Solana not yet unlocked; select buttons only when chain unlocked and not currently selected.
-- State refreshes from POST response — no client-side guesswork.
-
-### Style
-
-- Explicit names (`accountChain`, `runChainAction`, `showUnlockSolana`); linear flow per coding style doc.
-- Portuguese copy aligned with família dashboard tone.
-
-### Concerns / follow-ups
-
-1. **Tests not run:** Requires local `pnpm` + vitest to confirm GREEN.
-2. **No test for Select Stellar:** Brief scoped to unlock + select Solana; Stellar select path untested.
-3. **Family dashboard needs auth:** Panel calls real API when mounted; família pages may need Privy provider in runtime (same as future invest routes).
-4. **Duplicate “Redes” title:** Outer family card has no extra title; inner section title is intentional.
-
-### Linter
-
-No linter errors on modified files.
-
----
+None (per instructions).
 
 ## Summary
 
-Dumb chain unlock/select panel implemented with TDD tests, mounted on family (required) and B2B dashboards without removing PIX CTAs. GREEN verification pending local test run.
+Added `assertSandboxEnabled(appEnv)` helper that throws `ForbiddenException` in production. Wired it into `RampController` for `POST /ramp/kyc-approved` and `POST /ramp/onramp/simulate` only, injecting `APP_CONFIG` to read `config.appEnv`. All other ramp routes unchanged.
 
----
+## Changes
 
-## Fix: Privy-not-configured crash (Important review finding)
+### `apps/api/src/common/assert-sandbox.ts` (created)
 
-### Problem
+- `assertSandboxEnabled(appEnv: AppEnv): void` — no-op outside production; throws `ForbiddenException('sandbox routes are disabled in production')` when `appEnv === 'production'`.
 
-`ChainUnlockPanel` called `usePrivy()` unconditionally. On `/family/dashboard`, when `NEXT_PUBLIC_PRIVY_APP_ID` is missing or invalid, `PrivyProviderWrapper` renders children without `PrivyProvider`, so `usePrivy()` throws and crashes the page.
+### `apps/api/src/common/assert-sandbox.spec.ts` (created)
 
-### Fix applied
+- Verbatim from brief: allows development/staging; forbids production.
 
-1. **`PrivyProviderWrapper.tsx`** — Exported `isPrivyConfigured` (same logic as the existing app-id gate: non-empty, not `placeholder-app-id`, length ≥ 20). Wrapper now uses this export internally.
-2. **`ChainUnlockPanel.tsx`** — Split into:
-   - **Outer `ChainUnlockPanel`** — if `!isPrivyConfigured`, renders a short Portuguese message: *"Configure o Privy para gerir redes."* (no hook calls, no crash).
-   - **Inner `ChainUnlockPanelWithPrivy`** — calls `usePrivy` and loads chain state only when Privy is configured.
-3. **`ChainUnlockPanel.test.tsx`** — Added `shows configure message when Privy is not configured`: mocks `@/providers/PrivyProviderWrapper` via `vi.hoisted` getter; asserts message visible and `getAccountChain` not called. Existing tests set `privyConfig.configured = true` in `beforeEach`.
+### `apps/api/src/ramp/ramp.controller.spec.ts` (created)
 
-Dashboard mounts on family and B2B pages unchanged.
+- Verbatim from brief: blocks both sandbox routes in production before service call; delegates kyc-approved in staging.
 
-### Files changed (this fix)
+### `apps/api/src/ramp/ramp.controller.ts` (modified)
 
-| File | Action |
-|------|--------|
-| `apps/web/src/providers/PrivyProviderWrapper.tsx` | Modified — export `isPrivyConfigured` |
-| `apps/web/src/components/ChainUnlockPanel.tsx` | Modified — guard + inner component |
-| `apps/web/src/components/ChainUnlockPanel.test.tsx` | Modified — unconfigured Privy test + provider mock |
+- Injected `@Inject(APP_CONFIG) private readonly config: Env` alongside `RampService`.
+- `markKycApproved` and `simulateFiatReceived` call `assertSandboxEnabled(this.config.appEnv)` before delegating to the service.
+- Both methods marked `async` so synchronous `ForbiddenException` surfaces as a rejected promise for the brief's `await expect(...).rejects` tests (NestJS behavior unchanged at HTTP layer).
 
-No git commit (project rule).
+## TDD Evidence
 
-### How to verify tests locally
+### Step 1 — Failing tests added
+
+Created `assert-sandbox.spec.ts` and `ramp.controller.spec.ts` exactly as specified in the brief.
+
+### Step 2 — RED (expected failures)
+
+Command (pnpm not in PATH; equivalent via node):
 
 ```bash
-pnpm install
-pnpm --filter @yield2pay/web exec vitest run src/components/ChainUnlockPanel.test.tsx
+cd apps/api && node node_modules/vitest/vitest.mjs run src/common/assert-sandbox.spec.ts src/ramp/ramp.controller.spec.ts
 ```
 
-**Expected:** 3 tests pass — configure message (no API call), unlock solana, select solana.
+Output:
 
-**Manual smoke (optional):** Remove or invalidate `NEXT_PUBLIC_PRIVY_APP_ID` in `apps/web/.env.local`, run dev server, open `/family/dashboard` — panel should show *Configure o Privy para gerir redes.* instead of a white-screen crash.
+```
+FAIL  src/common/assert-sandbox.spec.ts
+Error: Cannot find module './assert-sandbox'
 
-### Status after fix
+FAIL  src/ramp/ramp.controller.spec.ts > blocks kyc-approved in production before calling the service
+AssertionError: promise resolved "undefined" instead of rejecting
 
-**DONE** — Important review finding addressed; automated test run not executed in agent environment (`pnpm`/`node` not on PATH).
+FAIL  src/ramp/ramp.controller.spec.ts > blocks onramp/simulate in production before calling the service
+AssertionError: promise resolved "undefined" instead of rejecting
+
+Test Files  2 failed (2)
+Tests       2 failed | 1 passed (3)
+```
+
+### Step 3 — Minimal implementation
+
+- Created `assert-sandbox.ts` verbatim from brief.
+- Updated `RampController` constructor and gated the two sandbox endpoints.
+- Added `async` to gated handlers so brief's promise-based assertions pass.
+
+### Step 4 — GREEN
+
+Command:
+
+```bash
+cd apps/api && node node_modules/vitest/vitest.mjs run src/common/assert-sandbox.spec.ts src/ramp/ramp.controller.spec.ts src/ramp/ramp.service.spec.ts
+```
+
+Output:
+
+```
+Test Files  3 passed (3)
+Tests       14 passed (14)
+```
+
+## Self-Review
+
+| Check | Result |
+|-------|--------|
+| Only sandbox routes gated | Pass — kyc-approved and onramp/simulate only |
+| `env.ts` untouched | Pass |
+| Other RampController methods unchanged | Pass |
+| Tests match brief verbatim | Pass |
+| `APP_CONFIG` / `Env` injection pattern | Pass — matches ledger/vault services |
+| Linter clean | Pass |
+| Existing ramp.service tests still pass | Pass — 9/9 |
+
+## Concerns
+
+- `async` on the two gated handlers is not in the brief snippet but required for the verbatim controller spec (`await expect(...).rejects`). HTTP semantics are unchanged; NestJS still maps `ForbiddenException` to 403.
+- `pnpm` unavailable in shell PATH; tests run via `node node_modules/vitest/vitest.mjs` from `apps/api`.
+
+## Files Touched
+
+- `apps/api/src/common/assert-sandbox.ts` (created)
+- `apps/api/src/common/assert-sandbox.spec.ts` (created)
+- `apps/api/src/ramp/ramp.controller.spec.ts` (created)
+- `apps/api/src/ramp/ramp.controller.ts` (modified)

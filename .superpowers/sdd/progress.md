@@ -1,18 +1,20 @@
-# SDD Progress — MultChain venue product
+# SDD Progress — Web2 go-live blockers
 
-Plan: `docs/superpowers/plans/2026-09-17-multichain-venue-product.md`
-Branch: `MultChain`
-Base before Task 1: `421fd0f`
+Plan: `docs/superpowers/plans/2026-09-17-web2-golive-blockers.md`
+Branch: `MultChain` (in-place; not main)
+Note: agent never commits. Review packages use working-tree diffs.
 
 ## Ledger
 
-Task 1–7: complete (all uncommitted; ⚠️ vitest/pnpm not available in agent env)
-Final review: Not ready → fix wave C1–C3 + I1–I3 applied
+Task 1: complete (uncommitted, review clean). Minor: production whitespace CORS untested.
+Task 2: complete (uncommitted, review clean).
+Task 3: complete (uncommitted, review clean). async on gated handlers for promise tests.
+Task 4: complete (uncommitted, review clean). ValidationPipe already global.
+Task 5: complete (uncommitted, review clean). next(err) not e2e-tested (plan-mandated).
+Task 6: complete (uncommitted, review clean).
+Task 7: complete (uncommitted, review clean).
+Task 8: complete (uncommitted, review clean). PT-only legal draft; EN login → PT routes is plan-mandated.
+Task 9: complete (uncommitted, review clean). Dual /account controllers; delete blocked by any deposit row.
+Task 10: complete (uncommitted, review clean). Human dashboard checkboxes remain for the user.
 
-## Remaining (human)
-
-1. `pnpm install`
-2. `pnpm db:generate` + migrate `20260917120000_deposit_venue`
-3. `pnpm --filter @yield2pay/api test` + `pnpm --filter @yield2pay/web test`
-4. Commit yourself (agent never commits)
-5. Gaps still open: live XDR amount parse; family AuthGate; Solana wallet provisioning; vault read still Stellar-only for spendable
+Post-review: `trust proxy` + `pruneExpiredBuckets` (rate limiter behind Render); `PrivyProviderWrapper` narrows `appId` so `next build` typecheck can pass.

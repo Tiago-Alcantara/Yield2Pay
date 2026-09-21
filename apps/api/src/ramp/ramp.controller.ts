@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Post,
   Req,
@@ -9,12 +10,18 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import { APP_CONFIG } from '../config/config.module';
+import type { Env } from '../config/env';
+import { assertSandboxEnabled } from '../common/assert-sandbox';
 import { RampService } from './ramp.service';
 
 @Controller('ramp')
 @UseGuards(AuthGuard)
 export class RampController {
-  constructor(private readonly ramp: RampService) {}
+  constructor(
+    private readonly ramp: RampService,
+    @Inject(APP_CONFIG) private readonly config: Env,
+  ) {}
 
   @Get('status')
   getStatus(@Req() req: AuthenticatedRequest) {
@@ -30,7 +37,8 @@ export class RampController {
   }
 
   @Post('kyc-approved')
-  markKycApproved(@Req() req: AuthenticatedRequest) {
+  async markKycApproved(@Req() req: AuthenticatedRequest) {
+    assertSandboxEnabled(this.config.appEnv);
     return this.ramp.markKycApproved(req.companyId);
   }
 
@@ -49,10 +57,11 @@ export class RampController {
   }
 
   @Post('onramp/simulate')
-  simulateFiatReceived(
+  async simulateFiatReceived(
     @Req() req: AuthenticatedRequest,
     @Body() body: { orderId: string },
   ) {
+    assertSandboxEnabled(this.config.appEnv);
     return this.ramp.simulateFiatReceived(req.companyId, body.orderId);
   }
 

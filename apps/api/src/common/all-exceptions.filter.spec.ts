@@ -141,7 +141,7 @@ it('normalizes a status outside the closed set', () => {
     capture(filter, new HttpException('unprocessable', 422)).body.statusCode,
   ).toBe(400);
   expect(
-    capture(filter, new HttpException('too many', 429)).body.statusCode,
+    capture(filter, new HttpException('conflict', 409)).body.statusCode,
   ).toBe(400);
   expect(
     capture(filter, new HttpException('gateway timeout', 504)).body.statusCode,
@@ -151,7 +151,7 @@ it('normalizes a status outside the closed set', () => {
 it('keeps the statuses the error screens know how to render', () => {
   const filter = new AllExceptionsFilter('production');
 
-  for (const code of [400, 401, 403, 404, 408, 500, 502, 503]) {
+  for (const code of [400, 401, 403, 404, 408, 429, 500, 502, 503]) {
     expect(capture(filter, new HttpException('x', code)).body.statusCode).toBe(
       code,
     );

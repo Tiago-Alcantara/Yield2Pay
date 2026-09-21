@@ -55,6 +55,13 @@ export const PAGE_COPY: Record<ErrorStatusCode, ErrorCopy> = {
     primary: 'retry',
     secondary: 'home',
   },
+  429: {
+    kicker: 'Erro 429 · muitas tentativas',
+    title: 'Você fez pedidos demais em pouco tempo',
+    msg: 'Aguarde alguns instantes e tente de novo. Se o aviso continuar, fale com o suporte.',
+    primary: 'retry',
+    secondary: 'home',
+  },
   500: {
     kicker: 'Erro 500 · falha interna',
     title: 'Algo saiu errado do nosso lado',
@@ -83,7 +90,7 @@ export const PAGE_COPY: Record<ErrorStatusCode, ErrorCopy> = {
  * válida. Os erros de carregamento de rota (404, 502, 503) vão para a tela
  * cheia, onde não há nada a preservar atrás.
  */
-export const DIALOG_STATUS_CODES = [400, 401, 403, 408, 500] as const;
+export const DIALOG_STATUS_CODES = [400, 401, 403, 408, 429, 500] as const;
 
 export type DialogStatusCode = (typeof DIALOG_STATUS_CODES)[number];
 
@@ -118,6 +125,13 @@ export const DIALOG_COPY: Record<DialogStatusCode, ErrorCopy> = {
     kicker: PAGE_COPY[408].kicker,
     title: PAGE_COPY[408].title,
     msg: 'A conexão levou mais tempo do que o esperado. Tente novamente em alguns instantes.',
+    primary: 'retry',
+    secondary: null,
+  },
+  429: {
+    kicker: PAGE_COPY[429].kicker,
+    title: PAGE_COPY[429].title,
+    msg: 'Aguarde alguns instantes e tente de novo.',
     primary: 'retry',
     secondary: null,
   },

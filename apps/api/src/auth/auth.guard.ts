@@ -16,13 +16,6 @@ export class AuthGuard implements CanActivate {
   ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    console.log(
-      '[AuthGuard] HIT',
-      req.method,
-      req.url,
-      'auth=',
-      req.headers['authorization']?.slice(0, 30),
-    );
     const header: string | undefined = req.headers['authorization'];
     if (!header?.startsWith('Bearer '))
       throw new UnauthorizedException('missing bearer token');

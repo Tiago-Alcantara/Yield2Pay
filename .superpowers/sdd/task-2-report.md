@@ -1,106 +1,77 @@
-# Task 2 Report: MoveDrawer → `useVenueTx`
+# Task 2 Report: Parar de logar o Bearer token
 
 ## Status
 
-**DONE_WITH_CONCERNS** — Implementation and tests match the brief; automated test runs could not be executed in this environment (Node.js / pnpm not on PATH).
+**DONE**
 
----
+## Commits
 
-## TDD: RED Phase
-
-### Step 1 — Update tests first
-
-Modified `apps/web/src/components/MoveDrawer.test.tsx`:
-
-- Replaced `vi.mock('@/lib/useStellarTx')` with `vi.mock('@/lib/useVenueTx')` returning `{ deposit: mockDeposit, withdraw: mockWithdraw }`.
-- Added mocks for `@privy-io/react-auth` (`usePrivy`) and `@/lib/api` (`createApi` + `getAccountChain`) so MoveDrawer can mount without real Privy/API.
-- Added `venue: { chain: 'stellar', protocol: 'blend' }` to `baseProps` so tests avoid async venue resolution.
-- Kept all existing behavior assertions (deposit/withdraw base units, max button, validation, error display, success hash).
-
-### Step 2 — Run test (expected FAIL)
-
-**Command attempted:**
-
-```bash
-pnpm --filter @yield2pay/web exec vitest run src/components/MoveDrawer.test.tsx
-```
-
-**Result:** Could not run. `pnpm` and `node` are not on PATH.
-
-**Expected failure (per brief):** MoveDrawer still imported `useStellarTx` at RED time — tests would fail to resolve the old hook or assertions would not match the new mock target.
-
----
-
-## TDD: GREEN Phase
-
-### Step 3 — Implement MoveDrawer
-
-Modified `apps/web/src/components/MoveDrawer.tsx`:
-
-1. **Removed** `useStellarTx` import.
-2. **Added** optional `venue?: VenueIdPath` on `MoveDrawerProps`; `VenueIdPath` imported from `@/lib/resolveVenueFromAccount` (not redefined).
-3. **Venue resolution:**
-   - If `venue` prop is provided → use it directly (`activeVenue = venueProp`).
-   - If not → `useEffect` fetches `createApi(getAccessToken).getAccountChain()`, then `resolveVenueFromAccount(account)` into `loadedVenue` state.
-4. **Hook call:** `useVenueTx(activeVenue ?? FALLBACK_VENUE)` — fallback only satisfies React hook rules while loading; confirm is disabled until `activeVenue` is set.
-5. **UX guard:** Confirm button `disabled={!isValid || submitting || !venueReady}`; `handleConfirm` returns early when `!venueReady`.
-6. Validation, copy, and UI layout unchanged.
-
-Dashboard `page.tsx` left unchanged — MoveDrawer resolves venue on mount when parent omits the prop.
-
-### Step 4 — Run test (expected PASS)
-
-**Command:** Same as Step 2.
-
-**Result:** Not executed (environment blocker). Logic review confirms all six test cases should pass with the venue prop and mocked `useVenueTx`.
-
-**Local verification command for human:**
-
-```bash
-pnpm install
-pnpm --filter @yield2pay/web exec vitest run src/components/MoveDrawer.test.tsx
-```
-
----
-
-## Files Changed
-
-| File | Action |
-|------|--------|
-| `apps/web/src/components/MoveDrawer.test.tsx` | Modified — mock `useVenueTx`, pass `venue` prop |
-| `apps/web/src/components/MoveDrawer.tsx` | Modified — `useVenueTx`, optional venue, async resolution |
-
-No changes to `useDepositFlow`, `useWithdrawFlow`, PIX flows, or dashboard page. No git commit (project rule).
-
----
-
-## Self-Review
-
-### Correctness
-
-- Deposit/withdraw still call `tx[mode](toBaseUnits(amountRaw))` — same base-unit contract as before.
-- When parent passes `venue`, no network call for account chain.
-- When parent omits `venue`, confirm stays disabled until `getAccountChain` resolves — prevents submitting against the fallback venue.
-- `FALLBACK_VENUE` matches stellar/blend default used elsewhere.
-
-### Style
-
-- Linear flow, explicit names (`activeVenue`, `loadedVenue`, `venueReady`) per coding style doc.
-- No new dependencies; reuses existing `createApi`, `usePrivy`, `resolveVenueFromAccount`.
-
-### Concerns / follow-ups
-
-1. **Tests not run:** Requires local `pnpm install` + vitest to confirm GREEN.
-2. **`VenueIdPath` duplication:** Still defined in both `resolveVenueFromAccount.ts` and `useVenueTx.ts`; out of scope for Task 2.
-3. **Dashboard could pass `venue` later:** Parent already knows chain context in some flows; passing `venue` from dashboard would skip the extra `getAccountChain` round-trip (optional optimization).
-4. **No test for async venue path:** Brief scoped tests to explicit `venue` prop; async resolution path is untested in unit tests.
-
-### Linter
-
-No linter errors on modified files.
-
----
+None (per instructions).
 
 ## Summary
 
-MoveDrawer now routes deposit/withdraw through `useVenueTx` with optional `venue` prop or on-mount account-chain resolution. Tests updated per TDD; GREEN verification pending local test run.
+Removed the `console.log('[AuthGuard] HIT', ...)` call from `AuthGuard.canActivate` that printed the first 30 characters of the `Authorization` header on every authenticated request. Added a regression test that asserts neither the raw token nor a `Bearer` prefix appears in any `console.log` or `console.error` output during a successful auth flow.
+
+## Changes
+
+### `apps/api/src/auth/auth.guard.ts`
+
+- **Deleted** lines 19–25: `console.log('[AuthGuard] HIT', req.method, req.url, 'auth=', req.headers['authorization']?.slice(0, 30))`.
+- **Kept** `console.error('[AuthGuard] privy.verify failed:', e)` and `console.error('[AuthGuard] findOrCreate failed:', e)` — these log the error object only, not the bearer token.
+
+### `apps/api/src/auth/auth.guard.spec.ts`
+
+- **Added** `it('does not log the authorization header', ...)` exactly as specified in the task brief.
+- Test spies on `console.log` and `console.error`, runs a successful `canActivate` with `Bearer tok123secret`, and asserts the joined output does not contain `tok123secret` or `Bearer tok123`.
+
+## TDD Evidence
+
+### Step 1 — Failing test added
+
+Test added before implementation change.
+
+### Step 2 — Test failed (expected)
+
+```
+FAIL  src/auth/auth.guard.spec.ts > does not log the authorization header
+AssertionError: expected '[AuthGuard] HIT undefined undefined a…' not to contain 'tok123secret'
+Received: "[AuthGuard] HIT undefined undefined auth= Bearer tok123secret"
+```
+
+Command used (pnpm not in PATH; equivalent via node):
+
+```bash
+cd apps/api && node node_modules/vitest/vitest.mjs run src/auth/auth.guard.spec.ts
+```
+
+### Step 3 — Minimal implementation
+
+Removed only the offending `console.log` block.
+
+### Step 4 — Tests pass
+
+```
+Test Files  1 passed (1)
+Tests       5 passed (5)
+```
+
+## Self-Review
+
+| Check | Result |
+|-------|--------|
+| No `console.log` with authorization data | Pass — log removed |
+| Error logging preserved | Pass — both `console.error` calls unchanged |
+| Auth contract unchanged | Pass — same exceptions, verify/findOrCreate flow |
+| Test matches brief verbatim | Pass |
+| No new `as any` beyond brief | Pass — only `privy as any`, `company as any`, context `as any` in new test |
+| Linter clean | Pass — no diagnostics on touched files |
+| Scope minimal | Pass — 7 lines deleted, 1 test added |
+
+## Concerns
+
+None. `pnpm` was unavailable in the shell PATH; tests were run with `node node_modules/vitest/vitest.mjs` from `apps/api`, which is equivalent to the brief's vitest command.
+
+## Files Touched
+
+- `apps/api/src/auth/auth.guard.ts` (modified)
+- `apps/api/src/auth/auth.guard.spec.ts` (modified)

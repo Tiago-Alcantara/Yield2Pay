@@ -1,51 +1,65 @@
-### Task 2: MoveDrawer → `useVenueTx`
+### Task 2: Parar de logar o Bearer token
 
 **Files:**
-- Modify: `apps/web/src/components/MoveDrawer.tsx`
-- Modify: `apps/web/src/components/MoveDrawer.test.tsx`
-- Possibly: dashboard page that hosts MoveDrawer (pass venue or load account chain)
+- Modify: `apps/api/src/auth/auth.guard.ts`
+- Modify: `apps/api/src/auth/auth.guard.spec.ts`
 
 **Interfaces:**
-- Consumes: `useVenueTx(venue)`, `getAccountChain` from `createApi`, `resolveVenueFromAccount`.
-- Produces: same MoveDrawer UX; txs go to `/venues/:chain/:protocol/...`.
+- Consumes: `AuthGuard.canActivate` existente
+- Produces: mesmo contrato; nenhum `console.log` com `authorization`
 
-- [ ] **Step 1: Update tests** — mock `useVenueTx` instead of `useStellarTx`; assert deposit/withdraw call venue hook.
+- [ ] **Step 1: Write the failing test**
 
-Example shape:
+Acrescentar em `apps/api/src/auth/auth.guard.spec.ts`:
 
-```tsx
-vi.mock('@/lib/useVenueTx', () => ({
-  useVenueTx: vi.fn(() => ({
-    deposit: vi.fn().mockResolvedValue('tx_venue'),
-    withdraw: vi.fn().mockResolvedValue('tx_venue'),
-  })),
-}));
-
-vi.mock('@/lib/api', () => ({
-  createApi: () => ({
-    getAccountChain: vi.fn().mockResolvedValue({
-      selectedChain: 'stellar',
-      unlockedChains: ['stellar'],
-    }),
-  }),
-}));
+```ts
+it('does not log the authorization header', async () => {
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const privy = {
+    verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),
+  };
+  const company = { findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }) };
+  const guard = new AuthGuard(privy as any, company as any);
+  const req: { headers: Record<string, string>; companyId?: string } = {
+    headers: { authorization: 'Bearer tok123secret' },
+  };
+  await guard.canActivate({
+    switchToHttp: () => ({ getRequest: () => req }),
+  } as any);
+  const printed = [...log.mock.calls, ...error.mock.calls]
+    .flat()
+    .map(String)
+    .join(' ');
+  expect(printed).not.toContain('tok123secret');
+  expect(printed).not.toContain('Bearer tok123');
+  log.mockRestore();
+  error.mockRestore();
+});
 ```
 
-- [ ] **Step 2: Run MoveDrawer tests — expect FAIL** (still imports useStellarTx).
+- [ ] **Step 2: Run test to verify it fails**
 
-- [ ] **Step 3: Implement**
+Run:
 
-In `MoveDrawer.tsx`:
-1. Load account chain once (useEffect + state, or parent passes `venue`).
-2. Prefer parent prop `venue?: VenueIdPath` if present; else fetch `getAccountChain` → `resolveVenueFromAccount`.
-3. `const tx = useVenueTx(venue)`.
-4. Remove `useStellarTx` import.
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/auth/auth.guard.spec.ts
+```
 
-Keep validation / UI copy unchanged.
+Expected: FAIL — printed contains `Bearer tok123`.
 
-- [ ] **Step 4: Run** `pnpm --filter @yield2pay/web exec vitest run src/components/MoveDrawer.test.tsx` — PASS.
+- [ ] **Step 3: Write minimal implementation**
 
-- [ ] **Step 5: Commit draft**  
-`feat(web): MoveDrawer uses venue registry`
+Em `auth.guard.ts`, apagar o `console.log('[AuthGuard] HIT', ...)`. Manter os `console.error` de falha de verify/findOrCreate — eles não imprimem o token.
 
----
+- [ ] **Step 4: Run test to verify it passes**
+
+Run:
+
+```bash
+pnpm --filter @yield2pay/api exec vitest run src/auth/auth.guard.spec.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Do not commit**

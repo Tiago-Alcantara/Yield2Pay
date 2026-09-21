@@ -30,6 +30,7 @@ const schema = z.object({
   VENUE_MODE: venueMode.optional(),
   STELLAR_VENUE_MODE: venueMode.optional(),
   SOLANA_VENUE_MODE: venueMode.optional(),
+  CORS_ORIGIN: z.string().optional(),
 });
 
 export type Env = {
@@ -54,7 +55,25 @@ export type Env = {
   venueMode: 'live' | 'mock' | undefined;
   stellarVenueMode: 'live' | 'mock' | undefined;
   solanaVenueMode: 'live' | 'mock' | undefined;
+  corsOrigins: string[] | undefined;
 };
+
+function parseCorsOrigins(
+  appEnv: AppEnv,
+  raw: string | undefined,
+): string[] | undefined {
+  const parts = (raw ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  if (appEnv === 'production') {
+    if (parts.length === 0) {
+      throw new Error('CORS_ORIGIN is required when APP_ENV=production');
+    }
+    return parts;
+  }
+  return parts.length > 0 ? parts : undefined;
+}
 
 export function loadEnv(raw: Record<string, string | undefined>): Env {
   const parsed = schema.parse(raw);
@@ -80,6 +99,7 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     venueMode: parsed.VENUE_MODE,
     stellarVenueMode: parsed.STELLAR_VENUE_MODE,
     solanaVenueMode: parsed.SOLANA_VENUE_MODE,
+    corsOrigins: parseCorsOrigins(parsed.APP_ENV, parsed.CORS_ORIGIN),
   };
 }
 

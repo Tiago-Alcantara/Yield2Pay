@@ -35,7 +35,13 @@ it('defaults the app env to development', () => {
 
 it('parses an explicit app env', () => {
   expect(loadEnv({ ...base, APP_ENV: 'staging' }).appEnv).toBe('staging');
-  expect(loadEnv({ ...base, APP_ENV: 'production' }).appEnv).toBe('production');
+  expect(
+    loadEnv({
+      ...base,
+      APP_ENV: 'production',
+      CORS_ORIGIN: 'https://yield2pay.vercel.app',
+    }).appEnv,
+  ).toBe('production');
 });
 
 it('rejects an unknown app env', () => {
@@ -58,4 +64,26 @@ it('parses venue mode overrides', () => {
   expect(env.venueMode).toBe('mock');
   expect(env.stellarVenueMode).toBe('live');
   expect(env.solanaVenueMode).toBe('mock');
+});
+
+it('rejects production without CORS_ORIGIN', () => {
+  expect(() => loadEnv({ ...base, APP_ENV: 'production' })).toThrow(
+    /CORS_ORIGIN/,
+  );
+});
+
+it('parses comma-separated CORS origins in production', () => {
+  const env = loadEnv({
+    ...base,
+    APP_ENV: 'production',
+    CORS_ORIGIN: 'https://yield2pay.vercel.app, https://www.yield2pay.com',
+  });
+  expect(env.corsOrigins).toEqual([
+    'https://yield2pay.vercel.app',
+    'https://www.yield2pay.com',
+  ]);
+});
+
+it('leaves corsOrigins undefined when CORS_ORIGIN is unset outside production', () => {
+  expect(loadEnv(base).corsOrigins).toBeUndefined();
 });

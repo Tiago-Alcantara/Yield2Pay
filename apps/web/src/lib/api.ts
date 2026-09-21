@@ -58,6 +58,8 @@ interface ApiMethods {
   listVenues(): Promise<VenueView[]>;
   getAccountChain(): Promise<AccountChainView>;
   setAccountChain(body: { action: 'unlock' | 'select'; chainId: 'stellar' | 'solana' }): Promise<AccountChainView>;
+  exportAccount(): Promise<unknown>;
+  deleteAccount(): Promise<void>;
   buildVenueDeposit(venue: { chain: string; protocol: string }, amount: string): Promise<VenueUnsignedTx>;
   submitVenueDeposit(venue: { chain: string; protocol: string }, body: VenueSubmitTxDto): Promise<SubmitTxResponse>;
   buildVenueWithdraw(venue: { chain: string; protocol: string }, amount: string): Promise<VenueUnsignedTx>;
@@ -151,6 +153,8 @@ export function createApi(getToken: GetToken): ApiMethods {
     listVenues: () => request('/venues'),
     getAccountChain: () => request('/account/chain'),
     setAccountChain: (body) => request('/account/chain', 'POST', body),
+    exportAccount: () => request('/account/export'),
+    deleteAccount: () => request('/account', 'DELETE'),
     buildVenueDeposit: (venue, amount) =>
       request(`/venues/${venue.chain}/${venue.protocol}/deposit/build`, 'POST', { amount }),
     submitVenueDeposit: (venue, body) =>

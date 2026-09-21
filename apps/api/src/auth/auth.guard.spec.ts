@@ -38,6 +38,30 @@ it('rejects when verify throws', async () => {
   expect(req.companyId).toBeUndefined();
 });
 
+it('does not log the authorization header', async () => {
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const privy = {
+    verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),
+  };
+  const company = { findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }) };
+  const guard = new AuthGuard(privy as any, company as any);
+  const req: { headers: Record<string, string>; companyId?: string } = {
+    headers: { authorization: 'Bearer tok123secret' },
+  };
+  await guard.canActivate({
+    switchToHttp: () => ({ getRequest: () => req }),
+  } as any);
+  const printed = [...log.mock.calls, ...error.mock.calls]
+    .flat()
+    .map(String)
+    .join(' ');
+  expect(printed).not.toContain('tok123secret');
+  expect(printed).not.toContain('Bearer tok123');
+  log.mockRestore();
+  error.mockRestore();
+});
+
 it('verifies token and attaches companyId', async () => {
   const privy = {
     verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),

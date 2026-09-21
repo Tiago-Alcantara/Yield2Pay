@@ -9,8 +9,8 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import type { CreateBillDto } from '@yield2pay/shared';
 import { BillsService } from './bills.service';
+import { CreateBillBody } from './create-bill.body';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 
@@ -20,7 +20,7 @@ export class BillsController {
   constructor(private readonly billsService: BillsService) {}
 
   @Post()
-  create(@Req() req: AuthenticatedRequest, @Body() dto: CreateBillDto) {
+  create(@Req() req: AuthenticatedRequest, @Body() dto: CreateBillBody) {
     return this.billsService.create(req.companyId, dto);
   }
 

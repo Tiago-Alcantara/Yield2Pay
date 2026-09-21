@@ -1,27 +1,18 @@
-### Task 4: Família `/family/investir` + `/family/sacar-cofre`
+### Task 4: Validar o body de POST /bills
 
 **Files:**
-- Create: `apps/web/src/app/family/investir/page.tsx`
-- Create: `apps/web/src/app/family/sacar-cofre/page.tsx`
-- Optional shared: `apps/web/src/app/family/_components/VenueMoveForm.tsx`
-- Modify: `apps/web/src/app/family/dashboard/page.tsx` — links “Investir no cofre” / “Sacar do cofre”
-- Tests: colocated `*.test.tsx` or under `apps/web/src/app/family/...`
+- Create: `apps/api/src/bills/create-bill.body.ts`
+- Create: `apps/api/src/bills/create-bill.body.spec.ts`
+- Modify: `apps/api/src/bills/bills.controller.ts`
 
 **Interfaces:**
-- Consumes: `getAccountChain` → `resolveVenueFromAccount` → `useVenueTx`; `toBaseUnits` / `validateAmount` / `getErrorMessage` like MoveDrawer.
-- Produces: authenticated family user can deposit/withdraw via venue; no SDK imports.
+- Consumes: `CreateBillDto` em `@yield2pay/shared`
+- Produces: classe `CreateBillBody` com os mesmos campos; `BillsController.create` recebe `CreateBillBody`
 
-- [ ] **Step 1: Write failing page tests** — mock `useVenueTx` + `getAccountChain`; assert confirm calls `deposit`/`withdraw` with base units.
+Copy the test file and class from the plan verbatim (vendor Length 1-80, monthlyCost Length 1-16 + /^\d+$/, type IsIn software|utility|other). Swap the controller @Body type. Do not change bills.service.ts. Do not commit.
 
-- [ ] **Step 2: Run — FAIL**
+TDD: write create-bill.body.spec.ts first, run until FAIL, then implement, then run create-bill.body.spec.ts + bills.service.spec.ts.
 
-- [ ] **Step 3: Implement pages** — reuse MoveDrawer patterns (amount, max, errors). Default venue from account chain. Include `ChainUnlockPanel` or link to it on dashboard.
+If pnpm missing from PATH, use node vitest.mjs as before.
 
-- [ ] **Step 4: Dashboard links** to `/family/investir` and `/family/sacar-cofre` **without** removing `/family/deposito` / `/family/saque`.
-
-- [ ] **Step 5: `pnpm --filter @yield2pay/web test` — PASS for new tests.**
-
-- [ ] **Step 6: Commit draft**  
-`feat(web): family invest/withdraw via venues`
-
----
+Exact tests: accepts valid; rejects empty vendor; vendor > 80; monthlyCost 12.5; monthlyCost 17 digits; type saas.

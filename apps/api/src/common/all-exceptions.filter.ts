@@ -17,7 +17,7 @@ import { generateErrorId, generateRequestId } from './error-id';
  * apps/web/src/lib/errorCopy.ts). Qualquer outro é normalizado para um destes.
  */
 const RENDERABLE_STATUS_CODES: ErrorStatusCode[] = [
-  400, 401, 403, 404, 408, 500, 502, 503,
+  400, 401, 403, 404, 408, 429, 500, 502, 503,
 ];
 
 /**
