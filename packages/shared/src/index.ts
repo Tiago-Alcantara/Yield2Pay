@@ -28,6 +28,17 @@ export interface RampOrder {
   amountFiat: string | null; amountToken: string | null; createdAt: string;
 }
 
+export {
+  monthlyYieldOf,
+  monthlyTotalOf,
+  depositForMonthly,
+  freedomPercent,
+  coverageRows,
+  coveredAmount,
+} from './familyMath';
+export type { FamilySub, CoverageRow } from './familyMath';
+export { formatUsdc, toBaseUnits } from './money';
+
 // ── Erros (contrato entre a API e as telas de erro) ───────────────────────────
 
 /** Ambiente lógico da aplicação. Governa quanto detalhe o erro expõe. */
