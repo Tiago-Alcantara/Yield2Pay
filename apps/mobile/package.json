@@ -5,8 +5,8 @@
   "main": "entrypoint.js",
   "scripts": {
     "start": "expo start --dev-client",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "submit:internal": "eas build --platform all --profile production --auto-submit"

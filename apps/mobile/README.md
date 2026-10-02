@@ -7,8 +7,10 @@ App Expo (React Native) para Android e iPhone. Um código, duas lojas. Fala com 
 ```bash
 cp .env.example .env.local
 pnpm install
-pnpm --filter @yield2pay/mobile start
+pnpm android
 ```
+
+No PowerShell, não use `pnpm exec expo`. Se existir um Expo antigo instalado no sistema, ele toma o lugar do CLI do projeto. Remova com `npm uninstall -g expo-cli` e rode `pnpm android` na raiz. A primeira vez compila e instala no emulador. Depois, `pnpm dev:mobile` sobe só o servidor.
 
 Privy no celular precisa de development build (`expo-dev-client`), não do Expo Go. No painel Privy, o app client precisa aceitar o scheme `yield2pay` e o identificador `com.yield2pay.app`.
 

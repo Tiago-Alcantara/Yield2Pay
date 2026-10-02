@@ -7,6 +7,8 @@
     "dev:api": "pnpm --filter @yield2pay/api dev",
     "dev:app": "pnpm --parallel --filter @yield2pay/web --filter @yield2pay/api dev",
     "dev:mobile": "pnpm --filter @yield2pay/mobile start",
+    "android": "pnpm --filter @yield2pay/mobile android",
+    "ios": "pnpm --filter @yield2pay/mobile ios",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @yield2pay/api exec prisma generate",
