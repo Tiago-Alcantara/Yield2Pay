@@ -80,6 +80,13 @@ export function DashboardHeader() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px,3vw,16px)' }}>
           <Link
+            href="/family/gastos"
+            className="fam-quiet"
+            style={{ fontSize: 13.5, color: C.text2, textDecoration: 'none' }}
+          >
+            {t.dash.gastos}
+          </Link>
+          <Link
             href="/family/conceitos"
             className="fam-quiet"
             style={{ fontSize: 13.5, color: C.text2, textDecoration: 'none' }}

@@ -10,6 +10,7 @@ import { StellarModule } from './stellar/stellar.module';
 import { DepositModule } from './deposit/deposit.module';
 import { WithdrawModule } from './withdraw/withdraw.module';
 import { BillsModule } from './bills/bills.module';
+import { GastosModule } from './gastos/gastos.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RampModule } from './ramp/ramp.module';
 import { VenueModule } from './venue/venue.module';
@@ -27,6 +28,7 @@ import { AccountModule } from './account/account.module';
     DepositModule,
     WithdrawModule,
     BillsModule,
+    GastosModule,
     JobsModule,
     RampModule,
     VenueModule,

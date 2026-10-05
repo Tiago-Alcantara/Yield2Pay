@@ -20,6 +20,12 @@ import type {
   VenueSubmitTxDto,
   VenueView,
   AccountChainView,
+  CreateContaDto,
+  RecurringAccountView,
+  JaGasteiDto,
+  MonthExpenseView,
+  ConfirmNotaDto,
+  MonthExpensesView,
 } from '@yield2pay/shared';
 
 import { ApiError } from './apiError';
@@ -64,6 +70,11 @@ interface ApiMethods {
   submitVenueDeposit(venue: { chain: string; protocol: string }, body: VenueSubmitTxDto): Promise<SubmitTxResponse>;
   buildVenueWithdraw(venue: { chain: string; protocol: string }, amount: string): Promise<VenueUnsignedTx>;
   submitVenueWithdraw(venue: { chain: string; protocol: string }, body: VenueSubmitTxDto): Promise<SubmitTxResponse>;
+  listMonthExpenses(): Promise<MonthExpensesView>;
+  listContas(): Promise<RecurringAccountView[]>;
+  createConta(body: CreateContaDto): Promise<RecurringAccountView>;
+  jaGastei(id: string, body: JaGasteiDto): Promise<MonthExpenseView>;
+  confirmNota(body: ConfirmNotaDto): Promise<MonthExpenseView>;
 }
 
 export function createApi(getToken: GetToken): ApiMethods {
@@ -163,5 +174,10 @@ export function createApi(getToken: GetToken): ApiMethods {
       request(`/venues/${venue.chain}/${venue.protocol}/withdraw/build`, 'POST', { amount }),
     submitVenueWithdraw: (venue, body) =>
       request(`/venues/${venue.chain}/${venue.protocol}/withdraw/submit`, 'POST', body),
+    listMonthExpenses: () => request('/gastos'),
+    listContas: () => request('/gastos/contas'),
+    createConta: (body: CreateContaDto) => request('/gastos/contas', 'POST', body),
+    jaGastei: (id: string, body: JaGasteiDto) => request(`/gastos/contas/${id}/ja-gastei`, 'POST', body),
+    confirmNota: (body: ConfirmNotaDto) => request('/gastos/notas', 'POST', body),
   };
 }

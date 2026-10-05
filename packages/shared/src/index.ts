@@ -85,3 +85,39 @@ export type VenueSubmitTxDto = {
   address?: string;
   signedTransactionBase64?: string;
 };
+
+export type ExpenseSource = 'conta' | 'nota';
+export type ExpenseCategory = 'mercado' | 'conta_da_casa' | 'transporte' | 'outros';
+
+export interface CreateContaDto {
+  name: string;
+  amountCents: number;
+}
+export interface RecurringAccountView {
+  id: string;
+  name: string;
+  amountCents: number;
+  spentThisMonth: boolean;
+}
+export interface JaGasteiDto {
+  category: ExpenseCategory;
+}
+export interface ConfirmNotaDto {
+  merchant: string;
+  amountCents: number;
+  spentOn: string;
+  category: ExpenseCategory;
+  accessKey?: string | null;
+}
+export interface MonthExpenseView {
+  id: string;
+  amountCents: number;
+  merchant: string;
+  spentOn: string;
+  source: ExpenseSource;
+  category: ExpenseCategory;
+}
+export interface MonthExpensesView {
+  month: string;
+  expenses: MonthExpenseView[];
+}

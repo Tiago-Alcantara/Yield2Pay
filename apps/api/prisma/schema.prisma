@@ -31,6 +31,8 @@ model Company {
   deposits          Deposit[]
   snapshots         YieldSnapshot[]
   bills             RecurringBill[]
+  recurringAccounts RecurringAccount[]
+  monthExpenses     MonthExpense[]
   etherfuseCustomer EtherfuseCustomer?
   rampOrders        RampOrder[]
 
@@ -131,4 +133,58 @@ model YieldSnapshot {
 
   @@index([companyId, createdAt])
   @@map("yield_snapshots")
+}
+
+enum ExpenseSource {
+  conta
+  nota
+}
+
+enum ExpenseCategory {
+  mercado
+  conta_da_casa
+  transporte
+  outros
+}
+
+/// Name and BRL centavos saved once. Not a month row until "já gastei".
+model RecurringAccount {
+  id          String   @id @default(cuid())
+  companyId   String   @map("company_id")
+  name        String
+  /// BRL centavos. Not USDC base units.
+  amountCents Int      @map("amount_cents")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company  Company        @relation(fields: [companyId], references: [id])
+  expenses MonthExpense[]
+
+  @@index([companyId])
+  @@map("recurring_accounts")
+}
+
+/// One household spend in a month. BRL centavos. Not a RecurringBill.
+model MonthExpense {
+  id                 String          @id @default(cuid())
+  companyId          String          @map("company_id")
+  /// BRL centavos. Not USDC base units.
+  amountCents        Int             @map("amount_cents")
+  merchant           String
+  spentOn            DateTime        @map("spent_on") @db.Date
+  source             ExpenseSource
+  category           ExpenseCategory
+  accessKey          String?         @map("access_key")
+  recurringAccountId String?         @map("recurring_account_id")
+  /// YYYY-MM in America/Sao_Paulo. Set only for source=conta.
+  yearMonth          String?         @map("year_month")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  company          Company           @relation(fields: [companyId], references: [id])
+  recurringAccount RecurringAccount? @relation(fields: [recurringAccountId], references: [id])
+
+  @@unique([companyId, recurringAccountId, yearMonth])
+  @@unique([companyId, accessKey])
+  @@index([companyId, spentOn])
+  @@index([companyId, yearMonth])
+  @@map("month_expenses")
 }

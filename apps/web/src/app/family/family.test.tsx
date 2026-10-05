@@ -123,6 +123,11 @@ describe('painel /family/dashboard', () => {
     expect(push).toHaveBeenCalledWith('/family/saque');
   });
 
+  it('leva aos gastos do mês', () => {
+    renderInFamily(<FamilyDashboardPage />);
+    expect(screen.getByRole('link', { name: 'Gastos' })).toHaveAttribute('href', '/family/gastos');
+  });
+
   it('leva ao investir e sacar-cofre pelos botões on-chain do cofre', () => {
     renderInFamily(<FamilyDashboardPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Investir no cofre' }));

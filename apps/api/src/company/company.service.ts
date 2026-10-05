@@ -92,6 +92,8 @@ export class CompanyService {
 
     await this.prisma.$transaction(async (tx) => {
       const childWhere = { where: { companyId } };
+      await tx.monthExpense.deleteMany(childWhere);
+      await tx.recurringAccount.deleteMany(childWhere);
       await tx.recurringBill.deleteMany(childWhere);
       await tx.yieldSnapshot.deleteMany(childWhere);
       await tx.rampOrder.deleteMany(childWhere);

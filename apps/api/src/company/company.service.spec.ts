@@ -70,6 +70,8 @@ it('deleteAccount refuses when deposits exist', async () => {
 
 it('deleteAccount removes child rows then the company', async () => {
   const tx = {
+    monthExpense: { deleteMany: vi.fn() },
+    recurringAccount: { deleteMany: vi.fn() },
     recurringBill: { deleteMany: vi.fn() },
     yieldSnapshot: { deleteMany: vi.fn() },
     rampOrder: { deleteMany: vi.fn() },
@@ -84,5 +86,14 @@ it('deleteAccount removes child rows then the company', async () => {
   } as any;
   const svc = new CompanyService(prisma);
   await svc.deleteAccount('co_1');
+  expect(tx.monthExpense.deleteMany).toHaveBeenCalledWith({ where: { companyId: 'co_1' } });
+  expect(tx.recurringAccount.deleteMany).toHaveBeenCalledWith({ where: { companyId: 'co_1' } });
   expect(tx.company.delete).toHaveBeenCalledWith({ where: { id: 'co_1' } });
+  const order = [
+    tx.monthExpense.deleteMany.mock.invocationCallOrder[0],
+    tx.recurringAccount.deleteMany.mock.invocationCallOrder[0],
+    tx.company.delete.mock.invocationCallOrder[0],
+  ];
+  expect(order[0]).toBeLessThan(order[1]);
+  expect(order[1]).toBeLessThan(order[2]);
 });

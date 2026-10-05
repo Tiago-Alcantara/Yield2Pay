@@ -162,6 +162,7 @@ const pt = {
   },
 
   dash: {
+    gastos: 'Gastos',
     concepts: 'Entenda como funciona',
     hello: 'Olá,',
     menuAccount: 'Minha conta',
@@ -600,6 +601,7 @@ const en: FamilyDict = {
   },
 
   dash: {
+    gastos: 'Expenses',
     concepts: 'Understand how it works',
     hello: 'Hi,',
     menuAccount: 'My account',
