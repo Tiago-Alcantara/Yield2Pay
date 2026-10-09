@@ -1,13 +1,18 @@
-### Task 6: GET /health pinga o Postgres
+### Task 6: Stellar live path smoke (no PIX)
 
 **Files:**
-- Modify: `apps/api/src/health/health.controller.ts`
-- Create: `apps/api/src/health/health.controller.spec.ts`
+- Read/verify: `apps/api/src/venue/venue.module.ts`, `stellar-live.adapter.ts`, `env.ts`
+- Test: extend `apps/api/src/venue/venue.service.spec.ts` or `env.spec.ts` if gaps
 
-**Produces:** `{ status: 'ok' }` if SELECT 1 ok; ServiceUnavailableException (503) if DB fails. Render still uses healthCheckPath /health.
+**Interfaces:**
+- When `STELLAR_VENUE_MODE=live` (or `VENUE_MODE=live`), registry boots stellar plugin with `StellarDefindexLiveAdapter`.
+- Without env → mock.
 
-TDD with the two tests from the plan Task 6 (ok path + ECONNREFUSED → 503). Inject PrismaService. Use tagged template `$queryRaw\`SELECT 1\``. Catch and throw ServiceUnavailableException('database unreachable').
+- [ ] **Step 1: Confirm tests already cover mode resolution** (`packages/venue-core/src/mode.test.ts`, `env.spec.ts`). Add one Nest test only if module does not assert adapter injection under live.
 
-Do not commit. PrismaModule is already @Global in AppModule.
+- [ ] **Step 2: Document in `docs/APPLY-VENUES.md`** one line: family invest uses venues; PIX still legacy.
 
-Read exact snippets from docs/superpowers/plans/2026-09-17-web2-golive-blockers.md ### Task 6 until ### Task 7.
+- [ ] **Step 3: Commit draft**  
+`docs: note family venue path vs PIX`
+
+---

@@ -13,6 +13,13 @@ const mockInitOAuth = vi.fn().mockResolvedValue(undefined);
 const mockReplace = vi.fn();
 
 const privyState = { ready: true, authenticated: false };
+const privyConfig = vi.hoisted(() => ({ configured: true }));
+
+vi.mock('@/providers/PrivyProviderWrapper', () => ({
+  get isPrivyConfigured() {
+    return privyConfig.configured;
+  },
+}));
 
 vi.mock('@privy-io/react-auth', () => ({
   usePrivy: vi.fn(() => ({
@@ -33,6 +40,7 @@ import LoginPage from './page';
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    privyConfig.configured = true;
     privyState.ready = true;
     privyState.authenticated = false;
   });
@@ -62,6 +70,17 @@ describe('LoginPage', () => {
     privyState.authenticated = true;
     render(<LoginPage />);
     expect(mockReplace).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('stays on the login screen when Privy is not configured', () => {
+    privyConfig.configured = false;
+
+    render(<LoginPage />);
+
+    const googleButton = screen.getByRole('button', { name: /continuar com google/i });
+    expect((googleButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('alert').textContent).toMatch(/não está disponível/i);
+    expect(mockInitOAuth).not.toHaveBeenCalled();
   });
 
   it('links terms and privacy to real routes', () => {

@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth';
 import { useIsMobile } from '@/lib/useIsMobile';
+import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 
 // ── Dictionary ────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const L = {
     google: 'Continue with Google',
     loading: 'Redirecting…',
     error: 'Could not start Google sign-in. Please try again.',
+    unavailable: 'Google sign-in is not available in this environment.',
   },
   pt: {
     brandTitle: 'Coloque seu capital parado para trabalhar.',
@@ -46,6 +48,7 @@ const L = {
     google: 'Continuar com Google',
     loading: 'Redirecionando…',
     error: 'Não foi possível iniciar o login com Google. Tente novamente.',
+    unavailable: 'O login com Google não está disponível neste ambiente.',
   },
 } as const;
 
@@ -80,35 +83,61 @@ function SealIcon({ name }: { name: string }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+  // Sem PrivyProvider os hooks do Privy estouram (reading 'current').
+  // O mesmo corte das outras telas: a página abre e o login fica indisponível.
+  if (!isPrivyConfigured) {
+    return <LoginScreen oauth={null} />;
+  }
+
+  return <LoginPageWithPrivy />;
+}
+
+function LoginPageWithPrivy() {
   const router = useRouter();
+  const [oauthFailed, setOauthFailed] = useState(false);
   const { ready, authenticated } = usePrivy();
   const { initOAuth, loading } = useLoginWithOAuth({
     onComplete: () => router.replace('/dashboard'),
     onError: (err) => {
       console.error('[Yield2Pay] Privy OAuth error:', err);
-      setError(true);
+      setOauthFailed(true);
     },
   });
-  const isMobile = useIsMobile();
 
-  const [lang, setLang] = useState<Lang>('pt');
-  const [error, setError] = useState(false);
-
-  const t = L[lang];
-
-  // Already authenticated (or just returned from the Google redirect) → leave.
   useEffect(() => {
     if (ready && authenticated) router.replace('/dashboard');
   }, [ready, authenticated, router]);
 
   async function signInWithGoogle() {
-    setError(false);
+    setOauthFailed(false);
     try {
       await initOAuth({ provider: 'google' });
     } catch {
-      setError(true);
+      setOauthFailed(true);
     }
   }
+
+  return (
+    <LoginScreen
+      oauth={{ loading, failed: oauthFailed, signInWithGoogle }}
+    />
+  );
+}
+
+function LoginScreen({
+  oauth,
+}: {
+  oauth: {
+    loading: boolean;
+    failed: boolean;
+    signInWithGoogle: () => Promise<void>;
+  } | null;
+}) {
+  const isMobile = useIsMobile();
+
+  const [lang, setLang] = useState<Lang>('pt');
+
+  const t = L[lang];
 
   // ── Shared styles ─────────────────────────────────────────────────────────
 
@@ -230,8 +259,10 @@ export default function LoginPage() {
             <button
               type="button"
               className="fx-google"
-              onClick={signInWithGoogle}
-              disabled={loading}
+              onClick={() => {
+                void oauth?.signInWithGoogle();
+              }}
+              disabled={oauth === null || oauth.loading}
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, fontFamily: 'inherit', fontSize: 15, fontWeight: 500, color: '#EDEFF1', background: 'rgba(255,255,255,.025)', border: '1px solid #3A3D41', borderRadius: 12, padding: 14, cursor: 'pointer' }}
             >
               <svg width={18} height={18} viewBox="0 0 48 48" aria-hidden="true">
@@ -240,10 +271,16 @@ export default function LoginPage() {
                 <path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35 26.8 36 24 36c-5.3 0-9.7-3.1-11.3-7.6l-6.5 5C9.6 39.6 16.2 44 24 44z" />
                 <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.3 5.3C41.4 36.2 44 30.6 44 24c0-1.3-.1-2.3-.4-3.5z" />
               </svg>
-              {loading ? t.loading : t.google}
+              {oauth?.loading ? t.loading : t.google}
             </button>
 
-            {error && (
+            {oauth === null && (
+              <div role="alert" style={{ fontSize: 13, color: '#D98A8A', marginTop: 14 }}>
+                {t.unavailable}
+              </div>
+            )}
+
+            {oauth?.failed && (
               <div role="alert" style={{ fontSize: 13, color: '#D98A8A', marginTop: 14 }}>
                 {t.error}
               </div>
