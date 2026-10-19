@@ -48,6 +48,13 @@ export const PAGE_COPY: Record<ErrorStatusCode, ErrorCopy> = {
     primary: 'home',
     secondary: null,
   },
+  409: {
+    kicker: 'Erro 409 · conflito',
+    title: 'Essa ação conflita com o que já existe',
+    msg: 'A pessoa já está em um grupo, ou este convite não pode ser aceito. Volte e confira os dados.',
+    primary: 'home',
+    secondary: 'support',
+  },
   408: {
     kicker: 'Erro 408 · tempo esgotado',
     title: 'O pedido demorou demais',

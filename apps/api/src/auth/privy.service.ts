@@ -13,4 +13,10 @@ export class PrivyService {
     const claims = await this.client.verifyAuthToken(token);
     return { privyUserId: claims.userId };
   }
+
+  async getEmail(privyUserId: string): Promise<string | null> {
+    const user = await this.client.getUser(privyUserId);
+    const raw = user.google?.email ?? user.email?.address;
+    return raw ? raw.toLowerCase() : null;
+  }
 }

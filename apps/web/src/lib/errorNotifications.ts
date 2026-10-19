@@ -19,6 +19,7 @@ const listeners = new Set<() => void>();
  */
 const DIALOG_STATUS_FALLBACK: Record<number, DialogStatusCode> = {
   404: 400,
+  409: 400,
   502: 500,
   503: 500,
 };

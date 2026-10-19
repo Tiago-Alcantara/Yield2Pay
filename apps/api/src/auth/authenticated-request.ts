@@ -6,4 +6,5 @@ import { Request } from 'express';
  */
 export interface AuthenticatedRequest extends Request {
   companyId: string;
+  email: string | null;
 }

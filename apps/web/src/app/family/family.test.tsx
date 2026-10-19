@@ -1,20 +1,28 @@
 /**
  * family.test.tsx
- * Testes de comportamento das telas de família: a calculadora da landing e o
- * painel. Sem rede — o estado vem do store local (familyStore).
+ * Testes de comportamento das telas de família: a calculadora da landing
+ * (store local) e o painel de gastos (API da casa, sem carteira).
  */
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const push = vi.fn();
+const ensureWallet = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => '/family',
 }));
+vi.mock('@/lib/useWallet', () => ({
+  useWallet: () => {
+    ensureWallet();
+    return { ensureWallet };
+  },
+}));
 
 import { FamilyProvider } from './_lib/FamilyProvider';
-import { resetFamilyStore, updateFamilyStore } from './_lib/familyStore';
+import { resetFamilyStore } from './_lib/familyStore';
+import { saoPauloMonth } from './dashboard/painel-format';
 import FamilyLandingPage from './page';
 import FamilyDashboardPage from './dashboard/page';
 
@@ -77,49 +85,100 @@ describe('landing /family', () => {
 });
 
 describe('painel /family/dashboard', () => {
-  it('sem depósito, nenhuma assinatura está coberta', () => {
-    renderInFamily(<FamilyDashboardPage />);
-    expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(screen.getAllByText('ainda não')).toHaveLength(4);
+  const month = saoPauloMonth();
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const body = url.includes('/expenses/months')
+          ? [month]
+          : url.includes('/expenses')
+            ? []
+            : url.includes('/household/summary')
+              ? {
+                  monthTotalCents: 0,
+                  previousComparableCents: 0,
+                  changePercent: null,
+                  projectedCents: 0,
+                  leftoverCents: null,
+                  byCategory: [],
+                  lastSixMonths: [{ month, amountCents: 0 }],
+                  averageCents: 0,
+                  dailyPace: { current: [], previous: [] },
+                  fixedVsVariable: [],
+                  freedom: null,
+                }
+              : url.includes('/household/profile')
+                ? {
+                    householdSize: 'two',
+                    monthlyIncomeCents: 1_200_000,
+                    reserveCents: 3_000_000,
+                    priorities: [],
+                    goalMonths: 12,
+                    cryptoExperience: null,
+                    onboardingCompleted: true,
+                  }
+                : url.includes('/households/current')
+                  ? {
+                      id: 'h1',
+                      name: 'Casa',
+                      role: 'owner',
+                      onboardingCompleted: true,
+                      pendingInvites: [],
+                    }
+                  : url.includes('/lesson-progress')
+                    ? []
+                    : url.includes('/lessons')
+                      ? [{ id: 'beginner-1', title: 'O que é uma carteira', durationMinutes: 4 }]
+                      : url.includes('/account')
+                        ? {
+                            displayName: 'Marina',
+                            fullName: 'Marina A.',
+                            initials: 'MA',
+                            accountType: 'family',
+                            household: {
+                              id: 'h1',
+                              name: 'Casa',
+                              role: 'owner',
+                              onboardingCompleted: true,
+                            },
+                          }
+                        : {};
+        const text = JSON.stringify(body);
+        return { status: 200, ok: true, text: async () => text, json: async () => body };
+      }),
+    );
   });
 
-  it('com depósito, cobre as contas do topo da lista primeiro', () => {
-    // R$ 30.000 a 8% a.a. = R$ 200/mês: cobre Netflix (59,90) e Spotify (34,90),
-    // mas o acumulado do ChatGPT (201,80) já passa do rendimento.
-    updateFamilyStore((prev) => ({ ...prev, deposit: 30000 }));
-    renderInFamily(<FamilyDashboardPage />);
-
-    expect(screen.getAllByText('coberta')).toHaveLength(2);
-    expect(screen.getAllByText('ainda não')).toHaveLength(2);
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('adiciona uma assinatura à lista da casa', () => {
+  it('mostra o painel de gastos e não chama a carteira', async () => {
     renderInFamily(<FamilyDashboardPage />);
-    fireEvent.click(screen.getByRole('button', { name: '+ Adicionar assinatura' }));
-
-    fireEvent.change(screen.getByLabelText('Nome da assinatura'), {
-      target: { value: 'Escola de inglês' },
-    });
-    fireEvent.change(screen.getByLabelText('Valor mensal'), { target: { value: '189' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
-
-    expect(screen.getByText('Escola de inglês')).toBeInTheDocument();
-    // 59,90 + 34,90 + 107 + 129,90 + 189 = R$ 520,70
-    expect(screen.getByText('Total de R$ 520,70 por mês')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Importar extrato' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Convidar')).toBeInTheDocument();
+    expect(ensureWallet).not.toHaveBeenCalled();
   });
 
-  it('leva ao detalhe da assinatura clicada', () => {
+  it('abre o modal de filtros', async () => {
     renderInFamily(<FamilyDashboardPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Netflix/ }));
-    expect(push).toHaveBeenCalledWith('/family/dashboard/netflix');
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
+    expect(within(dialog).getByRole('button', { name: 'Por mês' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Todas' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Fixos' })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Buscar estabelecimento')).toBeInTheDocument();
   });
 
-  it('leva ao depósito e ao saque pelos botões do cofre', () => {
+  it('abre o modal de extrato com as três formas de trazer gastos', async () => {
     renderInFamily(<FamilyDashboardPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Depositar por PIX' }));
-    expect(push).toHaveBeenCalledWith('/family/deposito');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sacar meu saldo' }));
-    expect(push).toHaveBeenCalledWith('/family/saque');
+    fireEvent.click(screen.getByRole('button', { name: 'Importar extrato' }));
+    expect(await screen.findByRole('dialog', { name: 'Traga seus gastos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Extrato do banco/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Nota fiscal/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Manual/ })).toBeInTheDocument();
   });
 });

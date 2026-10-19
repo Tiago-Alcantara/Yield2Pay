@@ -41,6 +41,7 @@ it('rejects when verify throws', async () => {
 it('verifies token and attaches companyId', async () => {
   const privy = {
     verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),
+    getEmail: vi.fn().mockResolvedValue('bia@example.com'),
   };
   const company = { findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }) };
   const guard = new AuthGuard(privy as any, company as any);
@@ -53,4 +54,5 @@ it('verifies token and attaches companyId', async () => {
   expect(ok).toBe(true);
   expect(privy.verify).toHaveBeenCalledWith('tok123');
   expect(req.companyId).toBe('co_9');
+  expect(req.email).toBe('bia@example.com');
 });

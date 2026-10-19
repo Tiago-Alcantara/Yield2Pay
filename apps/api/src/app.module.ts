@@ -12,6 +12,11 @@ import { WithdrawModule } from './withdraw/withdraw.module';
 import { BillsModule } from './bills/bills.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RampModule } from './ramp/ramp.module';
+import { HouseholdModule } from './household/household.module';
+import { StatementsModule } from './statements/statements.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { SummaryModule } from './summary/summary.module';
+import { LessonsModule } from './lessons/lessons.module';
 
 @Module({
   imports: [
@@ -27,6 +32,11 @@ import { RampModule } from './ramp/ramp.module';
     BillsModule,
     JobsModule,
     RampModule,
+    HouseholdModule,
+    StatementsModule,
+    ExpensesModule,
+    SummaryModule,
+    LessonsModule,
   ],
   controllers: [HealthController],
   providers: [],

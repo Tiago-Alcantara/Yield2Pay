@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './family.css';
+import { FamilySessionGate } from './_components/FamilySessionGate';
 import { FamilyProvider } from './_lib/FamilyProvider';
 
 export const metadata: Metadata = {
@@ -11,11 +12,14 @@ export const metadata: Metadata = {
 /**
  * Layout de /family — a vertical de famílias.
  *
- * Diferente de (app), aqui não há AuthGate: Privy e DeFindex entram numa
- * segunda etapa. Por ora o FamilyProvider guarda todo o estado das telas
- * (depósito, assinaturas, preferências) no cliente, para os fluxos poderem ser
- * percorridos de ponta a ponta.
+ * FamilySessionGate exige sessão Privy e não cria carteira Stellar
+ * (diferente do AuthGate do grupo (app)). FamilyProvider guarda o estado
+ * das telas no cliente.
  */
 export default function FamilyLayout({ children }: { children: React.ReactNode }) {
-  return <FamilyProvider>{children}</FamilyProvider>;
+  return (
+    <FamilyProvider>
+      <FamilySessionGate>{children}</FamilySessionGate>
+    </FamilyProvider>
+  );
 }

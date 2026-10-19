@@ -35,9 +35,16 @@ export class AuthGuard implements CanActivate {
       console.error('[AuthGuard] privy.verify failed:', e);
       throw new UnauthorizedException('invalid token');
     }
+    let email: string | null = null;
+    try {
+      email = await this.privy.getEmail(claims.privyUserId);
+    } catch {
+      email = null;
+    }
     try {
       const company = await this.companies.findOrCreate(claims.privyUserId);
       req.companyId = company.id;
+      req.email = email;
       return true;
     } catch (e) {
       console.error('[AuthGuard] findOrCreate failed:', e);

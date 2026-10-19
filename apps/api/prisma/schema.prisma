@@ -30,6 +30,10 @@ model Company {
   bills             RecurringBill[]
   etherfuseCustomer EtherfuseCustomer?
   rampOrders        RampOrder[]
+  personName         PersonName?
+  ownedHousehold     Household?  @relation("HouseholdOwner")
+  householdMembership HouseholdMember?
+  lessonProgress     LessonProgress[]
 
   @@map("companies")
 }
@@ -124,4 +128,89 @@ model YieldSnapshot {
 
   @@index([companyId, createdAt])
   @@map("yield_snapshots")
+}
+
+model PersonName {
+  companyId   String @id @map("company_id")
+  displayName String? @map("display_name")
+  fullName    String? @map("full_name")
+  email       String?
+  company     Company @relation(fields: [companyId], references: [id])
+  @@map("person_names")
+}
+
+model Household {
+  id                   String   @id @default(cuid())
+  name                 String
+  ownerCompanyId       String   @unique @map("owner_company_id")
+  householdSize        String?  @map("household_size")
+  monthlyIncomeCents   Int?     @map("monthly_income_cents")
+  reserveCents         Int?     @map("reserve_cents")
+  priorities           String[]
+  goalMonths           Int?     @map("goal_months")
+  cryptoExperience     String?  @map("crypto_experience")
+  onboardingCompleted  Boolean  @default(false) @map("onboarding_completed")
+  owner                Company  @relation("HouseholdOwner", fields: [ownerCompanyId], references: [id])
+  members              HouseholdMember[]
+  invites              HouseholdInvite[]
+  statements           Statement[]
+  expenses             Expense[]
+  @@map("households")
+}
+
+model HouseholdMember {
+  id          String @id @default(cuid())
+  householdId String @map("household_id")
+  companyId   String @unique @map("company_id")
+  role        String
+  household   Household @relation(fields: [householdId], references: [id])
+  company     Company   @relation(fields: [companyId], references: [id])
+  @@unique([householdId, companyId])
+  @@map("household_members")
+}
+
+model HouseholdInvite {
+  id          String @id @default(cuid())
+  householdId String @map("household_id")
+  email       String
+  status      String @default("pending")
+  household   Household @relation(fields: [householdId], references: [id])
+  @@map("household_invites")
+}
+
+model Statement {
+  id               String   @id @default(cuid())
+  householdId      String   @map("household_id")
+  addedByCompanyId String   @map("added_by_company_id")
+  filename         String
+  format           String
+  importedAt       DateTime @default(now()) @map("imported_at")
+  household        Household @relation(fields: [householdId], references: [id])
+  expenses         Expense[]
+  @@map("statements")
+}
+
+model Expense {
+  id               String   @id @default(cuid())
+  householdId      String   @map("household_id")
+  addedByCompanyId String   @map("added_by_company_id")
+  statementId      String?  @map("statement_id")
+  spentOn          DateTime @map("spent_on") @db.Date
+  merchant         String
+  category         String
+  fixed            Boolean
+  amountCents      Int      @map("amount_cents")
+  household        Household @relation(fields: [householdId], references: [id])
+  statement        Statement? @relation(fields: [statementId], references: [id])
+  @@index([householdId, spentOn])
+  @@map("expenses")
+}
+
+model LessonProgress {
+  companyId String  @map("company_id")
+  lessonId  String  @map("lesson_id")
+  completed Boolean
+  company   Company @relation(fields: [companyId], references: [id])
+  @@id([companyId, lessonId])
+  @@map("lesson_progress")
 }
