@@ -156,6 +156,12 @@ describe('painel /family/dashboard', () => {
     vi.unstubAllGlobals();
   });
 
+  it('abre a trilha ao começar a primeira aula', async () => {
+    renderInFamily(<FamilyDashboardPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Começar aula 1' }));
+    expect(push).toHaveBeenCalledWith('/family/aprender?aula=1');
+  });
+
   it('mostra o painel de gastos e não chama a carteira', async () => {
     renderInFamily(<FamilyDashboardPage />);
     expect(screen.getByRole('button', { name: 'Importar extrato' })).toBeInTheDocument();

@@ -12,6 +12,7 @@ export interface AddedBy { displayName: string; initials: string; }
 export interface AccountView {
   displayName: string | null;
   fullName: string | null;
+  email: string | null;
   initials: string;
   accountType: 'family';
   household: null | {
@@ -69,6 +70,14 @@ export interface HouseholdSummary {
   dailyPace: { current: number[]; previous: number[] };
   fixedVsVariable: { month: string; fixedCents: number; variableCents: number }[];
   freedom: null | { months: number; missingCents: number; deadlineMonths: number };
+}
+
+export interface HouseholdPersonView {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'owner' | 'member' | 'invited';
+  you: boolean;
 }
 
 export interface LessonView { id: string; title: string; durationMinutes: number; }

@@ -2,6 +2,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   NotFoundException,
@@ -30,6 +31,35 @@ export class HouseholdController {
   @Get('account')
   getAccount(@Req() req: AuthenticatedRequest) {
     return this.householdService.getAccount(req.companyId, req.email);
+  }
+
+  @Patch('account')
+  async patchAccount(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: { displayName?: string },
+  ) {
+    try {
+      return await this.householdService.updateDisplayName(
+        req.companyId,
+        dto.displayName ?? '',
+        req.email,
+      );
+    } catch (error) {
+      this.rethrow(error);
+    }
+  }
+
+  @Post('account/data')
+  async clearData(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: { mode?: 'expenses' | 'all' },
+  ) {
+    try {
+      const mode = dto.mode === 'all' ? 'all' : 'expenses';
+      return await this.householdService.clearMyData(req.companyId, mode);
+    } catch (error) {
+      this.rethrow(error);
+    }
   }
 
   @Post('households')
@@ -98,6 +128,45 @@ export class HouseholdController {
         throw new NotFoundException();
       }
       throw error;
+    }
+  }
+
+  @Patch('households/current')
+  async rename(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: { name?: string },
+  ) {
+    try {
+      return await this.householdService.renameHousehold(req.companyId, dto.name ?? '');
+    } catch (error) {
+      this.rethrow(error);
+    }
+  }
+
+  @Get('households/current/people')
+  async people(@Req() req: AuthenticatedRequest) {
+    try {
+      return await this.householdService.listPeople(req.companyId);
+    } catch (error) {
+      this.rethrow(error);
+    }
+  }
+
+  @Post('households/current/leave')
+  async leave(@Req() req: AuthenticatedRequest) {
+    try {
+      return await this.householdService.leave(req.companyId);
+    } catch (error) {
+      this.rethrow(error);
+    }
+  }
+
+  @Delete('households/current/members/:id')
+  async removeMember(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    try {
+      return await this.householdService.removeMember(req.companyId, id);
+    } catch (error) {
+      this.rethrow(error);
     }
   }
 

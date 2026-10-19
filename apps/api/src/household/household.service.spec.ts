@@ -18,6 +18,7 @@ function fakePrisma() {
     personName: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      upsert: vi.fn(),
     },
     householdInvite: {
       findUnique: vi.fn(),
@@ -139,5 +140,27 @@ describe('HouseholdService', () => {
     prisma.householdMember.findUnique.mockResolvedValue({ companyId: 'co_bia' });
     const svc = new HouseholdService(prisma as never);
     await expect(svc.acceptInvite('co_bia', 'inv1', 'bia@example.com')).rejects.toBeInstanceOf(HouseholdConflictError);
+  });
+
+  it('saves the name shown on the platform', async () => {
+    const prisma = fakePrisma();
+    prisma.personName.findUnique.mockResolvedValue({
+      displayName: 'Marina', fullName: null, email: 'marina@example.com',
+    });
+    prisma.householdMember.findUnique.mockResolvedValue(null);
+    const svc = new HouseholdService(prisma as never);
+    const account = await svc.updateDisplayName('co_1', ' Marina ', 'marina@example.com');
+    expect(prisma.personName.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { displayName: 'Marina' },
+    }));
+    expect(account.displayName).toBe('Marina');
+    expect(account.email).toBe('marina@example.com');
+  });
+
+  it('blocks a member from renaming the group', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.renameHousehold('co_1', 'Nova casa')).rejects.toBeInstanceOf(HouseholdForbiddenError);
   });
 });

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   AccountView,
   GoalMonths,
+  HouseholdPersonView,
   HouseholdProfile,
   HouseholdRole,
   UpsertHouseholdProfile,
@@ -84,6 +85,7 @@ export class HouseholdService {
       return {
         displayName,
         fullName,
+        email: person?.email ?? null,
         initials: initialsOf(fullName, displayName),
         accountType: 'family',
         household: null,
@@ -95,6 +97,7 @@ export class HouseholdService {
     return {
       displayName,
       fullName,
+      email: person?.email ?? null,
       initials: initialsOf(fullName, displayName),
       accountType: 'family',
       household: {
@@ -264,5 +267,102 @@ export class HouseholdService {
       where: { id: inviteId },
       data: { status: 'revoked' },
     });
+  }
+
+  async updateDisplayName(companyId: string, displayName: string, email?: string | null): Promise<AccountView> {
+    const name = displayName.trim().slice(0, 32);
+    if (!name) {
+      throw new HouseholdConflictError();
+    }
+    await this.prisma.personName.upsert({
+      where: { companyId },
+      create: { companyId, displayName: name, email: email?.trim().toLowerCase() || null },
+      update: { displayName: name },
+    });
+    return this.getAccount(companyId, email);
+  }
+
+  async renameHousehold(companyId: string, name: string) {
+    const { householdId, role } = await this.requireMembership(companyId);
+    if (role !== 'owner') {
+      throw new HouseholdForbiddenError();
+    }
+    const next = name.trim().slice(0, 40);
+    if (!next) {
+      throw new HouseholdConflictError();
+    }
+    await this.prisma.household.update({
+      where: { id: householdId },
+      data: { name: next },
+    });
+  }
+
+  async listPeople(companyId: string): Promise<HouseholdPersonView[]> {
+    const { householdId } = await this.requireMembership(companyId);
+    const members = await this.prisma.householdMember.findMany({ where: { householdId } });
+    const names = await this.prisma.personName.findMany({
+      where: { companyId: { in: members.map((member) => member.companyId) } },
+    });
+    const byCompany = new Map(names.map((person) => [person.companyId, person]));
+    const people: HouseholdPersonView[] = members.map((member) => {
+      const person = byCompany.get(member.companyId);
+      return {
+        id: member.companyId,
+        email: person?.email ?? '',
+        displayName: person?.displayName?.trim() || person?.fullName?.trim() || 'Membro',
+        role: member.role === 'owner' ? 'owner' : 'member',
+        you: member.companyId === companyId,
+      };
+    });
+    const invites = await this.prisma.householdInvite.findMany({
+      where: { householdId, status: 'pending' },
+    });
+    for (const invite of invites) {
+      people.push({
+        id: invite.id,
+        email: invite.email,
+        displayName: '',
+        role: 'invited',
+        you: false,
+      });
+    }
+    return people;
+  }
+
+  async removeMember(actorId: string, memberCompanyId: string) {
+    const { householdId, role } = await this.requireMembership(actorId);
+    if (role !== 'owner' || memberCompanyId === actorId) {
+      throw new HouseholdForbiddenError();
+    }
+    const target = await this.prisma.householdMember.findUnique({
+      where: { companyId: memberCompanyId },
+    });
+    if (!target || target.householdId !== householdId || target.role === 'owner') {
+      throw new HouseholdConflictError();
+    }
+    await this.prisma.householdMember.delete({ where: { companyId: memberCompanyId } });
+  }
+
+  async leave(companyId: string) {
+    const { householdId, role } = await this.requireMembership(companyId);
+    if (role === 'owner') {
+      const others = await this.prisma.householdMember.count({
+        where: { householdId, companyId: { not: companyId } },
+      });
+      if (others > 0) {
+        throw new HouseholdForbiddenError();
+      }
+    }
+    await this.prisma.householdMember.delete({ where: { companyId } });
+  }
+
+  async clearMyData(companyId: string, mode: 'expenses' | 'all') {
+    const { householdId } = await this.requireMembership(companyId);
+    await this.prisma.expense.deleteMany({
+      where: { householdId, addedByCompanyId: companyId },
+    });
+    if (mode === 'all') {
+      await this.prisma.lessonProgress.deleteMany({ where: { companyId } });
+    }
   }
 }

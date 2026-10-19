@@ -2,6 +2,7 @@ import type {
   AccountView,
   ExpenseCategory,
   ExpenseView,
+  HouseholdPersonView,
   HouseholdProfile,
   HouseholdRole,
   HouseholdSummary,
@@ -41,7 +42,9 @@ export function createHouseholdApi(getToken: GetToken) {
     }
     const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (!response.ok) {
-      throw new Error(`${init.method ?? 'GET'} ${path} failed`);
+      const error = new Error(`${init.method ?? 'GET'} ${path} failed`) as Error & { status: number };
+      error.status = response.status;
+      throw error;
     }
     if (response.status === 204) return undefined as T;
     const text = await response.text();
@@ -51,6 +54,18 @@ export function createHouseholdApi(getToken: GetToken) {
 
   return {
     getAccount: () => request<AccountView>('/account'),
+    patchAccount: (displayName: string) =>
+      request<AccountView>('/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName }),
+      }),
+    clearMyData: (mode: 'expenses' | 'all') =>
+      request<void>('/account/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      }),
     createHousehold: (name: string) =>
       request<{ id: string; name: string; role: 'owner' }>('/households', {
         method: 'POST',
@@ -58,12 +73,24 @@ export function createHouseholdApi(getToken: GetToken) {
         body: JSON.stringify({ name }),
       }),
     getCurrentHousehold: () => request<HouseholdCurrent>('/households/current'),
+    renameHousehold: (name: string) =>
+      request<void>('/households/current', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      }),
+    getPeople: () => request<HouseholdPersonView[]>('/households/current/people'),
+    leaveHousehold: () => request<void>('/households/current/leave', { method: 'POST' }),
+    removeMember: (id: string) =>
+      request<void>(`/households/current/members/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     inviteMember: (email: string) =>
       request<unknown>('/households/current/invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       }),
+    revokeInvite: (id: string) =>
+      request<void>(`/households/invites/${encodeURIComponent(id)}/revoke`, { method: 'POST' }),
     getProfile: () => request<HouseholdProfile>('/household/profile'),
     putProfile: (body: UpsertHouseholdProfile) =>
       request<void>('/household/profile', {

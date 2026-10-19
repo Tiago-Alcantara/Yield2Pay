@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 import type { AccountView, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView } from '@yield2pay/shared';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
@@ -14,6 +15,10 @@ import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilte
 import { ImportModal } from './ImportModal';
 import { Onboarding } from './Onboarding';
 import './painel.css';
+import { ContaModal } from '../conta/ContaModal';
+import { onLiberdadeChange, readLiberdade } from '../_lib/liberdadePref';
+import { lessonsForTrack } from '../aprender/lesson-content';
+import { aprenderPath } from '../aprender/player';
 import {
   CATEGORY_LABEL,
   DEF,
@@ -84,7 +89,7 @@ const NAV = [
   { href: '#s-topo', label: 'Painel', icon: <IconPainel /> },
   { href: '#s-gastos', label: 'Gastos', icon: <IconGastos /> },
   { href: '#s-liberdade', label: 'Liberdade', icon: <IconLiberdade /> },
-  { href: '#s-aprender', label: 'Aprender', icon: <IconAprender /> },
+  { href: '/family/aprender', label: 'Aprender', icon: <IconAprender /> },
 ] as const;
 
 const EMPTY_SUMMARY: HouseholdSummary = {
@@ -190,9 +195,33 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [liberdadeOn, setLiberdadeOn] = useState(true);
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const api = () => createHouseholdApi(() => getTokenRef.current());
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('conta') !== '1') return;
+    setSettingsOpen(true);
+    params.delete('conta');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setLiberdadeOn(readLiberdade());
+    sync();
+    return onLiberdadeChange(sync);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== 'panel') return;
+    const id = window.location.hash.replace('#', '');
+    if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+  }, [phase]);
 
   useEffect(() => {
     document.body.style.overflow = onbOpen ? 'hidden' : '';
@@ -380,31 +409,18 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     return progress.some((row) => row.lessonId === id && row.completed);
   }
 
-  async function toggleLesson(id: string) {
-    const completed = !lessonDone(id);
-    try {
-      await api().putLessonProgress(id, completed);
-    } catch {
-      return;
-    }
-    setProgress((prev) => [...prev.filter((row) => row.lessonId !== id), { lessonId: id, completed }]);
+  function openLesson(lessonNumber: number) {
+    router.push(aprenderPath(lessonNumber));
   }
 
-  async function advanceLessons() {
-    const client = api();
-    const pending = lessons.findIndex((lesson) => !lessonDone(lesson.id));
+  async function restartLessons() {
     try {
-      if (pending < 0) {
-        await client.deleteLessonProgress();
-        setProgress((prev) => prev.map((row) => ({ ...row, completed: false })));
-        return;
-      }
-      const lesson = lessons[pending];
-      await client.putLessonProgress(lesson.id, true);
-      setProgress((prev) => [...prev.filter((row) => row.lessonId !== lesson.id), { lessonId: lesson.id, completed: true }]);
+      await api().deleteLessonProgress();
     } catch {
       return;
     }
+    setProgress((prev) => prev.map((row) => ({ ...row, completed: false })));
+    openLesson(1);
   }
 
   async function showInterest() {
@@ -457,7 +473,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const pessoas = profile ? draftFromProfile(profile).pessoas : null;
   const pct = freedom && goal ? Math.min(100, (freedom.months / goal) * 100) : 0;
   const userName = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0] || '';
-  const userFull = account?.fullName?.trim() || account?.displayName?.trim() || 'Conta família';
+  const userFull = account?.displayName?.trim() || account?.fullName?.trim() || 'Conta família';
   const initials = account?.initials || '?';
   const isOwner = account?.household?.role === 'owner';
   const pills = months.length ? months : [month];
@@ -470,6 +486,8 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const list = expenses.filter((row) => matchesExpense(row, filters));
   const rows = showAll ? list : list.slice(0, 8);
   const listCents = list.reduce((sum, row) => sum + row.amountCents, 0);
+  const track = lessonTrack(profile?.cryptoExperience);
+  const presented = track ? lessonsForTrack(track, lessons) : [];
   const doneN = lessons.filter((lesson) => lessonDone(lesson.id)).length;
   const nextLesson = lessons.findIndex((lesson) => !lessonDone(lesson.id));
   const criptoOn = profile?.cryptoExperience !== 'declined';
@@ -587,13 +605,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           overflowX: 'auto',
           paddingBottom: 4,
         } : { display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {NAV.map((item) => {
+          {NAV.filter((item) => (item.href !== '/family/aprender' || profile?.cryptoExperience !== 'declined') && (item.href !== '#s-liberdade' || liberdadeOn)).map((item) => {
             const on = nav === item.href;
             return (
               <button
                 key={item.href}
                 type="button"
                 onClick={() => {
+                  if (item.href.startsWith('/')) {
+                    router.push(item.href);
+                    return;
+                  }
                   setNav(item.href);
                   scrollToId(item.href.slice(1));
                 }}
@@ -646,10 +668,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
             <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9' }}>
               {initials}
             </span>
-            <span style={{ flex: 1, minWidth: 0 }}>
+            <button type="button" onClick={() => setSettingsOpen(true)} style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: '#F2F3F4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userFull}</span>
               <span style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 10.5, color: '#9A9DA1' }}>Conta família</span>
-            </span>
+            </button>
             {onLogout && (
               <button type="button" aria-label="Sair" onClick={onLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9A9DA1', display: 'flex', padding: 4 }}>
                 <IconLogout />
@@ -699,9 +721,9 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               onMonth={pickMonth}
               onApply={applyFilters}
             />
-            <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9' }}>
+            <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
               {initials}
-            </span>
+            </button>
           </div>
         </header>
 
@@ -731,7 +753,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               </div>
             </div>
           </MetalCard>
-          <MetalCard padding={28} radius="var(--fx-radius-xl)">
+          {liberdadeOn && <MetalCard padding={28} radius="var(--fx-radius-xl)">
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: 184 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                 <span style={iconBadgeStyle}><IconLiberdade /></span>
@@ -745,7 +767,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                 <Button variant="secondary" size="sm" onClick={() => scrollToId('s-liberdade')}>Ver liberdade</Button>
               </div>
             </div>
-          </MetalCard>
+          </MetalCard>}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 16 }}>
@@ -758,7 +780,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           <Charts month={month} chart={chart} summary={summary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
 
-        <div id="s-liberdade" data-screen-label="Liberdade" style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
+        {liberdadeOn && <div id="s-liberdade" data-screen-label="Liberdade" style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>Liberdade da família</h2>
             <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, color: '#9A9DA1' }}>
@@ -784,9 +806,9 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: '#C0C2C5' }}>{freedom ? brl0(reais(Math.max(0, freedom.missingCents))) : '—'}</span>
             </div>
           </div>
-        </div>
+        </div>}
 
-        <div style={{ position: 'relative', overflow: 'hidden', border: '1px solid #4a4d52', borderRadius: 20, background: 'linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)', boxShadow: '0 18px 44px rgba(0,0,0,.4),0 2px 0 rgba(255,255,255,.1) inset' }}>
+        {liberdadeOn && <div style={{ position: 'relative', overflow: 'hidden', border: '1px solid #4a4d52', borderRadius: 20, background: 'linear-gradient(135deg,#3c3f44 0%,#26282c 26%,#16181b 52%,#303338 74%,#1b1d21 100%)', boxShadow: '0 18px 44px rgba(0,0,0,.4),0 2px 0 rgba(255,255,255,.1) inset' }}>
           <div style={{ position: 'relative', zIndex: 2, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: '1 1 280px' }}>
               <h2 style={{ fontSize: 19, fontWeight: 700, color: '#F2F3F4', margin: 0 }}>A reserva sustenta a casa</h2>
@@ -819,7 +841,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               <div style={{ fontSize: 11.5, color: '#7E8186', textAlign: 'center', lineHeight: 1.4 }}>Gasto médio {brl0(reais(summary.averageCents))}</div>
             </div>
           </div>
-        </div>
+        </div>}
 
         <div id="s-gastos" data-screen-label="Gastos" style={{ marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -901,7 +923,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                   <span style={{ width: (lessons.length ? (doneN / lessons.length) * 100 : 0) + '%' }} />
                 </div>
                 {lessons.length > 0 && (
-                  <button type="button" onClick={() => void advanceLessons()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
                     {doneN === lessons.length ? 'Trilha concluída · recomeçar' : doneN === 0 ? 'Começar aula 1' : 'Continuar · aula ' + (nextLesson + 1)}
                   </button>
                 )}
@@ -915,10 +937,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           {criptoOn && (
             <div style={{ flex: '1 1 280px', minWidth: 240 }}>
               {lessons.map((lesson, index) => (
-                <button key={lesson.id} type="button" onClick={() => void toggleLesson(lesson.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid #2A2D31', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
+                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid #2A2D31', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     {lessonDone(lesson.id) ? <span className="y2p-check is-done">✓</span> : <span className="y2p-check y2p-mono">{index + 1}</span>}
-                    <span style={{ fontSize: 14, color: '#F2F3F4' }}>{lesson.title}</span>
+                    <span style={{ fontSize: 14, color: '#F2F3F4' }}>{presented[index]?.title ?? lesson.title}</span>
                   </span>
                   <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: '#9A9DA1' }}>{lesson.durationMinutes} min</span>
                 </button>
@@ -950,6 +972,32 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           }}
         />
       )}
+
+      <ContaModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        getToken={getToken}
+        onLogout={onLogout}
+        onAccount={(next) => setAccount((prev) => (
+          prev?.household && next.household
+            ? { ...next, household: { ...next.household, role: prev.household.role, onboardingCompleted: prev.household.onboardingCompleted } }
+            : next
+        ))}
+        onProfile={(next) => {
+          setProfile(next);
+          const nextTrack = lessonTrack(next.cryptoExperience);
+          if (!nextTrack) {
+            setLessons([]);
+            return;
+          }
+          void api().getLessons(nextTrack).then(setLessons).catch(() => undefined);
+        }}
+        onLeft={() => {
+          setAccount((prev) => (prev ? { ...prev, household: null } : prev));
+          setPhase('name');
+        }}
+        onExpensesCleared={() => { void refresh(month); }}
+      />
 
       {onbOpen && (
         <Onboarding

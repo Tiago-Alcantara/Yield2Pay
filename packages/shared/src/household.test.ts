@@ -15,6 +15,7 @@ describe('household types', () => {
     const account: AccountView = {
       displayName: 'Ana',
       fullName: 'Ana Lima',
+      email: 'ana@example.com',
       initials: 'AL',
       accountType: 'family',
       household: null,
