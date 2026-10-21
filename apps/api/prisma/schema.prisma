@@ -184,9 +184,11 @@ model Statement {
   addedByCompanyId String   @map("added_by_company_id")
   filename         String
   format           String
+  contentHash      String?  @map("content_hash")
   importedAt       DateTime @default(now()) @map("imported_at")
   household        Household @relation(fields: [householdId], references: [id])
   expenses         Expense[]
+  @@unique([householdId, contentHash])
   @@map("statements")
 }
 

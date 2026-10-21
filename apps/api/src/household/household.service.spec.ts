@@ -97,6 +97,34 @@ describe('HouseholdService', () => {
     });
   });
 
+  it('rejects a profile goal that is not 6, 12, 24 or 60 months', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.putProfile('co_1', {
+      householdSize: 'two',
+      monthlyIncomeCents: 500000,
+      reserveCents: 100000,
+      priorities: ['reserva'],
+      goalMonths: 7 as never,
+      cryptoExperience: 'declined',
+    })).rejects.toThrow('goalMonths is invalid');
+    expect(prisma.household.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a negative income and an unknown crypto experience', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.patchProfile('co_1', { monthlyIncomeCents: -1 })).rejects.toThrow(
+      'monthlyIncomeCents is invalid',
+    );
+    await expect(svc.patchProfile('co_1', { cryptoExperience: 'expert' as never })).rejects.toThrow(
+      'cryptoExperience is invalid',
+    );
+    expect(prisma.household.update).not.toHaveBeenCalled();
+  });
+
   it('patch beginner does not change onboardingCompleted', async () => {
     const prisma = fakePrisma();
     prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });

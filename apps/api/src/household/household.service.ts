@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   HouseholdConflictError,
   HouseholdForbiddenError,
+  HouseholdInvalidError,
   HouseholdNotFoundError,
 } from './household.errors';
 
@@ -130,10 +131,11 @@ export class HouseholdService {
   }
 
   async putProfile(companyId: string, body: UpsertHouseholdProfile) {
+    const data = readProfile(body, true);
     const { householdId } = await this.requireMembership(companyId);
     await this.prisma.household.update({
       where: { id: householdId },
-      data: { ...body, onboardingCompleted: true },
+      data: { ...data, onboardingCompleted: true },
     });
   }
 
@@ -141,10 +143,14 @@ export class HouseholdService {
     companyId: string,
     body: Partial<UpsertHouseholdProfile>,
   ) {
+    const data = readProfile(body, false);
+    if (Object.keys(data).length === 0) {
+      return;
+    }
     const { householdId } = await this.requireMembership(companyId);
     await this.prisma.household.update({
       where: { id: householdId },
-      data: { ...body },
+      data,
     });
   }
 
@@ -365,4 +371,53 @@ export class HouseholdService {
       await this.prisma.lessonProgress.deleteMany({ where: { companyId } });
     }
   }
+}
+
+const HOUSEHOLD_SIZES = new Set(['solo', 'two', 'three_to_four', 'five_or_more']);
+const GOAL_MONTHS = new Set<GoalMonths>([6, 12, 24, 60]);
+const CRYPTO_EXPERIENCE = new Set(['beginner', 'fund', 'declined']);
+
+function readProfile(
+  body: Partial<UpsertHouseholdProfile>,
+  requireAll: boolean,
+): Partial<UpsertHouseholdProfile> {
+  const data: Partial<UpsertHouseholdProfile> = {};
+  if (requireAll || body.householdSize !== undefined) {
+    if (!HOUSEHOLD_SIZES.has(body.householdSize as string)) {
+      throw new HouseholdInvalidError('householdSize is invalid');
+    }
+    data.householdSize = body.householdSize;
+  }
+  if (requireAll || body.monthlyIncomeCents !== undefined) {
+    data.monthlyIncomeCents = readCents(body.monthlyIncomeCents, 'monthlyIncomeCents');
+  }
+  if (requireAll || body.reserveCents !== undefined) {
+    data.reserveCents = readCents(body.reserveCents, 'reserveCents');
+  }
+  if (requireAll || body.priorities !== undefined) {
+    if (!Array.isArray(body.priorities) || body.priorities.some((item) => typeof item !== 'string')) {
+      throw new HouseholdInvalidError('priorities is invalid');
+    }
+    data.priorities = body.priorities;
+  }
+  if (requireAll || body.goalMonths !== undefined) {
+    if (!GOAL_MONTHS.has(body.goalMonths as GoalMonths)) {
+      throw new HouseholdInvalidError('goalMonths is invalid');
+    }
+    data.goalMonths = body.goalMonths;
+  }
+  if (requireAll || body.cryptoExperience !== undefined) {
+    if (!CRYPTO_EXPERIENCE.has(body.cryptoExperience as string)) {
+      throw new HouseholdInvalidError('cryptoExperience is invalid');
+    }
+    data.cryptoExperience = body.cryptoExperience;
+  }
+  return data;
+}
+
+function readCents(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new HouseholdInvalidError(`${field} is invalid`);
+  }
+  return value;
 }

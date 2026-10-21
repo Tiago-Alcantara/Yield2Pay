@@ -4,7 +4,7 @@
  * (store local) e o painel de gastos (API da casa, sem carteira).
  */
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const push = vi.fn();
@@ -95,7 +95,7 @@ describe('painel /family/dashboard', () => {
         const body = url.includes('/expenses/months')
           ? [month]
           : url.includes('/expenses')
-            ? []
+            ? { items: [], total: 0 }
             : url.includes('/household/summary')
               ? {
                   monthTotalCents: 0,
@@ -154,6 +154,93 @@ describe('painel /family/dashboard', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('apaga um gasto da lista', async () => {
+    const calls: string[] = [];
+    const month = saoPauloMonth();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const method = init?.method ?? 'GET';
+        calls.push(`${method} ${url}`);
+        if (method === 'DELETE') {
+          return { status: 204, ok: true, text: async () => '', json: async () => null };
+        }
+        const expense = {
+          id: 'e1',
+          date: `${month}-12`,
+          merchant: 'Padaria Estrela',
+          category: 'groceries',
+          fixed: false,
+          amountCents: 1890,
+          addedBy: { displayName: 'Marina', initials: 'MA' },
+        };
+        const body = url.includes('/expenses/months')
+          ? [month]
+          : url.includes('/expenses')
+            ? { items: [expense], total: 1 }
+            : url.includes('/household/summary')
+              ? {
+                  monthTotalCents: 1890,
+                  previousComparableCents: 0,
+                  changePercent: null,
+                  projectedCents: 1890,
+                  leftoverCents: null,
+                  byCategory: [],
+                  lastSixMonths: [{ month, amountCents: 1890 }],
+                  averageCents: 1890,
+                  dailyPace: { current: [], previous: [] },
+                  fixedVsVariable: [],
+                  freedom: null,
+                }
+              : url.includes('/household/profile')
+                ? {
+                    householdSize: 'two',
+                    monthlyIncomeCents: 1_200_000,
+                    reserveCents: 3_000_000,
+                    priorities: [],
+                    goalMonths: 12,
+                    cryptoExperience: null,
+                    onboardingCompleted: true,
+                  }
+                : url.includes('/households/current')
+                  ? {
+                      id: 'h1',
+                      name: 'Casa',
+                      role: 'owner',
+                      onboardingCompleted: true,
+                      pendingInvites: [],
+                    }
+                  : url.includes('/lesson-progress')
+                    ? []
+                    : url.includes('/lessons')
+                      ? [{ id: 'beginner-1', title: 'O que é uma carteira', durationMinutes: 4 }]
+                      : url.includes('/account')
+                        ? {
+                            displayName: 'Marina',
+                            fullName: 'Marina A.',
+                            initials: 'MA',
+                            accountType: 'family',
+                            household: {
+                              id: 'h1',
+                              name: 'Casa',
+                              role: 'owner',
+                              onboardingCompleted: true,
+                            },
+                          }
+                        : {};
+        const text = JSON.stringify(body);
+        return { status: 200, ok: true, text: async () => text, json: async () => body };
+      }),
+    );
+
+    renderInFamily(<FamilyDashboardPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar Padaria Estrela' }));
+    await waitFor(() => {
+      expect(calls.some((call) => call.startsWith('DELETE') && call.includes('/expenses/e1'))).toBe(true);
+    });
   });
 
   it('abre a trilha ao começar a primeira aula', async () => {

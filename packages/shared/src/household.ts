@@ -52,6 +52,11 @@ export interface ExpenseView {
   addedBy: AddedBy;
 }
 
+export interface ExpensePage {
+  items: ExpenseView[];
+  total: number;
+}
+
 export interface StatementImportResult {
   statementId: string;
   imported: number;

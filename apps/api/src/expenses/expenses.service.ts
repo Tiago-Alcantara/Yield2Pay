@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ExpenseCategory, ExpenseView } from '@yield2pay/shared';
+import type { ExpenseCategory, ExpensePage, ExpenseView } from '@yield2pay/shared';
 import { HouseholdService, initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
@@ -9,6 +9,15 @@ type PatchExpense = {
   fixed?: boolean;
 };
 
+type ExpensePageQuery = {
+  limit: number;
+  offset: number;
+};
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 200;
+
 @Injectable()
 export class ExpensesService {
   constructor(
@@ -16,35 +25,51 @@ export class ExpensesService {
     private readonly household: HouseholdService,
   ) {}
 
-  async list(companyId: string, month: string, category?: ExpenseCategory) {
+  async list(
+    companyId: string,
+    month: string,
+    category?: ExpenseCategory,
+    page?: ExpensePageQuery,
+  ): Promise<ExpensePage> {
+    if (!MONTH.test(month)) {
+      throw new ExpenseInvalidError('month is invalid');
+    }
+    const { limit, offset } = readPage(page);
     const { householdId } = await this.household.requireMembership(companyId);
     const { gte, lt } = utcMonthRange(month);
-    const expenses = await this.prisma.expense.findMany({
-      where: {
-        householdId,
-        spentOn: { gte, lt },
-        ...(category ? { category } : {}),
-      },
-      orderBy: { spentOn: 'desc' },
-    });
+    const where = {
+      householdId,
+      spentOn: { gte, lt },
+      ...(category ? { category } : {}),
+    };
+    const [total, expenses] = await Promise.all([
+      this.prisma.expense.count({ where }),
+      this.prisma.expense.findMany({
+        where,
+        orderBy: { spentOn: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
     const names = await this.loadNames(
       expenses.map((row) => row.addedByCompanyId),
     );
-    return expenses.map((row) => toExpenseView(row, names));
+    return {
+      items: expenses.map((row) => toExpenseView(row, names)),
+      total,
+    };
   }
 
   async months(companyId: string) {
     const { householdId } = await this.household.requireMembership(companyId);
-    const expenses = await this.prisma.expense.findMany({
-      where: { householdId },
-      select: { spentOn: true },
-      orderBy: { spentOn: 'desc' },
-    });
-    return [
-      ...new Set(
-        expenses.map((row) => utcCalendarDay(row.spentOn).slice(0, 7)),
-      ),
-    ];
+    const rows = await this.prisma.$queryRaw<Array<{ month: string }>>`
+      SELECT to_char(spent_on, 'YYYY-MM') AS month
+      FROM expenses
+      WHERE household_id = ${householdId}
+      GROUP BY 1
+      ORDER BY 1 DESC
+    `;
+    return rows.map((row) => row.month);
   }
 
   async create(
@@ -102,6 +127,18 @@ export class ExpensesService {
     return toExpenseView(updated, names);
   }
 
+  async remove(companyId: string, id: string) {
+    const { householdId } = await this.household.requireMembership(companyId);
+    const existing = await this.prisma.expense.findFirst({
+      where: { id, householdId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new ExpenseNotFoundError();
+    }
+    await this.prisma.expense.delete({ where: { id: existing.id } });
+  }
+
   private async loadNames(companyIds: string[]) {
     const ids = [...new Set(companyIds)];
     if (ids.length === 0) return [] as { companyId: string; displayName: string | null; fullName: string | null }[];
@@ -109,6 +146,18 @@ export class ExpensesService {
       where: { companyId: { in: ids } },
     });
   }
+}
+
+function readPage(page?: ExpensePageQuery) {
+  const limit = page?.limit ?? DEFAULT_LIMIT;
+  const offset = page?.offset ?? 0;
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw new ExpenseInvalidError('limit is invalid');
+  }
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new ExpenseInvalidError('offset is invalid');
+  }
+  return { limit, offset };
 }
 
 function utcMonthRange(month: string) {

@@ -28,7 +28,7 @@
 .aula :focus-visible { outline: 2px solid #c0c2c5; outline-offset: 3px; border-radius: 4px; }
 
 .aula-main {
-  max-width: 760px;
+  max-width: 980px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -352,6 +352,108 @@
   background: #0c0d0f;
 }
 
+.aula-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aula-switch button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px 8px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #16181b;
+  color: #c8cacd;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.aula-switch button span {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2d31;
+  color: #f2f3f4;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+}
+
+.aula-switch button[aria-current='true'] {
+  border-color: transparent;
+  background: linear-gradient(180deg, #e6e8ea, #a8aaad);
+  color: #0e0f11;
+}
+
+.aula-switch button[aria-current='true'] span {
+  background: #0e0f11;
+  color: #f2f3f4;
+}
+
+.aula-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.aula-lesson h2 {
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 0;
+}
+
+.aula-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0c0d0f;
+  border-radius: 18px;
+  border: 1px solid var(--line-strong);
+}
+
+.aula-texto {
+  color: #edeff1;
+  min-width: 0;
+}
+
+/* A aula foi desenhada para a página inteira. Aqui ela vive dentro da coluna,
+   então a figura larga não pode escapar e ser cortada pelo overflow da página. */
+.aula-texto .wrap,
+.aula-texto .col,
+.aula-texto .hero .wrap,
+.aula-texto .panel,
+.aula-texto figure {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.aula-texto .hero .wrap > * {
+  min-width: 0;
+}
+
+.aula-texto figure.wide {
+  width: min(1080px, calc(100vw - 96px)) !important;
+  max-width: none !important;
+  margin-left: calc(50% - min(540px, 50vw - 48px)) !important;
+  margin-right: calc(50% - min(540px, 50vw - 48px)) !important;
+}
+
+.aula-texto .panel svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .aula-scene {
   position: absolute;
   inset: 0;
@@ -628,12 +730,11 @@
 
 .aula-jump:hover { border-color: #8a8d91; color: #e6e8ea; }
 
-.aula-foot {
-  margin-top: 18px;
-  padding: 18px 24px;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 24px 24px;
-  background: #16181b;
+.aula-lesson .aula-foot {
+  margin-top: 0;
+  padding: 8px 0 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .aula-later {

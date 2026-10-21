@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useSearchParams } from 'next/navigation';
+import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi } from '../_lib/householdApi';
 import {
@@ -11,6 +12,7 @@ import {
   trackCopy,
   type PresentedLesson,
 } from './lesson-content';
+import { prepareLessonMarkup } from './lesson-article';
 import {
   firstOpenIndex,
   formatClock,
@@ -48,15 +50,26 @@ interface Ready {
 
 type Phase = { kind: 'loading' } | { kind: 'interest' } | { kind: 'error' } | Ready;
 
-function lessonPosition(playback: Playback, index: number, sceneCount: number): number {
-  const total = lessonDuration(sceneCount);
+function lessonSeconds(lesson: PresentedLesson | undefined): number {
+  if (!lesson) return 0;
+  return lesson.durationSeconds > 0 ? lesson.durationSeconds : lessonDuration(lesson.scenes.length);
+}
+
+function lessonPosition(playback: Playback, index: number, lesson: PresentedLesson | undefined): number {
+  const total = lessonSeconds(lesson);
   const raw = index === playback.li ? playback.t : playback.pos[index] ?? 0;
   return raw > 0 && raw < total ? raw : 0;
 }
 
+function statusOf(error: unknown): number {
+  return typeof error === 'object' && error !== null && 'status' in error
+    ? Number((error as { status: number }).status)
+    : 0;
+}
+
 export default function AulaCripto() {
   if (!isPrivyConfigured) {
-    return <AulaScreen getToken={async () => null} />;
+    return <AulaScreen getToken={async () => LOCAL_DEV_TOKEN} />;
   }
   return <PrivyAula />;
 }
@@ -85,13 +98,16 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
     let cancelled = false;
     (async () => {
       try {
-        const profile = await client.getProfile();
+        const profile = await client.getProfile().catch((error: unknown) => {
+          if (statusOf(error) === 404) return null;
+          throw error;
+        });
         if (cancelled) return;
-        if (profile.cryptoExperience === 'declined') {
+        if (profile?.cryptoExperience === 'declined') {
           setPhase({ kind: 'interest' });
           return;
         }
-        const track: Track = profile.cryptoExperience === 'fund' ? 'fund' : 'beginner';
+        const track: Track = profile?.cryptoExperience === 'fund' ? 'fund' : 'beginner';
         const [apiLessons, progress] = await Promise.all([
           client.getLessons(track),
           client.getLessonProgress(),
@@ -104,7 +120,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
         const saved = readPlayback(window.localStorage, lessons.length);
         const requested = Number(aulaQuery);
         const expanded = requested >= 1 && requested <= lessons.length ? requested - 1 : firstOpenIndex(done);
-        const total = lessonDuration(lessons[saved.li]?.scenes.length ?? 0);
+        const total = lessonSeconds(lessons[saved.li]);
         const resume = saved.pos[saved.li] ?? 0;
         setPhase({
           kind: 'ready',
@@ -141,6 +157,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
         if (current.kind !== 'ready') return current;
         const playback = current.playback;
         if (!playback.playing || !playback.open) return current;
+        if (lessonsRef.current[playback.li]?.videoUrl) return current;
         const count = lessonsRef.current[playback.li]?.scenes.length ?? 0;
         const total = lessonDuration(count);
         const t = Math.min(total, playback.t + 0.1 * playback.speed);
@@ -188,7 +205,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
       setPhase((current) => {
         if (current.kind !== 'ready') return current;
         const playback = current.playback;
-        const total = lessonDuration(current.lessons[playback.li]?.scenes.length ?? 0);
+        const total = lessonSeconds(current.lessons[playback.li]);
         const pos = playback.pos.slice();
         pos[playback.li] = playback.t < total ? playback.t : 0;
         try {
@@ -211,7 +228,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
 
   function rememberPosition(playback: Playback, lessons: PresentedLesson[]): number[] {
     const pos = playback.pos.slice();
-    const total = lessonDuration(lessons[playback.li]?.scenes.length ?? 0);
+    const total = lessonSeconds(lessons[playback.li]);
     pos[playback.li] = playback.t < total ? playback.t : 0;
     return pos;
   }
@@ -220,7 +237,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
     setSaveError('');
     patchPlayback((playback, lessons) => {
       const pos = rememberPosition(playback, lessons);
-      const total = lessonDuration(lessons[index]?.scenes.length ?? 0);
+      const total = lessonSeconds(lessons[index]);
       const saved = pos[index] ?? 0;
       const restart = play && playback.done[index];
       return {
@@ -229,8 +246,8 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
         li: index,
         expanded: index,
         t: restart || saved >= total ? 0 : saved,
-        open: true,
-        playing: play,
+        open: false,
+        playing: false,
       };
     });
   }
@@ -246,7 +263,7 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
 
   function togglePlay() {
     patchPlayback((playback, lessons) => {
-      const total = lessonDuration(lessons[playback.li]?.scenes.length ?? 0);
+      const total = lessonSeconds(lessons[playback.li]);
       if (playback.t >= total) return { ...playback, t: 0, playing: true };
       return { ...playback, playing: !playback.playing };
     });
@@ -359,6 +376,8 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
             }}
             onToggleDone={() => void setCompleted(phase.playback.li, !phase.playback.done[phase.playback.li])}
             onNext={() => void finishAndAdvance()}
+            onProgress={(seconds) => patchPlayback((playback) => ({ ...playback, t: seconds }))}
+            onSelect={(index) => openLesson(index, false)}
           />
         )}
       </Shell>
@@ -415,6 +434,8 @@ function Trail({
   onWatch,
   onToggleDone,
   onNext,
+  onProgress,
+  onSelect,
 }: {
   phase: Ready;
   saveError: string;
@@ -432,16 +453,13 @@ function Trail({
   onWatch: (index: number) => void;
   onToggleDone: () => void;
   onNext: () => void;
+  onProgress: (seconds: number) => void;
+  onSelect: (index: number) => void;
 }) {
   const { lessons, playback, track } = phase;
   const copy = trackCopy(track);
-  const current = firstOpenIndex(playback.done);
   const allDone = playback.done.length > 0 && playback.done.every(Boolean);
   const lesson = lessons[playback.li];
-  const scenes = lesson?.scenes ?? [];
-  const total = lessonDuration(scenes.length);
-  const sceneAt = sceneIndex(playback.t, scenes.length);
-  const scene = scenes[sceneAt];
 
   return (
     <>
@@ -453,185 +471,148 @@ function Trail({
           <p className="aula-unlocked">Trilha concluída. O acesso ao investimento em cripto está liberado.</p>
         )}
       </header>
-      <section className="aula-track" aria-label="Aulas">
-        {lessons.map((item, index) => {
-          const itemTotal = lessonDuration(item.scenes.length);
-          const watched = lessonPosition(playback, index, item.scenes.length);
-          const started = watched > 0;
-          const done = playback.done[index];
-          const isCurrent = index === current && !allDone;
-          const expanded = index === playback.expanded;
-          const status = done ? 'concluída' : formatClock(itemTotal);
-          return (
-            <div className="aula-row" key={item.id}>
-              <div className="aula-rail">
-                <span className={done ? 'aula-node is-done' : isCurrent ? 'aula-node is-current' : 'aula-node is-todo'}>
-                  {done ? '✓' : index + 1}
-                </span>
-                {index < lessons.length - 1 && <span className={done ? 'aula-line is-on' : 'aula-line'} />}
-              </div>
-              {expanded ? (
-                <article className="aula-card">
-                  <div className="aula-card-kicker">
-                    Aula {index + 1} · {isCurrent ? 'você está aqui' : done ? 'concluída' : `${formatClock(itemTotal)} · ${item.scenes.length} passos`}
-                  </div>
-                  <h2>{item.title}</h2>
-                  <p>{item.desc}</p>
-                  {started && (
-                    <div className="aula-meter">
-                      <span className="aula-meter-track"><b style={{ width: `${(watched / itemTotal) * 100}%` }} /></span>
-                      <span className="aula-meter-time">{formatClock(watched)} / {formatClock(itemTotal)}</span>
-                    </div>
-                  )}
-                  <div className="aula-actions">
-                    <button type="button" className="aula-primary" onClick={() => onStart(index)}>
-                      ▶ {done ? 'Assistir de novo' : started ? 'Continuar aula' : 'Assistir aula'}
-                    </button>
-                    <button type="button" className="aula-ghost" onClick={() => onRead(index)}>Ler passo a passo</button>
-                  </div>
-                </article>
-              ) : (
-                <button type="button" className="aula-collapsed" onClick={() => onExpand(index)}>
-                  <div className="aula-status">Aula {index + 1} · {status}</div>
-                  <div className={done ? 'aula-collapsed-title is-done' : 'aula-collapsed-title is-open'}>{item.title}</div>
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </section>
-      {playback.open && lesson && scene && (
-        <div
-          className="aula-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Aula"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) onClose();
+      <nav className="aula-switch" aria-label="Aulas">
+        {lessons.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={index === playback.li ? 'true' : undefined}
+            onClick={() => onSelect(index)}
+          >
+            <span>{playback.done[index] ? '✓' : index + 1}</span>
+            {item.title}
+          </button>
+        ))}
+      </nav>
+      {lesson?.readUrl && (
+        <LessonPage
+          lesson={lesson}
+          index={playback.li}
+          totalLessons={lessons.length}
+          done={playback.done[playback.li] ?? false}
+          startAt={playback.t}
+          saveError={saveError}
+          onProgress={onProgress}
+          onToggleDone={onToggleDone}
+          onNext={onNext}
+          onOpenRead={(file) => {
+            const index = lessons.findIndex((item) => item.readUrl?.endsWith(file));
+            if (index >= 0) onSelect(index);
           }}
-        >
-          <div className="aula-dialog">
-            <div className="aula-dialog-head">
-              <div>
-                <div className="aula-kicker">Aula {playback.li + 1} de {lessons.length} · {copy.title}</div>
-                <h2>{lesson.title}</h2>
-              </div>
-              <button type="button" className="aula-close" aria-label="Fechar" onClick={onClose}>×</button>
-            </div>
-            <div className="aula-stage-wrap" ref={playerRef}>
-              <div className="aula-stage">
-                <div className="aula-screen" onClick={onToggle}>
-                  {scenes.map((item, index) => {
-                    const local = Math.min(1, Math.max(0, (playback.t - index * 8) / 8));
-                    const active = index === sceneAt;
-                    const scale = index < sceneAt ? 1.06 : active ? 1 + 0.06 * local : 1;
-                    return (
-                      <div key={item.kicker} className="aula-scene" style={{ opacity: active ? 1 : 0 }}>
-                        <div className="aula-scene-inner" style={{ transform: `scale(${scale})` }}>
-                          {item.img ? (
-                            <img src={item.img} alt={item.kicker} />
-                          ) : (
-                            <div className="aula-placeholder">
-                              <small>{String(index + 1).padStart(2, '0')} · {item.kicker}</small>
-                              <div className="aula-fig">{item.fig}</div>
-                              <p>{item.sub}</p>
-                              <div className="aula-chips">
-                                {item.chips.map((chip, chipIndex) => (
-                                  <span className="aula-chip" key={`${chip}-${chipIndex}`}>{chip}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {playback.cc && (
-                    <div className="aula-caption"><span>{scene.cap}</span></div>
-                  )}
-                  {!playback.playing && (
-                    <div className="aula-paused"><span>▶</span></div>
-                  )}
-                </div>
-                <div className="aula-controls">
-                  <div className="aula-segs">
-                    {scenes.map((item, index) => (
-                      <button key={item.kicker} type="button" className="aula-seg" aria-label={`Ir para ${item.kicker}`} onClick={() => onSeek(index)}>
-                        <span><b style={{ width: `${segmentFill(playback.t, index, scenes.length)}%` }} /></span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="aula-control-row">
-                    <button type="button" className="aula-play" aria-label={playback.playing ? 'Pausar' : 'Reproduzir'} onClick={onToggle}>
-                      {playback.playing ? '❚❚' : playback.t >= total ? '↺' : '▶'}
-                    </button>
-                    <span className="aula-time">{formatClock(playback.t)} / {formatClock(total)}</span>
-                    <span className="aula-scene-label">{String(sceneAt + 1).padStart(2, '0')} · {scene.kicker}</span>
-                    <button type="button" className="aula-icon" aria-label="Ilustração anterior" onClick={() => onStep(-1)}>‹</button>
-                    <button type="button" className="aula-icon" aria-label="Próxima ilustração" onClick={() => onStep(1)}>›</button>
-                    <button type="button" className="aula-pill" onClick={onSpeed}>{playback.speed}×</button>
-                    <button type="button" className={playback.cc ? 'aula-pill is-on' : 'aula-pill'} aria-pressed={playback.cc} onClick={onCaption}>
-                      {playback.cc ? 'Legenda on' : 'Legenda off'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="aula-steps-head" ref={stepsRef}>
-              <div className="aula-steps-label">Prefere ler? A aula em passos</div>
-              <span className="aula-count">{scenes.length} ilustrações · {formatClock(total)}</span>
-            </div>
-            <div className="aula-steps">
-              {scenes.map((item, index) => {
-                const active = index === sceneAt;
-                const state = active
-                  ? playback.playing ? 'tocando agora' : 'no vídeo agora'
-                  : index < sceneAt ? 'vista' : `em ${formatClock(index * 8)}`;
-                const figure = (
-                  <div className="aula-step-fig">
-                    {item.img ? <img src={item.img} alt={item.kicker} /> : <em>Ilustração {String(index + 1).padStart(2, '0')}</em>}
-                    <i><b style={{ width: `${segmentFill(playback.t, index, scenes.length)}%` }} /></i>
-                  </div>
-                );
-                const copyBlock = (
-                  <div className="aula-step-copy">
-                    <span className="aula-num">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="aula-status">{state}</div>
-                    <h3>{item.kicker}</h3>
-                    <p>{item.cap}</p>
-                    <button type="button" className="aula-jump" onClick={() => onWatch(index)}>
-                      ▶ Ver no vídeo · {formatClock(index * 8)}
-                    </button>
-                  </div>
-                );
-                const flipped = index % 2 === 1;
-                return (
-                  <article
-                    key={item.kicker}
-                    className={flipped ? 'aula-step is-flip' : 'aula-step'}
-                    style={{ opacity: active || !playback.playing ? 1 : 0.55 }}
-                  >
-                    {flipped ? copyBlock : figure}
-                    {flipped ? figure : copyBlock}
-                  </article>
-                );
-              })}
-            </div>
-            <div className="aula-foot">
-              <button type="button" className="aula-later" onClick={onClose}>Ver depois</button>
-              <div className="aula-foot-actions">
-                <button type="button" className="aula-done" onClick={onToggleDone}>
-                  {playback.done[playback.li] ? 'Concluída ✓' : 'Marcar como concluída'}
-                </button>
-                <button type="button" className="aula-next aula-primary" onClick={onNext}>
-                  {playback.li === lessons.length - 1 ? 'Concluir trilha' : 'Próxima aula'}
-                </button>
-              </div>
-            </div>
-            {saveError && <p className="aula-error" style={{ padding: '0 24px 18px' }}>{saveError}</p>}
-          </div>
-        </div>
+        />
       )}
     </>
+  );
+}
+
+function LessonPage({
+  lesson,
+  index,
+  totalLessons,
+  done,
+  startAt,
+  saveError,
+  onProgress,
+  onToggleDone,
+  onNext,
+  onOpenRead,
+}: {
+  lesson: PresentedLesson;
+  index: number;
+  totalLessons: number;
+  done: boolean;
+  startAt: number;
+  saveError: string;
+  onProgress: (seconds: number) => void;
+  onToggleDone: () => void;
+  onNext: () => void;
+  onOpenRead: (file: string) => void;
+}) {
+  return (
+    <article className="aula-lesson">
+      <div className="aula-kicker">Aula {index + 1} de {totalLessons}</div>
+      <h2>{lesson.title}</h2>
+      <p className="aula-lede">{lesson.desc}</p>
+      <video
+        key={lesson.id}
+        className="aula-video"
+        controls
+        playsInline
+        preload="metadata"
+        poster={lesson.posterUrl}
+        src={lesson.videoUrl}
+        aria-label="Vídeo da aula"
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (startAt > 1 && startAt < video.duration) video.currentTime = startAt;
+        }}
+        onTimeUpdate={(event) => onProgress(event.currentTarget.currentTime)}
+      />
+      {lesson.readUrl && <LessonReading url={lesson.readUrl} onOpenRead={onOpenRead} />}
+      <div className="aula-foot">
+        <span />
+        <div className="aula-foot-actions">
+          <button type="button" className="aula-done" onClick={onToggleDone}>
+            {done ? 'Concluída ✓' : 'Marcar como concluída'}
+          </button>
+          <button type="button" className="aula-next aula-primary" onClick={onNext}>
+            {index === totalLessons - 1 ? 'Concluir trilha' : 'Próxima aula'}
+          </button>
+        </div>
+      </div>
+      {saveError && <p className="aula-error">{saveError}</p>}
+    </article>
+  );
+}
+
+function LessonReading({ url, onOpenRead }: { url: string; onOpenRead: (file: string) => void }) {
+  const openRef = useRef(onOpenRead);
+  openRef.current = onOpenRead;
+  const [markup, setMarkup] = useState<{ css: string; html: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMarkup(null);
+    fetch(url)
+      .then((response) => (response.ok ? response.text() : Promise.reject(new Error('aula'))))
+      .then((source) => {
+        if (cancelled) return;
+        setMarkup(prepareLessonMarkup(source));
+      })
+      .catch(() => {
+        if (!cancelled) setMarkup(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  function onArticleClick(event: React.MouseEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement;
+    const button = target.closest('button');
+    const question = button?.closest('.q');
+    if (button && question instanceof HTMLElement) {
+      const answer = Number(question.getAttribute('data-answer'));
+      question.querySelectorAll<HTMLButtonElement>('button').forEach((option) => {
+        const choice = Number(option.getAttribute('data-i'));
+        option.classList.toggle('ok', choice === answer);
+        option.classList.toggle('no', choice !== answer);
+        option.setAttribute('aria-pressed', String(option === button));
+      });
+      question.classList.add('done');
+    }
+    const link = target.closest('a');
+    if (link instanceof HTMLAnchorElement && (link.getAttribute('href') ?? '').endsWith('.html')) {
+      event.preventDefault();
+      openRef.current(link.getAttribute('href') ?? '');
+    }
+  }
+
+  if (!markup) return null;
+  return (
+    <div className="aula-texto" onClick={onArticleClick}>
+      <style>{markup.css}</style>
+      <div dangerouslySetInnerHTML={{ __html: markup.html }} />
+    </div>
   );
 }

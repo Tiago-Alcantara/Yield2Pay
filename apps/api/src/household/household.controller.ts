@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -19,6 +20,7 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import {
   HouseholdConflictError,
   HouseholdForbiddenError,
+  HouseholdInvalidError,
   HouseholdNotFoundError,
 } from './household.errors';
 import { HouseholdService } from './household.service';
@@ -97,6 +99,9 @@ export class HouseholdController {
     try {
       return await this.householdService.putProfile(req.companyId, dto);
     } catch (error) {
+      if (error instanceof HouseholdInvalidError) {
+        throw new BadRequestException(error.message);
+      }
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
       }
@@ -112,6 +117,9 @@ export class HouseholdController {
     try {
       return await this.householdService.patchProfile(req.companyId, dto);
     } catch (error) {
+      if (error instanceof HouseholdInvalidError) {
+        throw new BadRequestException(error.message);
+      }
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
       }

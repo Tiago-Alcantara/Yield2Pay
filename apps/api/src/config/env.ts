@@ -20,6 +20,8 @@ const schema = z.object({
   APP_ENV: z
     .enum(['production', 'staging', 'development'])
     .default('development'),
+  // Sessão fixa do painel local, sem Privy. Fica desligada fora desta máquina.
+  DEV_LOCAL_SESSION: z.enum(['true', 'false']).default('false'),
   DEMO_YIELD_BPS: z.coerce.number().int().nonnegative().default(0),
   DEMO_RETURNS_CHANGE_PERCENT: z.string().default('3.2'),
   // Etherfuse on/off-ramp integration. Ausente = mock mode automático.
@@ -47,6 +49,7 @@ export type Env = {
   feeSponsorSecretKey: string;
   port: number;
   appEnv: AppEnv;
+  localSession: boolean;
   demoYieldBps: number;
   demoReturnsChangePercent: string;
   etherfuseApiKey: string | undefined;
@@ -70,6 +73,7 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     feeSponsorSecretKey: parsed.FEE_SPONSOR_SECRET_KEY,
     port: parsed.PORT,
     appEnv: parsed.APP_ENV,
+    localSession: parsed.DEV_LOCAL_SESSION === 'true',
     demoYieldBps: parsed.DEMO_YIELD_BPS,
     demoReturnsChangePercent: parsed.DEMO_RETURNS_CHANGE_PERCENT,
     etherfuseApiKey: parsed.ETHERFUSE_API_KEY,

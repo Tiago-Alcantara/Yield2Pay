@@ -1,6 +1,7 @@
 import type {
   AccountView,
   ExpenseCategory,
+  ExpensePage,
   ExpenseView,
   HouseholdPersonView,
   HouseholdProfile,
@@ -105,10 +106,25 @@ export function createHouseholdApi(getToken: GetToken) {
         body: JSON.stringify(body),
       }),
     skipProfile: () => request<void>('/household/profile/skip', { method: 'POST' }),
-    getExpenses: (opts?: { month?: string; category?: ExpenseCategory }) =>
-      request<ExpenseView[]>(
-        `/expenses${queryString({ month: opts?.month, category: opts?.category })}`,
-      ),
+    getExpenses: async (opts?: { month?: string; category?: ExpenseCategory }) => {
+      const pageSize = 100;
+      const items: ExpenseView[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await request<ExpensePage>(
+          `/expenses${queryString({
+            month: opts?.month,
+            category: opts?.category,
+            limit: String(pageSize),
+            offset: String(offset),
+          })}`,
+        );
+        items.push(...page.items);
+        if (page.items.length === 0 || items.length >= page.total) break;
+        offset += page.items.length;
+      }
+      return items;
+    },
     getExpenseMonths: () => request<string[]>('/expenses/months'),
     createExpense: (body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) =>
       request<ExpenseView>('/expenses', {
@@ -122,6 +138,10 @@ export function createHouseholdApi(getToken: GetToken) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
+    deleteExpense: (id: string) =>
+      request<void>(`/expenses/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    deleteStatement: (id: string) =>
+      request<void>(`/statements/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     getHouseholdSummary: (opts?: { month?: string; category?: ExpenseCategory }) =>
       request<HouseholdSummary>(
         `/household/summary${queryString({ month: opts?.month, category: opts?.category })}`,
@@ -134,7 +154,9 @@ export function createHouseholdApi(getToken: GetToken) {
       body.append('file', file);
       const response = await fetch(`${baseUrl}/statements`, { method: 'POST', headers, body });
       if (!response.ok) {
-        throw new Error('POST /statements failed');
+        const error = new Error('POST /statements failed') as Error & { status?: number };
+        error.status = response.status;
+        throw error;
       }
       return (await response.json()) as StatementImportResult;
     },

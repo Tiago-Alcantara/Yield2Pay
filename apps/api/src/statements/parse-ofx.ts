@@ -1,4 +1,4 @@
-import { parseAmountToCents } from '../expenses/parse-amount';
+import { parseSignedAmount } from '../expenses/parse-amount';
 import { normalizeDate } from './parse-csv';
 import {
   StatementFormatError,
@@ -6,21 +6,38 @@ import {
 } from './statement.errors';
 
 export function parseOfx(text: string): ParsedStatementRow[] {
-  const blocks = [...text.matchAll(/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi)];
-  if (blocks.length === 0) {
-    throw new StatementFormatError();
-  }
-
-  return blocks.map(([, body]) => {
-    const posted = ofxTag(body, 'DTPOSTED') ?? '';
+  return statementBodies(text).map((body) => {
+    const posted = (ofxTag(body, 'DTPOSTED') ?? '').replace(/\D/g, '');
     const ymd = posted.slice(0, 8);
     const spentOn =
-      normalizeDate(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`) ??
-      '';
+      ymd.length === 8
+        ? normalizeDate(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`) ?? ''
+        : '';
     const merchant = (ofxTag(body, 'NAME') ?? ofxTag(body, 'MEMO') ?? '').trim();
-    const amountCents = parseAmountToCents(ofxTag(body, 'TRNAMT') ?? '');
-    return { spentOn, merchant, amountCents };
+    const amount = parseSignedAmount(ofxTag(body, 'TRNAMT') ?? '');
+    return {
+      spentOn,
+      merchant,
+      amountCents: amount.amountCents,
+      signed: amount.signed === 'debit' ? 'debit' : 'credit',
+    };
   });
+}
+
+function statementBodies(text: string): string[] {
+  const closed = [...text.matchAll(/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi)].map((match) => match[1]);
+  if (closed.length > 0) {
+    return closed;
+  }
+  const open = text
+    .split(/<STMTTRN>/i)
+    .slice(1)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (open.length === 0) {
+    throw new StatementFormatError();
+  }
+  return open;
 }
 
 function ofxTag(block: string, name: string): string | undefined {

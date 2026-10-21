@@ -31,6 +31,11 @@ it('rejects missing required keys', () => {
 
 it('defaults the app env to development', () => {
   expect(loadEnv(base).appEnv).toBe('development');
+  expect(loadEnv(base).localSession).toBe(false);
+});
+
+it('turns the local session on only when asked', () => {
+  expect(loadEnv({ ...base, DEV_LOCAL_SESSION: 'true' }).localSession).toBe(true);
 });
 
 it('parses an explicit app env', () => {

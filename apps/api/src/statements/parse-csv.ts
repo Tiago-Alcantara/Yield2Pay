@@ -1,34 +1,48 @@
-import { parseAmountToCents } from '../expenses/parse-amount';
+import { parseSignedAmount } from '../expenses/parse-amount';
 import {
   StatementFormatError,
   type ParsedStatementRow,
 } from './statement.errors';
 
 const DATE_HEADERS = new Set(['data', 'date']);
-const MERCHANT_HEADERS = new Set(['descricao', 'description', 'memo']);
+const MERCHANT_HEADERS = new Set([
+  'descricao',
+  'description',
+  'memo',
+  'historico',
+  'lancamento',
+  'titulo',
+  'title',
+  'estabelecimento',
+]);
 const AMOUNT_HEADERS = new Set(['valor', 'amount']);
 
 export function parseCsv(text: string): ParsedStatementRow[] {
-  const lines = text.split(/\r?\n/).filter((line) => line.length > 0);
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
     throw new StatementFormatError();
   }
 
-  const headers = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-  const dateIdx = headers.findIndex((h) => DATE_HEADERS.has(h));
-  const merchantIdx = headers.findIndex((h) => MERCHANT_HEADERS.has(h));
-  const amountIdx = headers.findIndex((h) => AMOUNT_HEADERS.has(h));
-  if (dateIdx < 0 || merchantIdx < 0 || amountIdx < 0) {
+  const header = findHeader(lines);
+  if (!header) {
     throw new StatementFormatError();
   }
 
   const rows: ParsedStatementRow[] = [];
-  for (const line of lines.slice(1)) {
-    const fields = splitCsvLine(line);
-    const spentOn = normalizeDate(fields[dateIdx] ?? '');
-    const merchant = (fields[merchantIdx] ?? '').trim();
-    const amountCents = parseAmountToCents(fields[amountIdx] ?? '');
-    rows.push({ spentOn: spentOn ?? '', merchant, amountCents });
+  for (const line of lines.slice(header.index + 1)) {
+    const fields = splitCsvLine(line, header.delimiter);
+    const spentOn = normalizeDate(fields[header.dateIdx] ?? '');
+    const merchant = (fields[header.merchantIdx] ?? '').trim();
+    const amount = parseSignedAmount(fields[header.amountIdx] ?? '');
+    rows.push({
+      spentOn: spentOn ?? '',
+      merchant,
+      amountCents: amount.amountCents,
+      signed: amount.signed,
+    });
   }
 
   if (rows.length === 0) {
@@ -37,7 +51,42 @@ export function parseCsv(text: string): ParsedStatementRow[] {
   return rows;
 }
 
-function splitCsvLine(line: string): string[] {
+function findHeader(lines: string[]) {
+  const scan = Math.min(lines.length, 30);
+  for (let index = 0; index < scan; index++) {
+    const delimiter = delimiterOf(lines[index]);
+    const headers = splitCsvLine(lines[index], delimiter).map(foldHeader);
+    const dateIdx = headers.findIndex((header) => DATE_HEADERS.has(header));
+    const merchantIdx = headers.findIndex((header) => MERCHANT_HEADERS.has(header));
+    const amountIdx = headers.findIndex((header) => AMOUNT_HEADERS.has(header));
+    if (dateIdx >= 0 && merchantIdx >= 0 && amountIdx >= 0) {
+      return { index, delimiter, dateIdx, merchantIdx, amountIdx };
+    }
+  }
+  return null;
+}
+
+function delimiterOf(line: string): ',' | ';' {
+  let commas = 0;
+  let semis = 0;
+  let inQuotes = false;
+  for (const ch of line) {
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes && ch === ',') {
+      commas += 1;
+    } else if (!inQuotes && ch === ';') {
+      semis += 1;
+    }
+  }
+  return semis > commas ? ';' : ',';
+}
+
+function foldHeader(value: string): string {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+
+function splitCsvLine(line: string, delimiter: ',' | ';'): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -50,7 +99,7 @@ function splitCsvLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === delimiter && !inQuotes) {
       fields.push(current);
       current = '';
     } else {

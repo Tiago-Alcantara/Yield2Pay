@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import type { AccountView, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView } from '@yield2pay/shared';
+import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
@@ -161,7 +162,7 @@ type GetToken = () => Promise<string | null>;
 
 export default function PainelGastos() {
   if (!isPrivyConfigured) {
-    return <PainelScreen getToken={async () => null} />;
+    return <PainelScreen getToken={async () => LOCAL_DEV_TOKEN} />;
   }
   return <PrivyPainel />;
 }
@@ -329,7 +330,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   async function importFile(file: File) {
     const result = await api().importStatement(file);
     await refresh(month);
-    return result.imported;
+    return result;
+  }
+
+  async function undoImport(statementId: string) {
+    await api().deleteStatement(statementId);
+    await refresh(month);
+  }
+
+  async function removeExpense(id: string) {
+    await api().deleteExpense(id);
+    await refresh(month);
   }
 
   async function createExpense(body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) {
@@ -889,6 +900,14 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                 <span className="y2p-mono" style={{ color: '#F2F3F4', textAlign: 'right', minWidth: 92 }}>
                   {brl(reais(row.amountCents))}
                 </span>
+                <button
+                  type="button"
+                  className="y2p-tx-delete"
+                  aria-label={'Apagar ' + row.merchant}
+                  onClick={() => void removeExpense(row.id)}
+                >
+                  Apagar
+                </button>
               </div>
             ))}
             {list.length > 8 && (
@@ -906,7 +925,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>
-              {criptoOn ? (profile?.cryptoExperience === 'fund' ? 'Cripto, um passo além' : 'Cripto sem pressa') : 'Quando fizer sentido'}
+              {criptoOn ? (profile?.cryptoExperience === 'fund' ? 'Cripto, um passo além' : 'Cripto do zero') : 'Quando fizer sentido'}
             </h2>
             <p style={{ fontSize: 15, lineHeight: 1.6, color: '#C8CACD', margin: '12px 0 0' }}>
               {criptoOn
@@ -965,6 +984,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         <ImportModal
           onClose={() => setImportOpen(false)}
           onImportFile={importFile}
+          onUndoImport={undoImport}
           onCreateExpense={createExpense}
           onDone={() => {
             setImportOpen(false);

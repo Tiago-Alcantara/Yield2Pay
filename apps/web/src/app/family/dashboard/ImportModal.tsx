@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
-import type { ExpenseCategory } from '@yield2pay/shared';
+import type { ExpenseCategory, StatementImportResult } from '@yield2pay/shared';
 import { brl, reais, saoPauloToday } from './painel-format';
 
 type Mode = 'ofx' | 'nfe' | 'manual';
@@ -67,16 +67,20 @@ function CategoryChips({ value, onChange }: { value: ExpenseCategory; onChange: 
 export function ImportModal({
   onClose,
   onImportFile,
+  onUndoImport,
   onCreateExpense,
   onDone,
 }: {
   onClose: () => void;
-  onImportFile: (file: File) => Promise<number>;
+  onImportFile: (file: File) => Promise<StatementImportResult>;
+  onUndoImport: (statementId: string) => Promise<void>;
   onCreateExpense: (body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) => Promise<void>;
   onDone: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('ofx');
   const [loaded, setLoaded] = useState(0);
+  const [lastStatementId, setLastStatementId] = useState<string | null>(null);
+  const [lastImported, setLastImported] = useState(0);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState('');
@@ -108,10 +112,15 @@ export function ImportModal({
     setBusy(true);
     setFileError('');
     try {
-      const count = await onImportFile(file);
-      setLoaded((current) => current + count);
-    } catch {
-      setFileError('Não conseguimos ler esse arquivo. Exporte o extrato em OFX no app do banco.');
+      const result = await onImportFile(file);
+      setLoaded((current) => current + result.imported);
+      setLastImported(result.imported);
+      setLastStatementId(result.statementId);
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      setFileError(status === 409
+        ? 'Esse extrato já foi importado.'
+        : 'Não conseguimos ler esse arquivo. Use OFX, CSV ou PDF exportado pelo banco.');
     } finally {
       setBusy(false);
     }
@@ -187,7 +196,7 @@ export function ImportModal({
   }
 
   const options: { id: Mode; kicker: string; title: string; detail: string }[] = [
-    { id: 'ofx', kicker: 'Mais completo', title: 'Extrato do banco', detail: 'Arquivo .ofx com todos os gastos' },
+    { id: 'ofx', kicker: 'Mais completo', title: 'Extrato do banco', detail: 'Arquivo OFX, CSV ou PDF' },
     { id: 'nfe', kicker: 'Uma compra', title: 'Nota fiscal', detail: 'Pela chave de acesso' },
     { id: 'manual', kicker: 'Do seu jeito', title: 'Manual', detail: 'Digite um gasto' },
   ];
@@ -243,13 +252,13 @@ export function ImportModal({
               onDrop={onDrop}
               style={{ minHeight: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: 24, borderRadius: 14, border: `1.5px dashed ${dragOver ? '#C0C2C5' : '#3a3d42'}`, background: 'rgba(12,13,15,.5)' }}
             >
-              <div style={{ fontSize: 18, fontWeight: 600 }}>Arraste o arquivo .ofx aqui</div>
-              <div style={{ fontSize: 14, color: '#9A9DA1', maxWidth: 420, lineHeight: 1.5 }}>No app do banco: Extrato → Exportar → OFX.</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>Arraste o extrato aqui</div>
+              <div style={{ fontSize: 14, color: '#9A9DA1', maxWidth: 420, lineHeight: 1.5 }}>No app do banco: Extrato → Exportar → OFX, CSV ou PDF. Até 5 MB.</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
                 <label style={{ display: 'inline-flex', alignItems: 'center', height: 44, padding: '0 20px', borderRadius: 999, background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
                   <input
                     type="file"
-                    accept=".ofx,.qfx,text/plain"
+                    accept=".ofx,.qfx,.csv,.pdf,text/plain,text/csv,application/pdf"
                     style={{ display: 'none' }}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
@@ -351,9 +360,30 @@ export function ImportModal({
               <b style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>{loaded}</b>
               {loaded === 1 ? ' gasto carregado. Pode juntar outros jeitos.' : ' gastos carregados. Pode juntar outros jeitos.'}
             </span>
-            <button type="button" onClick={onDone} style={{ height: 44, padding: '0 20px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-              Ver minhas contas
-            </button>
+            <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {lastStatementId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const statementId = lastStatementId;
+                    setLastStatementId(null);
+                    void onUndoImport(statementId).then(() => {
+                      setLoaded((current) => Math.max(0, current - lastImported));
+                      setLastImported(0);
+                    }).catch(() => {
+                      setLastStatementId(statementId);
+                      setFileError('Não conseguimos desfazer essa importação.');
+                    });
+                  }}
+                  style={{ height: 44, padding: '0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Desfazer extrato
+                </button>
+              )}
+              <button type="button" onClick={onDone} style={{ height: 44, padding: '0 20px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                Ver minhas contas
+              </button>
+            </span>
           </div>
         )}
       </section>

@@ -4,13 +4,21 @@ import { ExpensesService } from './expenses.service';
 const households = {
   requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'member' }),
 };
-function membership(prisma: { householdMember?: unknown }, householdId: string) {
+function membership(_prisma: unknown, householdId: string) {
   households.requireMembership.mockResolvedValue({ householdId, role: 'member' });
 }
 function fakePrisma() {
   return {
-    expense: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+    expense: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn().mockResolvedValue(1),
+    },
     personName: { findMany: vi.fn() },
+    $queryRaw: vi.fn(),
   };
 }
 
@@ -26,9 +34,69 @@ describe('ExpensesService', () => {
       { companyId: 'co_bia', displayName: 'Bia', fullName: 'Bia Souza' },
     ]);
     const svc = new ExpensesService(prisma as never, households as never);
-    const rows = await svc.list('co_ana', '2026-10');
-    expect(rows[0].addedBy).toEqual({ displayName: 'Bia', initials: 'BS' });
-    expect(rows[0].date).toBe('2026-10-12');
+    const page = await svc.list('co_ana', '2026-10');
+    expect(page.total).toBe(1);
+    expect(page.items[0].addedBy).toEqual({ displayName: 'Bia', initials: 'BS' });
+    expect(page.items[0].date).toBe('2026-10-12');
+  });
+
+  it('rejects a month that is not YYYY-MM', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findMany.mockResolvedValue([]);
+    const svc = new ExpensesService(prisma as never, households as never);
+    await expect(svc.list('co_ana', '2026-13')).rejects.toThrow('month is invalid');
+  });
+
+  it('pages the month with limit and offset', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.count.mockResolvedValue(120);
+    prisma.expense.findMany.mockResolvedValue([]);
+    prisma.personName.findMany.mockResolvedValue([]);
+    const svc = new ExpensesService(prisma as never, households as never);
+    const page = await svc.list('co_ana', '2026-10', undefined, { limit: 50, offset: 100 });
+    expect(page.total).toBe(120);
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50, skip: 100 }),
+    );
+  });
+
+  it('rejects a limit outside 1 to 200', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    const svc = new ExpensesService(prisma as never, households as never);
+    await expect(
+      svc.list('co_ana', '2026-10', undefined, { limit: 0, offset: 0 }),
+    ).rejects.toThrow('limit is invalid');
+  });
+
+  it('reads distinct months from the database', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findMany.mockResolvedValue([]);
+    prisma.$queryRaw.mockResolvedValue([{ month: '2026-10' }, { month: '2026-09' }]);
+    const svc = new ExpensesService(prisma as never, households as never);
+    const months = await svc.months('co_ana');
+    expect(prisma.expense.findMany).not.toHaveBeenCalled();
+    expect(months).toEqual(['2026-10', '2026-09']);
+  });
+
+  it('deletes an expense that belongs to the group', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findFirst.mockResolvedValue({ id: 'e1' });
+    const svc = new ExpensesService(prisma as never, households as never);
+    await svc.remove('co_ana', 'e1');
+    expect(prisma.expense.delete).toHaveBeenCalledWith({ where: { id: 'e1' } });
+  });
+
+  it('does not delete an expense outside the group', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findFirst.mockResolvedValue(null);
+    const svc = new ExpensesService(prisma as never, households as never);
+    await expect(svc.remove('co_ana', 'e_other')).rejects.toBeInstanceOf(ExpenseNotFoundError);
   });
 
   it('creates a manual expense for the group', async () => {

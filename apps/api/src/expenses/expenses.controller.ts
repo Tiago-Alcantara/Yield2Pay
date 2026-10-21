@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Patch,
@@ -43,10 +45,20 @@ export class ExpensesController {
     @Req() req: AuthenticatedRequest,
     @Query('month') month: string,
     @Query('category') category?: ExpenseCategory,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     try {
-      return await this.expensesService.list(req.companyId, month, category);
+      return await this.expensesService.list(
+        req.companyId,
+        month,
+        category,
+        readPage(limit, offset),
+      );
     } catch (error) {
+      if (error instanceof ExpenseInvalidError) {
+        throw new BadRequestException(error.message);
+      }
       this.rethrow(error);
     }
   }
@@ -73,6 +85,16 @@ export class ExpensesController {
     }
   }
 
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    try {
+      await this.expensesService.remove(req.companyId, id);
+    } catch (error) {
+      this.rethrow(error);
+    }
+  }
+
   private rethrow(error: unknown): never {
     if (error instanceof ExpenseNotFoundError) {
       throw new NotFoundException();
@@ -82,4 +104,11 @@ export class ExpensesController {
     }
     throw error;
   }
+}
+
+function readPage(limit?: string, offset?: string) {
+  return {
+    limit: limit == null || limit === '' ? 100 : Number(limit),
+    offset: offset == null || offset === '' ? 0 : Number(offset),
+  };
 }
