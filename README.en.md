@@ -118,18 +118,20 @@ Eight routes, bilingual (PT/EN), walkable end to end in
 | [`/family`](apps/web/src/app/family/page.tsx) | Landing: hero, **freedom calculator**, how it works, what's behind it, waitlist |
 | [`/family/onboarding`](apps/web/src/app/family/onboarding/) | Account and wallet setup |
 | [`/family/deposito`](apps/web/src/app/family/deposito/) | PIX deposit (`PixDepositCard`) |
-| [`/family/dashboard`](apps/web/src/app/family/dashboard/) | Freedom percentage, balance, subscriptions, history |
+| [`/family/dashboard`](apps/web/src/app/family/dashboard/) | **Household spending panel**: filters, charts, statement import, reserve freedom time |
 | [`/family/dashboard/[subId]`](apps/web/src/app/family/dashboard/) | Single-subscription detail |
 | [`/family/saque`](apps/web/src/app/family/saque/) | Principal withdrawal |
+| [`/family/conta`](apps/web/src/app/family/conta/) | Account and household members (invites, leave, remove) — also opens as a modal on the panel |
+| [`/family/aprender`](apps/web/src/app/family/aprender/) | Crypto lessons (7 lessons) with saved progress |
 | [`/family/conceitos`](apps/web/src/app/family/conceitos/) | Wallet, stablecoin, yield + FAQ |
 | [`/family/configuracoes`](apps/web/src/app/family/configuracoes/) | Profile, security, wallet, PIX, subscriptions, notifications, privacy (LGPD) |
 
 > [!IMPORTANT]
-> **What is NOT wired up yet.** These screens are **frontend only**. The numbers are computed
-> client-side, with **no Privy, DeFindex or PIX behind them** in this vertical, and the waitlist only
-> validates the email and shows a "sent" state — nothing is persisted. The real backend (auth,
-> deposit, withdraw, bills, ledger) **already runs on testnet** for the B2B product; what's missing
-> is **wiring the family screens into it** — see the [roadmap](#-roadmap).
+> **What is wired up and what isn't.** Account, household and invites, onboarding profile,
+> expenses, statement import, the panel summary and lessons **already use the API** (`/account`,
+> `/households`, `/household/*`, `/expenses`, `/statements`, `/lessons`). Still **client-only**:
+> deposit, withdraw, the yield freedom percentage and the waitlist. See the [roadmap](#-roadmap) and
+> the [integration proposal](docs/DOCUMENTACAO.md#10-integração-family--rendimento) (Portuguese).
 
 <details>
 <summary><b>Internal structure of the vertical</b></summary>
@@ -289,9 +291,14 @@ without touching the others.
 | **Deposit** | Vault deposit history | `amount` (BigInt), `txHash` (unique) |
 | **RecurringBill** | Subscriptions | `vendor`, `monthlyCost` (BigInt), `type`, `status` |
 | **YieldSnapshot** | Daily state | `vaultValue`, `principal`, `spendable` (BigInt) |
+| **Household** | Household (onboarding profile) | `ownerCompanyId`, `monthlyIncomeCents`, `reserveCents`, `goalMonths` |
+| **HouseholdMember** / **HouseholdInvite** | Household members and invites | `role`, `email`, `status` |
+| **Statement** | Imported bank statement | `contentHash` (unique per household — no duplicates) |
+| **Expense** | Household expense | `category`, `fixed`, `amountCents`, `addedByCompanyId` |
+| **LessonProgress** | Lesson progress | `lessonId`, `completed` |
 
-When the families vertical is wired in, it reuses this same core — and that's where the
-**"author" field per movement** comes in (see [product decisions](#-product-decisions)).
+Family expenses already record their author (`addedByCompanyId`); the same field still has to
+reach `Deposit` and `RampOrder` (see [product decisions](#-product-decisions)).
 
 </details>
 
@@ -317,8 +324,9 @@ apps/web/src/
 - **No Tailwind, no charting library.** Styling via **design tokens** (`--fx-*`) + inline styles.
   "Private bank" aesthetic: monochrome black/silver, brushed-metal surfaces, dark mode. The
   dashboard chart is pure CSS.
-- **`/family` sits outside the `AuthGate`** — it runs with no credentials at all, which makes the
-  vertical walkable in any clone of the repo.
+- **`/family` uses `FamilySessionGate`**, not `AuthGate`: it requires a Privy session but doesn't
+  create a Stellar wallet. Without `NEXT_PUBLIC_PRIVY_APP_ID` it lets you through, so the prototype
+  stays walkable.
 - **`packages/shared`** defines the contract once (`Bill`, `SpendableView`, tx DTOs) and both sides
   consume it: end-to-end type safety without publishing an SDK.
 
@@ -377,17 +385,18 @@ covering hooks, utils, components, error screens and the `/family` math.
 account creation and funding, gas sponsored via fee-bump, real deposits/withdrawals in the DeFindex
 vault, on-chain balance, service catalog, bills and a daily snapshot. The **Etherfuse ramp**
 (PIX ⇄ USDC) is **coded and wired** into deposit and withdrawal, running against the **sandbox** —
-with automatic *mock mode* when the API key is absent. The **families** vertical is a **frontend
-prototype**. The custom escrow contract remains **specified, not coded**.
+with automatic *mock mode* when the API key is absent. The **families** vertical already has a backend for
+account, household, expenses, statements and lessons; its deposit and withdraw are still a prototype. The custom escrow contract remains **specified, not coded**.
 
 ### Families vertical
 
 | | Item | Status |
 |:---:|---|---|
 | 🎨 | `/family` screens — 8 routes, PT/EN, complete flows | ✅ **walkable prototype** |
-| 🔌 | Wire `/family` into the backend (auth · deposit · withdraw · bills · ledger) | 🚧 **next** |
+| 🔌 | `/family` on the backend: account, household, invites, onboarding, expenses, statements, summary, lessons | ✅ **done** |
+| 🔗 | Integrate with Yield: vault on the household, real deposit/withdraw, fixed expenses → bills ([proposal](docs/DOCUMENTACAO.md#10-integração-family--rendimento)) | 🚧 **next** |
 | 💾 | Persist the freedom percentage server-side (today client-only) | 📋 planned |
-| 👤 | **"Author"** field on every movement (prepares family accounts) | 📋 planned |
+| 👤 | **"Author"** field on every movement (done for expenses; missing on deposits and orders) | 🚧 partial |
 | ✉️ | Wire up the waitlist (today it only validates and shows "sent") | 📋 planned |
 | 🔑 | Google/Apple social login connected to Privy in the vertical | 📋 planned |
 
@@ -490,8 +499,8 @@ pnpm web:test         # frontend only
 Configure `apps/api/.env` and `apps/web/.env.local` from their respective `*.example` files.
 
 > [!TIP]
-> The **`/family` vertical runs with no credentials at all** — it's frontend only. Just `pnpm dev:web`
-> and open `http://localhost:3000/family`. The authenticated screens (`/login`, `(app)`) need a real
+> The **`/family`** landing opens with just `pnpm dev:web` at `http://localhost:3000/family`. The
+> panel, account and lessons need the API and database (`pnpm dev:app`). The authenticated screens (`/login`, `(app)`) need a real
 > `NEXT_PUBLIC_PRIVY_APP_ID`.
 
 ---
@@ -508,6 +517,9 @@ Most documents are written in Portuguese.
 - [`docs/PROMPT-PITCH-SLIDES.md`](docs/PROMPT-PITCH-SLIDES.md) — pitch-deck script.
 
 **Technical**
+- [`docs/DOCUMENTACAO.md`](docs/DOCUMENTACAO.md) — **start here**: architecture, data model, every
+  endpoint, business rules and the Family ↔ Yield integration.
+- [`docs/diagrams/`](docs/diagrams/) — overall architecture diagram.
 - [`docs/Yield2Pay_Documentacao_Tecnica.md`](docs/Yield2Pay_Documentacao_Tecnica.md) — full spec
   (§8: implemented-on-testnet vs. planned status table).
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — deploy guide (Vercel + Render).
