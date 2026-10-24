@@ -18,3 +18,8 @@ demais e cara de cripto.
 - `v1/`, `v2/` — rodadas 1–2 (frias/geométricas, cara de cripto). `v3/` — rodada 3 (usava Y2 e o "2" do nome).
 - Curvas ainda estão poligonizadas (muitos pontos) — normal para exploração; a versão final é redesenhada com arcos limpos.
 - Regerar: `pip install shapely && python3 generate.py .`
+
+## Rodada 5 — 20 símbolos (`rodada-5/`)
+
+Vinte esboços rápidos, sem letras, para o usuário reagir por número: `rodada-5/sheet.png` (visão geral),
+`01.svg`…`20.svg` (mestres em preto), `concepts.json` (nome e ideia de cada um). Regerar: `python3 rodada-5/generate.py rodada-5`.
