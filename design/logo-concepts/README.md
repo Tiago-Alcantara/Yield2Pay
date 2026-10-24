@@ -1,15 +1,19 @@
-# Conceitos de logo — rodada 2
+# Conceitos de logo — rodada 3 (metais preciosos)
 
-Gerados com a skill [logo-design](https://github.com/kaankiziltug/logo-design-skill) (modo Redesign, fast track).
-Preto primeiro, sem cor. O losango prateado atual (`design/assets/logo-mark.svg`) é o ativo de reconhecimento
-mantido nos três.
+Gerados com a skill [logo-design](https://github.com/kaankiziltug/logo-design-skill). Preto primeiro; `preview-metal.png`
+mostra prata sobre preto e a gravação num cartão de metal.
+
+**Brief:** sóbria e premium, com toque de ofício; lingote + forja; liberdade = independência; maturidade financeira;
+só preto + prata/platina; referência: fintechs premium (Apple Card, Amex Centurion, Revolut Metal). Evitar: frio/geométrico
+demais e cara de cripto.
 
 | | Conceito | Ideia |
 |---|---|---|
-| **A** (recomendado) | Rendimento à frente | O losango inteiro é o seu dinheiro; só a ponta — o rendimento — se solta e segue para pagar. |
-| **B** | Medidor de liberdade | O losango enche conforme o rendimento cobre as contas (ver `b-system.png`, `b-level-*.svg`). |
-| **C** | Y que paga | O V do Y recolhe o rendimento e deixa cair um losango: o pagamento. |
+| **A** (recomendado) | Punção de refinadora | Y2 gravado como a marca de pureza das refinadoras, de pé sobre uma barra. |
+| **B** | Barra que se paga | A camada de cima do lingote — o rendimento — desliza para pagar; a barra fica inteira. |
+| **C** | O 2 fundido | Wordmark: o 2 pinga como metal derretido e assenta num lingote. |
 
-- `concepts.png` — visão geral (64/32/16 px reais). `v1/` — primeira rodada, descartada (A lia como coração).
-- Wordmark: contornos da Inter Bold como substituta da Hanken Grotesk 700 (não instalada no ambiente de geração).
-- Regerar: `pip install fonttools && python3 generate.py .`
+- `v1/`, `v2/` — rodadas anteriores (descartadas: frias/geométricas, cara de cripto).
+- Curvas ainda estão poligonizadas (muitos pontos) e o wordmark usa Inter Bold no lugar da Hanken Grotesk 700 —
+  normal para exploração; a versão final é redesenhada com arcos limpos.
+- Regerar: `pip install fonttools shapely && python3 generate.py .`
