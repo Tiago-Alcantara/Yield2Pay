@@ -14,7 +14,9 @@
     "api:dev": "pnpm --filter @yield2pay/api start:dev",
     "api:test": "pnpm --filter @yield2pay/api test",
     "web:test": "pnpm --filter @yield2pay/web test",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "design:sync": "node scripts/design-sync.mjs",
+    "design:check": "node scripts/design-sync.mjs --check"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

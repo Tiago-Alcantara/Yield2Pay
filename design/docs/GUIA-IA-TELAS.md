@@ -28,6 +28,9 @@ arquivo, esqueleto para copiar, padrão da lógica, navegação entre telas e ch
 ```
 
 **Antes de construir qualquer tela nova:**
+0. Leia `docs/INVENTARIO.md` (gerado por `pnpm design:sync`): lista os tokens, componentes e telas
+   que o app tem **hoje**. Reaproveite o que existe; não invente token, cor ou componente novo.
+   Ao terminar uma tela/campo, rode `pnpm design:sync` para manter o inventário atualizado.
 1. Leia `DESIGN-SYSTEM.md` para os valores literais.
 2. Abra a tela existente mais parecida (landing, auth ou dashboard) e **copie o padrão dela** —
    header, espaçamentos, cards, o dicionário EN/PT, os handlers.
