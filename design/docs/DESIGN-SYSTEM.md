@@ -10,6 +10,9 @@ A estética é **"banco privado, digital"**: sóbria, premium, monocromática **
 com **superfícies de metal escovado** como material assinatura. É reservada e confiante — mais
 perto de um cartão de metal ou de um extrato de private bank do que de uma startup cripto barulhenta.
 
+> **Temática e intenção da marca:** veja `BRIEFING.md` (o que a marca transmite e por quê) antes
+> de aplicar os valores abaixo.
+
 Este documento é a fonte de verdade do sistema **na forma como ele é realmente usado nos arquivos
 `.dc.html`**: estilos inline, dois tipos de fonte, paleta monocromática e os efeitos de metal/luz.
 Os valores abaixo são literais — copie-os diretamente para o `style="..."`.

@@ -35,6 +35,8 @@ private-bank statement than a loud crypto startup.
   - `yield2pay-dashboard/` — logged-in product overview (capital, returns, subscriptions paid).
   - `yield2pay-deposit/` — 3-step capital-deposit / onboarding flow with live returns projection.
 - **`assets/`** — `logo-mark.svg` (the silver diamond mark).
+- **`docs/BRIEFING.md`** — design brief (PT-BR): audience, feel, the precious-metals theme and how it
+  applies to the site. Read first.
 - **`SKILL.md`** — portable skill manifest (for Claude Code / Agent Skills).
 
 Starting points are registered on `MetalCard`, `StatPanel`, `Button`, `Header`, and all three
