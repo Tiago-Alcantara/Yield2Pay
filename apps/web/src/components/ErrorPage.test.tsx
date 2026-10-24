@@ -1,3 +1,10 @@
+/**
+ * Módulo: ErrorPage
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: A tela cheia de erro usa a cópia do status e o painel técnico só fora de produção.
+ * Sequência: shows the copy of the received status; announces itself to screen readers as soon as it renders; moves focus to the title so the user is not left on the previous page; offers retry and home on a 500; offers no retry on a 404 because retrying cannot fix it; sends a 401 to the login screen; shows the error id and its timestamp in pt-BR; copies the error id and confirms it to the user; never renders the technical panel in a production bundle, even with data for it; shows the technical panel and flags the environment; shows no panel when the payload carries no technical details.
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,3 +1,10 @@
+/**
+ * Módulo: errorRoutes
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: As rotas de erro e de página não encontrada mostram a cópia da tela cheia.
+ * Sequência: shows the full-page error for a render crash; wires the retry button to the boundary retry; keeps the same error id across re-renders so the user can report it; shows the 404 copy without a retry button.
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

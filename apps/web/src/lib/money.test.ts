@@ -1,3 +1,10 @@
+/**
+ * Módulo: money
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: USDC de exibição e a volta para unidades inteiras fecham a mesma conta.
+ * Sequência: always renders exactly 2 decimal places, rounding half-up; rounds sub-unit values to 2 dp; formats zero; formats large values without precision loss; converts a human USDC string to 7-decimal base units; rejects more than 7 decimal places.
+ */
 import { formatUsdc, toBaseUnits } from './money';
 
 describe('formatUsdc (display: 2 decimals)', () => {

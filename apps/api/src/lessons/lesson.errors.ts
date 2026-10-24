@@ -11,3 +11,10 @@ export class LessonTrackError extends Error {
     this.name = 'LessonTrackError';
   }
 }
+
+export class LessonQuizError extends Error {
+  constructor(message = 'Quiz not passed') {
+    super(message);
+    this.name = 'LessonQuizError';
+  }
+}

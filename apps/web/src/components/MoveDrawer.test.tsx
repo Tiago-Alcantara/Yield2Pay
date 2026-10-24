@@ -1,3 +1,10 @@
+/**
+ * Módulo: MoveDrawer
+ * Criado em: 2026-06-30
+ * Última atualização: 2026-10-22
+ * Intuito: A gaveta de aporte e saque valida o valor e confirma a transação.
+ * Sequência: deposit: chama deposit com base units no confirmar; withdraw: chama withdraw com base units no confirmar; botão max preenche o valor com o máximo disponível; bloqueia confirmar quando o valor passa do máximo; mostra erro quando a transação falha; sucesso: mostra o hash e o botão fechar chama onSuccess.
+ */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,3 +1,10 @@
+/**
+ * Módulo: errorCopy
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: A cópia da página e a do diálogo cobrem cada status que a API devolve.
+ * Sequência: covers every status the error page can receive; offers no retry on a 404 because retrying cannot fix it; sends a 401 to login and a 500 to retry; names the status inside the kicker; covers only the statuses that leave a usable screen behind the dialog; keeps the same kicker as the full page; shortens the titles that mention the page, since the page is still there; never sends the user home — the secondary action is always closing; retries the action on a 408 and reviews the data on a 400.
+ */
 import { describe, it, expect } from 'vitest';
 import { PAGE_COPY, DIALOG_COPY, DIALOG_STATUS_CODES } from './errorCopy';
 

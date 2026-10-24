@@ -147,15 +147,16 @@ export class EtherfuseClient {
     return JSON.parse(raw) as T;
   }
 
-  /** Extrai a mensagem legível do corpo de erro da Etherfuse (JSON `{message}` ou cru). */
+  /** Extrai a mensagem legível do corpo de erro (JSON `{message}` ou cru). */
   private extractError(raw: string): string {
+    let message = raw;
     try {
       const body = JSON.parse(raw) as { message?: unknown };
-      if (typeof body.message === 'string' && body.message) return body.message;
+      if (typeof body.message === 'string' && body.message) message = body.message;
     } catch {
-      // corpo não-JSON — cai pro cru abaixo.
+      // corpo não-JSON — usa o texto cru.
     }
-    return raw || 'Etherfuse request failed';
+    return scrubPartnerName(message) || 'Não foi possível concluir a operação.';
   }
 
   // ── Customer onboarding ───────────────────────────────────────────────────
@@ -339,7 +340,7 @@ export class EtherfuseClient {
         orderId: params.orderId,
         status: 'created',
         depositClabe: '646180110400000009',
-        depositBankName: 'Etherfuse MX (mock)',
+        depositBankName: 'Pix',
         statusPage: `https://sandbox.etherfuse.com/ramp/order/${params.orderId}`,
       };
     }
@@ -436,4 +437,12 @@ export class EtherfuseClient {
       statusPage: res.statusPage ?? undefined,
     };
   }
+}
+
+/** Tira o nome do parceiro de mensagens que podem aparecer na interface. */
+function scrubPartnerName(message: string): string {
+  if (/etherfuse/i.test(message)) {
+    return 'Não foi possível concluir a conversão por PIX. Tente de novo.';
+  }
+  return message.trim();
 }

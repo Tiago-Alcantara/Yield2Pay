@@ -1,3 +1,10 @@
+/**
+ * Módulo: useIsMobile
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: A largura da janela decide se a tela é tratada como celular.
+ * Sequência: returns false by default (SSR-safe: no matchMedia match); returns true when matchMedia reports a match; returns false when matchMedia does not match; updates when the media query changes; cleans up event listener on unmount.
+ */
 import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useIsMobile } from './useIsMobile';

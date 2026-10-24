@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 
 /**
- * Circular back-arrow button. Navigates to `href` (default /dashboard).
+ * Circular back-arrow button. Navigates to `href` (default /b2b/dashboard).
  *
  * Positioned absolutely at the left edge of its parent, so a centered
  * sibling (e.g. the Yield2Pay brand) stays visually centered. The parent
@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
  * with the in-card step "Back" buttons in tests.
  */
 export function BackButton({
-  href = '/dashboard',
+  href = '/b2b/dashboard',
   label = 'Return to dashboard',
 }: {
   href?: string;

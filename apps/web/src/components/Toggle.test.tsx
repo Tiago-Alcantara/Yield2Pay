@@ -1,3 +1,10 @@
+/**
+ * Módulo: Toggle
+ * Criado em: 2026-06-30
+ * Última atualização: 2026-10-22
+ * Intuito: O interruptor muda de estado e não muda quando está desabilitado.
+ * Sequência: renders a switch reflecting the checked prop; calls onChange when clicked and enabled; does not call onChange when disabled.
+ */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';

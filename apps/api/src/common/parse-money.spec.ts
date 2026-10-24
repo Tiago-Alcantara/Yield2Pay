@@ -1,3 +1,10 @@
+/**
+ * Módulo: parse-money
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: Texto de dinheiro vira unidades inteiras, e o BigInt continua serializável em JSON.
+ * Sequência: returns a bigint for a valid positive integer string; throws for empty string; throws for undefined; throws for null; throws for non-numeric string; throws for decimal string; throws for zero; throws for negative-sign prefix; serializes BigInt as decimal string.
+ */
 import { BadRequestException } from '@nestjs/common';
 import { parseBaseUnits } from './parse-money';
 

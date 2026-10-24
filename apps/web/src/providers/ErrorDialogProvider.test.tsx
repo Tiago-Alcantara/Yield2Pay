@@ -1,3 +1,10 @@
+/**
+ * Módulo: ErrorDialogProvider
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: O provedor abre o diálogo quando um erro é publicado e fecha quando se dispensa.
+ * Sequência: renders the app and no dialog while nothing failed; opens the dialog when a failure is published from outside React; closes the dialog and clears the store when the user dismisses it; makes the screen behind inert while the modal is open.
+ */
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

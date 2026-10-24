@@ -1,13 +1,9 @@
 /**
- * Tests for the login/page.tsx component (Google-only flow).
- *
- * Behaviour under test:
- *   1. Renders a single "Continue with Google" button
- *   2. Clicking it triggers Privy's headless OAuth (initOAuth provider google)
- *   3. Language toggle (EN / PT) changes visible text
- *   4. Redirects to /dashboard when already authenticated
- *
- * Privy + next/navigation are fully mocked — no real Privy app id required.
+ * Módulo: LoginPage
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: o login é só com Google, abre em português e manda quem já entrou para o painel.
+ * Sequência: mostra o botão, inicia o OAuth ao clicar, troca para inglês, e redireciona se a sessão já existe.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -34,6 +30,7 @@ vi.mock('@privy-io/react-auth', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ replace: mockReplace, push: vi.fn() })),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // ── Component under test ───────────────────────────────────────────────────────
@@ -49,26 +46,25 @@ describe('LoginPage', () => {
     privyState.authenticated = false;
   });
 
-  it('renders the Google sign-in button', () => {
+  it('mostra o botão do Google em português, sem formulário de senha', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('button', { name: /continue with google/i })).toBeTruthy();
-    // No legacy email/password form
+    expect(screen.getByRole('button', { name: /continuar com google/i })).toBeTruthy();
+    expect(screen.getByText(/bem-vindo à yield2pay/i)).toBeTruthy();
     expect(document.getElementById('fx-email')).toBeNull();
     expect(document.getElementById('fx-password')).toBeNull();
   });
 
-  it('starts Google OAuth when the button is clicked', async () => {
+  it('inicia o OAuth do Google ao clicar', async () => {
     render(<LoginPage />);
-    await userEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+    await userEvent.click(screen.getByRole('button', { name: /continuar com google/i }));
     expect(mockInitOAuth).toHaveBeenCalledWith({ provider: 'google' });
   });
 
-  it('toggles language from EN to PT', async () => {
+  it('troca o texto de português para inglês', async () => {
     render(<LoginPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'EN' }));
     expect(screen.getByText(/welcome to yield2pay/i)).toBeTruthy();
-
-    await userEvent.click(screen.getByRole('button', { name: 'PT' }));
-    expect(screen.getByText(/bem-vindo à yield2pay/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeTruthy();
   });
 
   it('redirects to /dashboard when already authenticated', () => {

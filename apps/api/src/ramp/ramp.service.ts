@@ -64,7 +64,7 @@ export class RampService {
     const bank = await this.ef.findCompliantBank();
     if (!bank && !this.ef.mock) {
       throw new BadRequestException(
-        `Nenhuma conta ${this.ef.fiatCurrency} compliant no org Etherfuse. Registre uma conta bancária antes.`,
+        `Nenhuma conta ${this.ef.fiatCurrency} disponível para PIX. Registre uma conta bancária antes.`,
       );
     }
 
@@ -159,7 +159,7 @@ export class RampService {
       targetAmount: quote.targetAmount,
       feeAmount: quote.feeAmount,
       depositClabe: order.depositClabe ?? '',
-      depositBankName: order.depositBankName ?? 'Etherfuse',
+      depositBankName: publicDestination(order.depositBankName),
       statusPage: order.statusPage ?? '',
       expiresAt: quote.expiresAt,
     };
@@ -462,12 +462,12 @@ export class RampService {
     });
     if (!customer) {
       throw new BadRequestException(
-        'Etherfuse não configurado. Chame POST /ramp/setup primeiro.',
+        'A conversão PIX ainda não está configurada. Chame POST /ramp/setup primeiro.',
       );
     }
     if (customer.kycStatus !== 'approved') {
       throw new BadRequestException(
-        'Wallet ainda não aprovada no Etherfuse (KYC pendente).',
+        'A carteira ainda não foi aprovada (verificação pendente).',
       );
     }
     if (!customer.bankAccountId) {
@@ -485,4 +485,11 @@ export class RampService {
     }
     return order;
   }
+}
+
+/** Nome de destino mostrado no app. O parceiro de conversão não aparece. */
+function publicDestination(name?: string | null): string {
+  const trimmed = name?.trim() ?? '';
+  if (!trimmed || /etherfuse/i.test(trimmed)) return 'Pix';
+  return trimmed;
 }

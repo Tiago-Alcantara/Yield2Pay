@@ -1,3 +1,10 @@
+/**
+ * Módulo: statements.service
+ * Criado em: 2026-10-19
+ * Última atualização: 2026-10-22
+ * Intuito: A importação grava o extrato uma vez e não duplica o mesmo arquivo.
+ * Sequência: imports a CSV row as a grocery expense that is not fixed; marks a merchant fixed when it repeats across months; skips an OFX row whose FITID was already imported; rejects an OFX file with no usable transaction; skips a CSV row with an empty valor; rejects a file larger than 5 MB; rejects a file whose contents were already imported; skips income when the file also has debits; deletes a statement and the expenses that came from it; does not delete a statement from another household.
+ */
 import { createHash } from 'crypto';
 import { StatementsService } from './statements.service';
 
@@ -14,6 +21,7 @@ function fakePrisma() {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: 'e1' }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma)),
@@ -64,9 +72,13 @@ describe('StatementsService', () => {
     expect(result).toEqual({ statementId: 'st1', imported: 1, skipped: 0 });
   });
 
-  it('marks a repeat merchant within 5 percent as fixed', async () => {
+  it('marks a merchant fixed when it repeats across months', async () => {
+    const repeating = 'data,descricao,valor\n01/09/2026,Netflix,55.90\n01/10/2026,Netflix,55.90\n';
     const prisma = fakePrisma();
-    prisma.expense.findMany.mockResolvedValue([{ amountCents: 1000 }]);
+    prisma.expense.findMany.mockResolvedValue([
+      { id: 'a', merchant: 'NETFLIX.COM', spentOn: new Date('2026-09-01T00:00:00.000Z'), amountCents: 5590, category: 'subscriptions' },
+      { id: 'b', merchant: 'Netflix', spentOn: new Date('2026-10-01T00:00:00.000Z'), amountCents: 5590, category: 'subscriptions' },
+    ]);
     const household = {
       requireMembership: vi.fn().mockResolvedValue({
         householdId: 'h1',
@@ -75,25 +87,40 @@ describe('StatementsService', () => {
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    await svc.importFile('co_1', 'out.csv', Buffer.from(csv));
+    await svc.importFile('co_1', 'netflix.csv', Buffer.from(repeating));
 
-    expect(prisma.expense.findMany).toHaveBeenCalledWith({
-      where: {
-        householdId: 'h1',
-        merchant: { equals: 'Supermercado Dia', mode: 'insensitive' },
-        spentOn: { lt: new Date('2026-10-01T00:00:00.000Z') },
-      },
-      select: { amountCents: true },
+    expect(prisma.expense.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['a', 'b'] } },
+      data: { fixed: true },
     });
-    expect(prisma.expense.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          fixed: true,
-          category: 'groceries',
-          addedByCompanyId: 'co_1',
-        }),
-      }),
+  });
+
+  it('skips an OFX row whose FITID was already imported', async () => {
+    const ofx = '<STMTTRN><DTPOSTED>20261012</DTPOSTED><TRNAMT>-10.00</TRNAMT><NAME>Uber</NAME><FITID>fit-1</FITID></STMTTRN>';
+    const prisma = fakePrisma();
+    prisma.expense.findFirst.mockResolvedValue({ id: 'already' });
+    const household = {
+      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+    };
+    const svc = new StatementsService(prisma as never, household as never);
+
+    await expect(svc.importFile('co_1', 'banco.ofx', Buffer.from(ofx))).rejects.toThrow(
+      'statement already imported',
     );
+    expect(prisma.expense.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an OFX file with no usable transaction', async () => {
+    const prisma = fakePrisma();
+    const household = {
+      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+    };
+    const svc = new StatementsService(prisma as never, household as never);
+
+    await expect(
+      svc.importFile('co_1', 'quebrado.ofx', Buffer.from('<STMTTRN><FOO>x</FOO></STMTTRN>')),
+    ).rejects.toThrow('Invalid statement file');
+    expect(prisma.statement.create).not.toHaveBeenCalled();
   });
 
   it('skips a CSV row with an empty valor', async () => {
@@ -108,14 +135,12 @@ describe('StatementsService', () => {
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    const result = await svc.importFile(
-      'co_1',
-      'out.csv',
-      Buffer.from(csvEmptyValor),
-    );
+    await expect(
+      svc.importFile('co_1', 'out.csv', Buffer.from(csvEmptyValor)),
+    ).rejects.toThrow('Invalid statement file');
 
     expect(prisma.expense.create).not.toHaveBeenCalled();
-    expect(result).toEqual({ statementId: 'st1', imported: 0, skipped: 1 });
+    expect(prisma.statement.create).not.toHaveBeenCalled();
   });
 
   it('rejects a file larger than 5 MB', async () => {

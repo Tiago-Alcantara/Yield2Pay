@@ -1,3 +1,10 @@
+/**
+ * Módulo: useStellarTx
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: O gancho de transação assina e envia o aporte ou o saque.
+ * Sequência: should return txHash and call submitDeposit with correct parameters; should return txHash and call submitWithdraw with correct parameters; should propagate errors from ensureWallet; should propagate errors from buildDeposit; should propagate errors from signRawHash; should propagate errors from submitDeposit.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useStellarTx } from './useStellarTx';

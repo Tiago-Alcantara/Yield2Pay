@@ -1,3 +1,10 @@
+/**
+ * Módulo: errorDetails
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: Qualquer erro vira o detalhe da tela, e o bloco técnico some quando o painel está desligado.
+ * Sequência: takes statusCode, errorId and timestamp from the backend payload; drops technicalDetails when the technical panel is off; keeps technicalDetails when the technical panel is on; falls back to the HTTP status when the body is not the error contract; normalizes a status the error screens cannot render; treats a plain render crash as a 500 with a generated error id; describes a render crash in the technical panel when it is on; carries the Next digest into the requestId so the server log can be found; accepts an explicit status for the routes that have no error object.
+ */
 import { describe, it, expect } from 'vitest';
 import type { ApiErrorPayload } from '@yield2pay/shared';
 import { ApiError } from './api';

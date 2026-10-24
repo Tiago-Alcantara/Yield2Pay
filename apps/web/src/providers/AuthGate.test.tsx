@@ -1,4 +1,11 @@
 /**
+ * Módulo: AuthGate
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: Quem não está autenticado vai para o login; quem está vê a página.
+ * Sequência: does NOT render children and redirects when ready && !authenticated; renders nothing while Privy is not ready; renders children and provisions the wallet when authenticated.
+ */
+/**
  * Tests for AuthGate.
  *
  * Behaviour under test:
@@ -50,7 +57,7 @@ describe('AuthGate', () => {
     // Children must NOT be in the DOM (no flash of protected content)
     expect(screen.queryByTestId('protected')).toBeNull();
     // Redirect to /login
-    expect(mockReplace).toHaveBeenCalledWith('/login');
+    expect(mockReplace).toHaveBeenCalledWith('/login?next=/b2b/dashboard');
   });
 
   it('renders nothing while Privy is not ready', () => {
@@ -66,7 +73,9 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('renders children and provisions the wallet when authenticated', () => {
+  it('renders children and does not create a wallet while the product is hidden', () => {
+    delete process.env.FINANCIAL_PRODUCT_ENABLED;
+    delete process.env.NEXT_PUBLIC_FINANCIAL_PRODUCT;
     (usePrivy as ReturnType<typeof vi.fn>).mockReturnValue({ ready: true, authenticated: true });
 
     render(
@@ -76,7 +85,21 @@ describe('AuthGate', () => {
     );
 
     expect(screen.getByTestId('protected')).toBeTruthy();
-    expect(mockEnsureWallet).toHaveBeenCalledOnce();
+    expect(mockEnsureWallet).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('provisions the wallet when the product is enabled', () => {
+    process.env.FINANCIAL_PRODUCT_ENABLED = 'true';
+    (usePrivy as ReturnType<typeof vi.fn>).mockReturnValue({ ready: true, authenticated: true });
+
+    render(
+      <AuthGate>
+        <div data-testid="protected">SECRET</div>
+      </AuthGate>,
+    );
+
+    expect(mockEnsureWallet).toHaveBeenCalledOnce();
+    delete process.env.FINANCIAL_PRODUCT_ENABLED;
   });
 });

@@ -1,3 +1,10 @@
+/**
+ * Módulo: vault.service
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: O vault lê a posição e o rendimento da company.
+ * Sequência: calls depositToVault with correct args and returns xdr (testnet); calls depositToVault with MAINNET when stellarNetwork=public; throws when SDK returns null xdr; calls withdrawFromVault with correct args and returns xdr; throws when SDK returns null xdr; returns apy from SDK as a string; returns underlyingBalance[0] as bigint on testnet (real value, not raw dfTokens shares); returns underlyingBalance[0] on mainnet too (real value, no placeholder guard); returns 0n when the user has no position (empty underlyingBalance); returns 0n WITHOUT warning on empty-vault error (DeFindex 124); returns 0n AND warns on unexpected balance error; throws when deposit amount exceeds MAX_SAFE_INTEGER; throws when withdraw amount exceeds MAX_SAFE_INTEGER; does NOT throw at exactly MAX_SAFE_INTEGER.
+ */
 import { VaultService } from './vault.service';
 import { SupportedNetworks } from '@defindex/sdk';
 

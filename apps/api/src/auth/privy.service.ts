@@ -4,7 +4,7 @@ import { APP_CONFIG } from '../config/config.module';
 import type { Env } from '../config/env';
 
 // Mesmo valor enviado pelo painel quando o Privy não está configurado
-// (apps/web/src/app/family/_lib/localSession.ts).
+// (apps/web/src/app/(family)/_lib/localSession.ts).
 const LOCAL_DEV_TOKEN = 'yield2pay-local-dev';
 const LOCAL_DEV_USER_ID = 'did:privy:local-dev';
 const LOCAL_DEV_EMAIL = 'familia@localhost';

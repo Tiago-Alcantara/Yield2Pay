@@ -173,37 +173,41 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
             ))}
           </div>
 
-          <div
-            style={{
-              fontFamily: MONO,
-              fontSize: 10.5,
-              letterSpacing: '.12em',
-              textTransform: 'uppercase',
-              color: 'var(--fx-text-3)',
-              margin: '20px 0 8px',
-            }}
-          >
-            Stack trace
-          </div>
-          <pre
-            style={{
-              margin: 0,
-              fontFamily: MONO,
-              fontSize: 12,
-              lineHeight: 1.65,
-              color: 'var(--fx-silver)',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              overflowWrap: 'anywhere',
-              userSelect: 'text',
-              background: '#0f1113',
-              border: '1px solid var(--fx-border)',
-              borderRadius: 12,
-              padding: 14,
-            }}
-          >
-            {technicalDetails.stack}
-          </pre>
+          {technicalDetails.stack ? (
+            <>
+              <div
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 10.5,
+                  letterSpacing: '.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--fx-text-3)',
+                  margin: '20px 0 8px',
+                }}
+              >
+                Stack trace
+              </div>
+              <pre
+                style={{
+                  margin: 0,
+                  fontFamily: MONO,
+                  fontSize: 12,
+                  lineHeight: 1.65,
+                  color: 'var(--fx-silver)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  userSelect: 'text',
+                  background: '#0f1113',
+                  border: '1px solid var(--fx-border)',
+                  borderRadius: 12,
+                  padding: 14,
+                }}
+              >
+                {technicalDetails.stack}
+              </pre>
+            </>
+          ) : null}
         </div>
       )}
     </div>

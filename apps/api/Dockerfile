@@ -25,6 +25,10 @@ RUN pnpm --filter @yield2pay/api exec prisma generate \
   && pnpm --filter @yield2pay/api build
 
 ENV NODE_ENV=production
+# Sem esta variável o filtro de erro trata o processo como desenvolvimento.
+# O Coolify pode sobrescrever em runtime. Não ligar o produto financeiro aqui.
+ENV APP_ENV=production
+ENV FINANCIAL_PRODUCT_ENABLED=false
 # Render/Railway inject PORT at runtime; the app reads process.env.PORT.
 EXPOSE 3001
 WORKDIR /app/apps/api
