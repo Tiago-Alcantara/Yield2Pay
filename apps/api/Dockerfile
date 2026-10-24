@@ -1,7 +1,9 @@
 # Yield2Pay API — portable container image (Render / Railway / Fly / any host).
 # Build context MUST be the repo root (the app is part of a pnpm workspace and
 # depends on packages/shared). Example: docker build -f apps/api/Dockerfile .
-FROM node:20-slim AS build
+# Node 24 carrega o pacote compartilhado, que reexporta TypeScript.
+# Node 20 recusa essa extensão e o processo reinicia em loop.
+FROM node:24-slim AS build
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
@@ -25,6 +27,10 @@ RUN pnpm --filter @yield2pay/api exec prisma generate \
   && pnpm --filter @yield2pay/api build
 
 ENV NODE_ENV=production
+# Sem esta variável o filtro de erro trata o processo como desenvolvimento.
+# O Coolify pode sobrescrever em runtime. Não ligar o produto financeiro aqui.
+ENV APP_ENV=production
+ENV FINANCIAL_PRODUCT_ENABLED=false
 # Render/Railway inject PORT at runtime; the app reads process.env.PORT.
 EXPOSE 3001
 WORKDIR /app/apps/api

@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { ExpenseCategory, ExpensePage, ExpenseView } from '@yield2pay/shared';
 import { HouseholdService, initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { saoPauloToday } from '../summary/summary.math';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
+import { refreshFixedFlags } from './fixed-flags';
 
 type PatchExpense = {
   category?: ExpenseCategory;
@@ -15,6 +17,7 @@ type ExpensePageQuery = {
 };
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 200;
 
@@ -30,13 +33,12 @@ export class ExpensesService {
     month: string,
     category?: ExpenseCategory,
     page?: ExpensePageQuery,
+    range?: { from: string; to: string },
   ): Promise<ExpensePage> {
-    if (!MONTH.test(month)) {
-      throw new ExpenseInvalidError('month is invalid');
-    }
     const { limit, offset } = readPage(page);
     const { householdId } = await this.household.requireMembership(companyId);
-    const { gte, lt } = utcMonthRange(month);
+    await refreshFixedFlags(this.prisma, householdId);
+    const { gte, lt } = range ? utcDayRange(range.from, range.to) : utcMonthRange(requireMonth(month));
     const where = {
       householdId,
       spentOn: { gte, lt },
@@ -62,14 +64,18 @@ export class ExpensesService {
 
   async months(companyId: string) {
     const { householdId } = await this.household.requireMembership(companyId);
-    const rows = await this.prisma.$queryRaw<Array<{ month: string }>>`
-      SELECT to_char(spent_on, 'YYYY-MM') AS month
+    const rows = await this.prisma.$queryRaw<Array<{ month: string; amountCents: number }>>`
+      SELECT to_char(spent_on, 'YYYY-MM') AS month,
+             COALESCE(SUM(amount_cents), 0)::int AS "amountCents"
       FROM expenses
       WHERE household_id = ${householdId}
       GROUP BY 1
       ORDER BY 1 DESC
     `;
-    return rows.map((row) => row.month);
+    return rows.map((row) => ({
+      month: row.month,
+      amountCents: Number(row.amountCents),
+    }));
   }
 
   async create(
@@ -90,8 +96,13 @@ export class ExpensesService {
       || !/^\d{4}-\d{2}-\d{2}$/.test(body.spentOn)
       || !body.category
       || !categories.includes(body.category)
+      || body.spentOn > saoPauloToday(new Date())
     ) {
-      throw new ExpenseInvalidError();
+      throw new ExpenseInvalidError(
+        body.spentOn && body.spentOn > saoPauloToday(new Date())
+          ? 'date is in the future'
+          : undefined,
+      );
     }
     const created = await this.prisma.expense.create({
       data: {
@@ -158,6 +169,25 @@ function readPage(page?: ExpensePageQuery) {
     throw new ExpenseInvalidError('offset is invalid');
   }
   return { limit, offset };
+}
+
+function requireMonth(month: string) {
+  if (!MONTH.test(month)) {
+    throw new ExpenseInvalidError('month is invalid');
+  }
+  return month;
+}
+
+function utcDayRange(from: string, to: string) {
+  if (!DAY.test(from) || !DAY.test(to)) {
+    throw new ExpenseInvalidError('range is invalid');
+  }
+  const [start, end] = from <= to ? [from, to] : [to, from];
+  const [year, month, day] = end.split('-').map(Number);
+  return {
+    gte: new Date(`${start}T00:00:00.000Z`),
+    lt: new Date(Date.UTC(year, month - 1, day + 1)),
+  };
 }
 
 function utcMonthRange(month: string) {

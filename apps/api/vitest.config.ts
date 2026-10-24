@@ -11,7 +11,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     root: './',
-    include: ['src/**/*.spec.ts'],
+    include: ['src/**/*.spec.ts', '../../packages/shared/src/**/*.test.ts'],
     setupFiles: ['./test/setup-env.ts'],
     alias: {
       '@yield2pay/shared': new URL(

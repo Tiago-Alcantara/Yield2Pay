@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  AccountView,
-  GoalMonths,
-  HouseholdPersonView,
-  HouseholdProfile,
-  HouseholdRole,
-  UpsertHouseholdProfile,
+import {
+  accountInitials,
+  cryptoExperienceFor,
+  isMature,
+  onboardingLevel,
+  type AccountView,
+  type CompleteOnboarding,
+  type CryptoAction,
+  type CryptoFamiliarity,
+  type GoalMonths,
+  type HouseholdPersonView,
+  type HouseholdProfile,
+  type HouseholdRole,
+  type ImportMode,
+  type OnboardingGoal,
+  type PatchHouseholdProfile,
+  type UpsertHouseholdProfile,
 } from '@yield2pay/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -15,15 +25,35 @@ import {
   HouseholdNotFoundError,
 } from './household.errors';
 
+/** Mesma regra do modal: apelido, senão nome completo, sem cortar emoji. */
 export function initialsOf(
   fullName: string | null | undefined,
   displayName: string | null | undefined,
 ): string {
-  const source = fullName?.trim() || displayName?.trim() || '';
-  if (!source) return '?';
-  const words = source.split(/\s+/).filter(Boolean);
-  const letters = words.slice(0, 2).map((word) => word[0].toUpperCase());
-  return letters.join('') || '?';
+  return accountInitials(fullName, displayName);
+}
+
+const DISPLAY_NAME_MAX = 32;
+
+export function readDisplayNamePatch(body: unknown): string {
+  if (!body || typeof body !== 'object') {
+    throw new HouseholdInvalidError('Informe um nome');
+  }
+  const record = body as Record<string, unknown>;
+  if ('email' in record) {
+    throw new HouseholdInvalidError('O e-mail de acesso não pode ser alterado');
+  }
+  if ('role' in record) {
+    throw new HouseholdInvalidError('O papel no grupo não pode ser alterado');
+  }
+  if (typeof record.displayName !== 'string' || record.displayName.trim() === '') {
+    throw new HouseholdInvalidError('Informe um nome');
+  }
+  const name = record.displayName.trim();
+  if (name.length > DISPLAY_NAME_MAX) {
+    throw new HouseholdInvalidError('O nome pode ter no máximo 32 caracteres');
+  }
+  return name;
 }
 
 @Injectable()
@@ -127,6 +157,12 @@ export class HouseholdService {
       cryptoExperience:
         household.cryptoExperience as HouseholdProfile['cryptoExperience'],
       onboardingCompleted: household.onboardingCompleted,
+      goals: household.goals as OnboardingGoal[],
+      importMode: household.importMode as ImportMode | null,
+      cryptoFamiliarity: household.cryptoFamiliarity as CryptoFamiliarity | null,
+      cryptoActions: household.cryptoActions as CryptoAction[],
+      showFreedom: household.showFreedom,
+      showFamily: household.showFamily,
     };
   }
 
@@ -139,11 +175,49 @@ export class HouseholdService {
     });
   }
 
-  async patchProfile(
+  async completeOnboarding(
     companyId: string,
-    body: Partial<UpsertHouseholdProfile>,
-  ) {
-    const data = readProfile(body, false);
+    email: string | null | undefined,
+    body: CompleteOnboarding,
+  ): Promise<AccountView> {
+    const parsed = readComplete(body);
+    const { householdId } = await this.requireMembership(companyId);
+    const displayName = parsed.displayName || firstWord(parsed.fullName);
+    if (displayName) {
+      await this.prisma.personName.upsert({
+        where: { companyId },
+        create: {
+          companyId,
+          displayName,
+          fullName: parsed.fullName,
+          email: email?.trim().toLowerCase() || null,
+        },
+        update: {
+          displayName,
+          ...(parsed.fullName ? { fullName: parsed.fullName } : {}),
+        },
+      });
+    }
+    const actions = isMature(parsed.cryptoFamiliarity) ? parsed.cryptoActions : [];
+    const level = onboardingLevel(parsed.goals, parsed.cryptoFamiliarity, actions);
+    await this.prisma.household.update({
+      where: { id: householdId },
+      data: {
+        goals: parsed.goals,
+        importMode: parsed.importMode,
+        cryptoFamiliarity: parsed.cryptoFamiliarity,
+        cryptoActions: actions,
+        showFreedom: parsed.showFreedom,
+        showFamily: parsed.showFamily,
+        cryptoExperience: cryptoExperienceFor(level, parsed.learnCrypto),
+        onboardingCompleted: true,
+      },
+    });
+    return this.getAccount(companyId, email);
+  }
+
+  async patchProfile(companyId: string, body: PatchHouseholdProfile) {
+    const data = { ...readProfile(body, false), ...readFlags(body) };
     if (Object.keys(data).length === 0) {
       return;
     }
@@ -276,9 +350,12 @@ export class HouseholdService {
   }
 
   async updateDisplayName(companyId: string, displayName: string, email?: string | null): Promise<AccountView> {
-    const name = displayName.trim().slice(0, 32);
+    const name = displayName.trim();
     if (!name) {
-      throw new HouseholdConflictError();
+      throw new HouseholdInvalidError('Informe um nome');
+    }
+    if (name.length > DISPLAY_NAME_MAX) {
+      throw new HouseholdInvalidError('O nome pode ter no máximo 32 caracteres');
     }
     await this.prisma.personName.upsert({
       where: { companyId },
@@ -356,8 +433,9 @@ export class HouseholdService {
         where: { householdId, companyId: { not: companyId } },
       });
       if (others > 0) {
-        throw new HouseholdForbiddenError();
+        throw new HouseholdForbiddenError('O admin não sai enquanto houver outras pessoas no grupo');
       }
+      throw new HouseholdForbiddenError('O último admin não pode sair. O grupo ficaria sem ninguém.');
     }
     await this.prisma.householdMember.delete({ where: { companyId } });
   }
@@ -413,6 +491,71 @@ function readProfile(
     data.cryptoExperience = body.cryptoExperience;
   }
   return data;
+}
+
+const GOAL_IDS = new Set<string>(['gastos', 'reserva', 'familia', 'aprender', 'investir']);
+const IMPORT_IDS = new Set<string>(['ofx', 'nfe', 'manual']);
+const FAMILIARITY_IDS = new Set<string>(['nunca', 'ouvi', 'comprei', 'frequente']);
+const ACTION_IDS = new Set<string>(['corretora', 'transferi', 'stable', 'rendimento', 'autocustodia']);
+
+function readComplete(body: CompleteOnboarding) {
+  if (!body || typeof body !== 'object') {
+    throw new HouseholdInvalidError('onboarding is invalid');
+  }
+  return {
+    fullName: readOptionalName(body.fullName, 'fullName', 32),
+    displayName: readOptionalName(body.displayName, 'displayName', 32),
+    goals: readIdList(body.goals, GOAL_IDS, 'goals') as OnboardingGoal[],
+    importMode: readOptionalId(body.importMode, IMPORT_IDS, 'importMode') as ImportMode | null,
+    cryptoFamiliarity: readOptionalId(
+      body.cryptoFamiliarity,
+      FAMILIARITY_IDS,
+      'cryptoFamiliarity',
+    ) as CryptoFamiliarity | null,
+    cryptoActions: readIdList(body.cryptoActions, ACTION_IDS, 'cryptoActions') as CryptoAction[],
+    showFreedom: readFlag(body.showFreedom, 'showFreedom'),
+    showFamily: readFlag(body.showFamily, 'showFamily'),
+    learnCrypto: readFlag(body.learnCrypto, 'learnCrypto'),
+  };
+}
+
+function readOptionalName(value: unknown, field: string, max: number): string | null {
+  if (value == null) return null;
+  if (typeof value !== 'string') throw new HouseholdInvalidError(`${field} is invalid`);
+  const trimmed = value.trim().slice(0, max);
+  return trimmed || null;
+}
+
+function readOptionalId(value: unknown, allowed: Set<string>, field: string): string | null {
+  if (value == null) return null;
+  if (typeof value !== 'string' || !allowed.has(value)) {
+    throw new HouseholdInvalidError(`${field} is invalid`);
+  }
+  return value;
+}
+
+function readIdList(value: unknown, allowed: Set<string>, field: string): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !allowed.has(item))) {
+    throw new HouseholdInvalidError(`${field} is invalid`);
+  }
+  return [...new Set(value)];
+}
+
+function readFlag(value: unknown, field: string): boolean {
+  if (typeof value !== 'boolean') throw new HouseholdInvalidError(`${field} is invalid`);
+  return value;
+}
+
+function readFlags(body: PatchHouseholdProfile): { showFreedom?: boolean; showFamily?: boolean } {
+  const data: { showFreedom?: boolean; showFamily?: boolean } = {};
+  if (body.showFreedom !== undefined) data.showFreedom = readFlag(body.showFreedom, 'showFreedom');
+  if (body.showFamily !== undefined) data.showFamily = readFlag(body.showFamily, 'showFamily');
+  return data;
+}
+
+function firstWord(value: string | null): string | null {
+  const word = value?.trim().split(/\s+/)[0] ?? '';
+  return word || null;
 }
 
 function readCents(value: unknown, field: string): number {

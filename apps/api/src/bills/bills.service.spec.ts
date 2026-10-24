@@ -1,3 +1,10 @@
+/**
+ * Módulo: bills.service
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: Contas da empresa são criadas, listadas e apagadas para a company certa.
+ * Sequência: creates a bill with type defaulting handled by caller; lists only the company bills; remove is scoped to the company.
+ */
 import { BillsService } from './bills.service';
 
 describe('BillsService', () => {

@@ -14,7 +14,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { UpsertHouseholdProfile } from '@yield2pay/shared';
+import type { CompleteOnboarding, PatchHouseholdProfile, UpsertHouseholdProfile } from '@yield2pay/shared';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import {
@@ -23,7 +23,7 @@ import {
   HouseholdInvalidError,
   HouseholdNotFoundError,
 } from './household.errors';
-import { HouseholdService } from './household.service';
+import { HouseholdService, readDisplayNamePatch } from './household.service';
 
 @Controller()
 @UseGuards(AuthGuard)
@@ -38,12 +38,12 @@ export class HouseholdController {
   @Patch('account')
   async patchAccount(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: { displayName?: string },
+    @Body() dto: unknown,
   ) {
     try {
       return await this.householdService.updateDisplayName(
         req.companyId,
-        dto.displayName ?? '',
+        readDisplayNamePatch(dto),
         req.email,
       );
     } catch (error) {
@@ -109,10 +109,28 @@ export class HouseholdController {
     }
   }
 
+  @Post('household/onboarding')
+  async completeOnboarding(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CompleteOnboarding,
+  ) {
+    try {
+      return await this.householdService.completeOnboarding(req.companyId, req.email, dto);
+    } catch (error) {
+      if (error instanceof HouseholdInvalidError) {
+        throw new BadRequestException(error.message);
+      }
+      if (error instanceof HouseholdNotFoundError) {
+        throw new NotFoundException();
+      }
+      throw error;
+    }
+  }
+
   @Patch('household/profile')
   async patchProfile(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: Partial<UpsertHouseholdProfile>,
+    @Body() dto: PatchHouseholdProfile,
   ) {
     try {
       return await this.householdService.patchProfile(req.companyId, dto);
@@ -229,7 +247,10 @@ export class HouseholdController {
 
   private rethrow(error: unknown): never {
     if (error instanceof HouseholdForbiddenError) {
-      throw new ForbiddenException();
+      throw error.message ? new ForbiddenException(error.message) : new ForbiddenException();
+    }
+    if (error instanceof HouseholdInvalidError) {
+      throw new BadRequestException(error.message);
     }
     if (error instanceof HouseholdConflictError) {
       throw new ConflictException();

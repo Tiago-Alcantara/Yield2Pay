@@ -6,6 +6,7 @@ const CATEGORY_KEYWORDS: { category: ExpenseCategory; keywords: string[] }[] = [
     keywords: [
       'aluguel', 'condominio', 'iptu', 'financiamento', 'quintoandar',
       'enel', 'cemig', 'copel', 'eletropaulo', 'sabesp', 'comgas', 'sanepar',
+      'conta de luz', 'energia', 'cpfl', 'celesc', 'neoenergia', 'tarifa',
     ],
   },
   {
@@ -45,6 +46,7 @@ const CATEGORY_KEYWORDS: { category: ExpenseCategory; keywords: string[] }[] = [
     keywords: [
       'uber', '99 pop', '99pop', '99app', 'posto', 'ipiranga', 'shell',
       'combustivel', 'estacionamento', 'pedagio', 'sem parar', 'cabify',
+      'ipva', 'dpvat', 'licenciamento',
       'metro', 'onibus', 'cptm',
     ],
   },
@@ -70,6 +72,70 @@ export function classifyMerchant(merchant: string): ExpenseCategory {
     }
   }
   return 'shopping';
+}
+
+const MONTH_WORD =
+  /\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/g;
+
+export function merchantKey(name: string): string {
+  const folded = name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[.\-_/]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(MONTH_WORD, ' ')
+    .replace(/\b20\d{2}\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return folded || name.trim().toLowerCase();
+}
+
+function sharedMerchantKey(key: string, keys: readonly string[]): string {
+  return (
+    keys
+      .filter(
+        (other) =>
+          other.length >= 4 &&
+          other.length < key.length &&
+          key.startsWith(`${other} `),
+      )
+      .sort((left, right) => left.length - right.length)[0] ?? key
+  );
+}
+
+export function idsToMarkFixed(
+  rows: Array<{
+    id: string;
+    merchant: string;
+    spentOn: string;
+    amountCents: number;
+    category: string;
+  }>,
+): string[] {
+  const keys = rows.map((row) => merchantKey(row.merchant));
+  const groups = new Map<string, typeof rows>();
+  rows.forEach((row, index) => {
+    const key = sharedMerchantKey(keys[index] ?? '', keys);
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  });
+  const ids: string[] = [];
+  for (const group of groups.values()) {
+    const months = new Set(group.map((row) => row.spentOn.slice(0, 7)));
+    if (months.size < 2) continue;
+    const anchor = group[0]?.amountCents ?? 0;
+    const stable = group.every(
+      (row) => isFixedRepeat(anchor, row.amountCents) || isFixedRepeat(row.amountCents, anchor),
+    );
+    const bill = group.every(
+      (row) => row.category === 'housing' || row.category === 'subscriptions',
+    );
+    if (!stable && !bill) continue;
+    ids.push(...group.map((row) => row.id));
+  }
+  return ids;
 }
 
 export function isFixedRepeat(previousCents: number, nextCents: number): boolean {

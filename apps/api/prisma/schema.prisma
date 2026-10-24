@@ -150,6 +150,12 @@ model Household {
   goalMonths           Int?     @map("goal_months")
   cryptoExperience     String?  @map("crypto_experience")
   onboardingCompleted  Boolean  @default(false) @map("onboarding_completed")
+  goals                String[] @default([])
+  importMode           String?  @map("import_mode")
+  cryptoFamiliarity    String?  @map("crypto_familiarity")
+  cryptoActions        String[] @default([]) @map("crypto_actions")
+  showFreedom          Boolean  @default(true) @map("show_freedom")
+  showFamily           Boolean  @default(true) @map("show_family")
   owner                Company  @relation("HouseholdOwner", fields: [ownerCompanyId], references: [id])
   members              HouseholdMember[]
   invites              HouseholdInvite[]
@@ -202,17 +208,21 @@ model Expense {
   category         String
   fixed            Boolean
   amountCents      Int      @map("amount_cents")
+  fitId            String?  @map("fit_id")
   household        Household @relation(fields: [householdId], references: [id])
   statement        Statement? @relation(fields: [statementId], references: [id])
+  @@unique([householdId, fitId])
   @@index([householdId, spentOn])
   @@map("expenses")
 }
 
 model LessonProgress {
-  companyId String  @map("company_id")
-  lessonId  String  @map("lesson_id")
-  completed Boolean
-  company   Company @relation(fields: [companyId], references: [id])
+  companyId  String  @map("company_id")
+  lessonId   String  @map("lesson_id")
+  completed  Boolean
+  quizPassed Boolean @default(false) @map("quiz_passed")
+  quizAnswers Json?  @map("quiz_answers")
+  company    Company @relation(fields: [companyId], references: [id])
   @@id([companyId, lessonId])
   @@map("lesson_progress")
 }

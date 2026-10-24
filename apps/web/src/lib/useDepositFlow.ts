@@ -25,7 +25,7 @@ function truncateTo7(s: string): string {
 
 /**
  * Orquestra o fluxo de depósito via Pix, escondendo o web3:
- *   start(R$) → order Etherfuse → (usuário paga Pix / simula) → funded
+ *   start(R$) → order PIX → (usuário paga Pix / simula) → funded
  *   → confirm() → claim (se houver) + auto-depósito no cofre USDC → done
  *
  * As 2 assinaturas Privy (claim + depósito) ficam atrás do gesto `confirm`.

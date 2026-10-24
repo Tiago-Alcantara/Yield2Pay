@@ -3,6 +3,7 @@ import {
   ConflictException,
   Controller,
   Delete,
+  Get,
   HttpCode,
   NotFoundException,
   Param,
@@ -54,6 +55,18 @@ export class StatementsController {
       if (error instanceof StatementFormatError) {
         throw new BadRequestException();
       }
+      if (error instanceof HouseholdNotFoundError) {
+        throw new NotFoundException();
+      }
+      throw error;
+    }
+  }
+
+  @Get()
+  async list(@Req() req: AuthenticatedRequest) {
+    try {
+      return await this.statementsService.list(req.companyId);
+    } catch (error) {
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
       }

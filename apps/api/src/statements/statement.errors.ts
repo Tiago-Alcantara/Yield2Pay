@@ -33,4 +33,5 @@ export type ParsedStatementRow = {
   merchant: string;
   amountCents: number;
   signed: AmountSign;
+  fitId?: string;
 };

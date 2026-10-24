@@ -1,0 +1,17 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:01:15.000
+Blockchain é um registro compartilhado, organizado em blocos.
+
+2
+00:01:15.000 --> 00:02:30.000
+Cada bloco guarda o hash do anterior: mexer no passado quebra a corrente.
+
+3
+00:02:30.000 --> 00:03:45.000
+Milhares de nós guardam cópias e conferem tudo juntos.
+
+4
+00:03:45.000 --> 00:05:00.000
+É público e permanente: dá para consultar, mas não dá para apagar.

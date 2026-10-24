@@ -32,9 +32,10 @@ const GENERIC_SERVER_ERROR_MESSAGE =
  * Traduz toda exceção da API para o mesmo corpo (ApiErrorPayload), que é o que
  * a tela cheia (ErrorPage) e o popup (ErrorDialog) consomem.
  *
- * Regra de exposição: `technicalDetails` só é serializado fora de produção.
- * É o par obrigatório do gate de build time do front — em produção o painel
- * técnico não existe no bundle e o backend também não manda o dado.
+ * Regra de exposição: `technicalDetails` só é serializado fora de produção,
+ * e nunca inclui a stack. A stack fica no log do servidor, ligada pelo
+ * errorId. Em produção o painel técnico não existe no bundle e o backend
+ * também não manda o bloco.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -73,10 +74,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         endpoint: request.url,
         requestId,
         message: describeException(exception),
-        stack:
-          exception instanceof Error
-            ? (exception.stack ?? '')
-            : String(exception),
       };
     }
 

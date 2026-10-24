@@ -1,3 +1,10 @@
+/**
+ * Módulo: summary.math
+ * Criado em: 2026-10-19
+ * Última atualização: 2026-10-22
+ * Intuito: O resumo do mês soma gastos, reserva e o dia de hoje em São Paulo.
+ * Sequência: projects an in-progress October when this month already has Aluguel; adds September rent still to come when October has no matching merchant; treats a lowercased merchant as already present this month; averages May through September and fills freedom; uses full-month totals for a closed month; rounds change to one decimal and leaves freedom null without a usable average; returns null freedom when the five prior months are empty; keeps days after today out of the partial total; returns null freedom when income equals the five-month average; ignores months before the first expense and keeps freedom on today; formats the America/Sao_Paulo calendar date.
+ */
 import type { ExpenseCategory } from '@yield2pay/shared';
 import { saoPauloToday, summarize, type SummaryExpense } from './summary.math';
 
@@ -41,11 +48,11 @@ describe('summarize', () => {
     expect(result.changePercent).toBeNull();
     expect(result.previousComparableCents).toBe(0);
     expect(result.leftoverCents).toBe(INCOME - result.projectedCents);
-    expect(result.averageCents).toBe(2000);
+    expect(result.averageCents).toBe(10000);
     expect(result.freedom).toEqual({
-      months: 50,
-      missingCents: 12 * 2000 - 100000,
-      deadlineMonths: -0.2,
+      months: 10,
+      missingCents: 12 * 10000 - 100000,
+      deadlineMonths: 0,
     });
     expect(result.byCategory).toEqual([
       { category: 'housing', amountCents: 10000 },
@@ -164,7 +171,7 @@ describe('summarize', () => {
     expect(result.changePercent).toBe(233.3);
     expect(result.leftoverCents).toBeNull();
     expect(result.freedom).toBeNull();
-    expect(result.averageCents).toBe(600);
+    expect(result.averageCents).toBe(3000);
   });
 
   it('returns null freedom when the five prior months are empty', () => {
@@ -203,9 +210,14 @@ describe('summarize', () => {
     );
     expect(result.lastSixMonths[5]).toEqual({
       month: '2026-10',
-      amountCents: 22000,
+      amountCents: 15000,
     });
     expect(result.dailyPace.current).toHaveLength(12);
+    expect(result.fixedVsVariable[5]).toEqual({
+      month: '2026-10',
+      fixedCents: 10000,
+      variableCents: 5000,
+    });
   });
 
   it('returns null freedom when income equals the five-month average', () => {
@@ -227,6 +239,34 @@ describe('summarize', () => {
 
     expect(result.averageCents).toBe(10000);
     expect(result.freedom).toBeNull();
+  });
+
+  it('ignores months before the first expense and keeps freedom on today', () => {
+    const expenses = [
+      expense('2026-08-04', 10000, false),
+      expense('2026-09-04', 187600, false),
+      expense('2026-10-04', 5_000_000, false),
+      expense('2026-10-28', 40000, false),
+      expense('2026-11-02', 50000, false),
+    ];
+    const input = {
+      today: '2026-10-21',
+      expenses,
+      incomeCents: 800000,
+      reserveCents: 5_000_000,
+      goalMonths: 12,
+    };
+    const october = summarize({ ...input, month: '2026-10' });
+    const november = summarize({ ...input, month: '2026-11' });
+
+    expect(october.averageCents).toBe(98800);
+    expect(november.averageCents).toBe(october.averageCents);
+    expect(october.freedom?.months).toBe(50.6);
+    expect(november.freedom?.months).toBe(50.6);
+    expect(november.lastSixMonths.map((row) => row.month)).toContain('2026-10');
+    expect(november.lastSixMonths.find((row) => row.month === '2026-10')?.amountCents).toBe(
+      5_000_000,
+    );
   });
 });
 

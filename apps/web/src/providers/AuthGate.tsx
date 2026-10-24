@@ -4,13 +4,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallet } from '@/lib/useWallet';
+import { isFinancialProductEnabled } from '@/lib/financial-product';
 
 /**
  * AuthGate — wraps authenticated app pages.
  *
  * - If Privy is ready and the user is NOT authenticated, redirects to /login.
- * - Once authenticated, calls ensureWallet() once to provision a Stellar
- *   embedded wallet and register it with the backend.
+ * - Once authenticated, and only with the financial product enabled, calls
+ *   ensureWallet() once to provision a Stellar embedded wallet.
  *
  * Renders nothing until Privy is ready (avoids flash of unauthenticated content).
  */
@@ -23,9 +24,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (!ready) return;
 
     if (!authenticated) {
-      router.replace('/login');
+      router.replace('/login?next=/b2b/dashboard');
       return;
     }
+
+    if (!isFinancialProductEnabled()) return;
 
     // Authenticated — provision wallet once. Fire-and-forget; errors are
     // non-fatal for page rendering (the wallet is re-attempted next session).

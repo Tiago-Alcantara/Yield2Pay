@@ -1,3 +1,10 @@
+/**
+ * Módulo: ledger.controller
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: A rota do razão delega o saldo gastável da company autenticada.
+ * Sequência: returns spendable view with string-encoded bigints.
+ */
 import { LedgerController } from './ledger.controller';
 
 describe('LedgerController', () => {

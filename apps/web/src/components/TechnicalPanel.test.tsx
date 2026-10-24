@@ -1,3 +1,10 @@
+/**
+ * Módulo: TechnicalPanel
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: O painel técnico lista o pedido, abre e fecha, e copia o JSON.
+ * Sequência: lists the fields a developer needs to locate the failure; collapses and expands the details; points the toggle at the panel it controls; copies the whole payload as JSON so it can be pasted into a ticket; marks the payload with the environment it came from.
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,3 +1,10 @@
+/**
+ * Módulo: BrandHeader
+ * Criado em: 2026-06-25
+ * Última atualização: 2026-10-22
+ * Intuito: O cabeçalho mostra a marca e o estado da sessão.
+ * Sequência: renders the brand wordmark and the back button.
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';

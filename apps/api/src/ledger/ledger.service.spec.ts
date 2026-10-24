@@ -1,3 +1,10 @@
+/**
+ * Módulo: ledger.service
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: O razão calcula o que dá para gastar a partir do vault e das contas.
+ * Sequência: spendable = vaultValue - principal when positive; spendable clamps to 0 when vaultValue < principal; principal sums multiple deposits; demo: injeta rendimento sintético quando demoYieldBps > 0; demo: não reduz vaultValue real maior que o sintético; principal is 0 with no deposits; returnsChange: % vs baseline de ~1 mês atrás; returnsChange: variação negativa formata com sinal; returnsChange: sem histórico e sem demo → null; returnsChange: sem histórico, em demo → valor configurável com sinal; recordWithdraw: grava um lançamento negativo (reduz principal); principal: clampa em 0 quando a soma é negativa.
+ */
 import { LedgerService } from './ledger.service';
 
 function makeDeps(opts: {

@@ -1,3 +1,10 @@
+/**
+ * Módulo: stellar.service
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: A rede monta o hash, cria a conta que falta, patrocina a taxa e lê o saldo nativo.
+ * Sequência: returns a 0x-prefixed 32-byte hash for signing; hash matches the SDK transaction hash; does nothing when the account already exists; submits a createAccount tx when the account is missing; throws when the createAccount tx is not confirmed; ensureAccountFunded re-throws when getAccount rejects with a non-not-found error; wraps the inner tx in a sponsor-signed fee bump and submits it; fundClient envia um payment nativo do sponsor para o cliente e espera confirmar; fundClient lança quando o payment não confirma; getNativeBalance lê o balance nativo do AccountEntry (stroops); getNativeBalance retorna 0n quando a conta não existe (sem entries).
+ */
 import { StellarService } from './stellar.service';
 import {
   Keypair,
@@ -38,161 +45,215 @@ function sampleTx(): { xdr: string; address: string; kp: Keypair } {
 
 // ── hashForSigning ────────────────────────────────────────────────────────────
 
-it('returns a 0x-prefixed 32-byte hash for signing', () => {
-  const { hash } = new StellarService(cfg).hashForSigning(sampleTx().xdr);
-  expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
-});
+describe('stellar.service', () => {
+  it('returns a 0x-prefixed 32-byte hash for signing', () => {
+    const { hash } = new StellarService(cfg).hashForSigning(sampleTx().xdr);
+    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
 
-it('hash matches the SDK transaction hash', () => {
-  const { xdr } = sampleTx();
-  const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
-  expect(new StellarService(cfg).hashForSigning(xdr).hash.slice(2)).toBe(
-    tx.hash().toString('hex'),
-  );
-});
+  it('hash matches the SDK transaction hash', () => {
+    const { xdr } = sampleTx();
+    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
+    expect(new StellarService(cfg).hashForSigning(xdr).hash.slice(2)).toBe(
+      tx.hash().toString('hex'),
+    );
+  });
 
-// ── ensureAccountFunded ───────────────────────────────────────────────────────
+  // ── ensureAccountFunded ───────────────────────────────────────────────────────
 
-it('does nothing when the account already exists', async () => {
-  const server = {
-    getAccount: vi.fn().mockResolvedValue(new Account(Keypair.random().publicKey(), '1')),
-    sendTransaction: vi.fn(),
-  } as unknown as rpc.Server;
+  it('does nothing when the account already exists', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockResolvedValue(new Account(Keypair.random().publicKey(), '1')),
+      sendTransaction: vi.fn(),
+    } as unknown as rpc.Server;
 
-  await new StellarService(cfg, server).ensureAccountFunded(Keypair.random().publicKey());
-  expect(server.sendTransaction).not.toHaveBeenCalled();
-});
+    await new StellarService(cfg, server).ensureAccountFunded(
+      Keypair.random().publicKey(),
+    );
+    expect(server.sendTransaction).not.toHaveBeenCalled();
+  });
 
-it('submits a createAccount tx when the account is missing', async () => {
-  const server = {
-    getAccount: vi
-      .fn()
-      .mockRejectedValueOnce(new Error('Account not found')) // user: missing
-      .mockResolvedValueOnce(new Account(SPONSOR_KP.publicKey(), '42')), // sponsor
-    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'h1' }),
-    pollTransaction: vi.fn().mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
-  } as unknown as rpc.Server;
+  it('submits a createAccount tx when the account is missing', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Account not found')) // user: missing
+        .mockResolvedValueOnce(new Account(SPONSOR_KP.publicKey(), '42')), // sponsor
+      sendTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: 'PENDING', hash: 'h1' }),
+      pollTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
+    } as unknown as rpc.Server;
 
-  await new StellarService(cfg, server).ensureAccountFunded(Keypair.random().publicKey());
-  expect(server.sendTransaction).toHaveBeenCalledTimes(1);
-});
+    await new StellarService(cfg, server).ensureAccountFunded(
+      Keypair.random().publicKey(),
+    );
+    expect(server.sendTransaction).toHaveBeenCalledTimes(1);
+  });
 
-it('throws when the createAccount tx is not confirmed', async () => {
-  const server = {
-    getAccount: vi
-      .fn()
-      .mockRejectedValueOnce(new Error('Account not found'))
-      .mockResolvedValueOnce(new Account(SPONSOR_KP.publicKey(), '42')),
-    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'h2' }),
-    pollTransaction: vi.fn().mockResolvedValue({
-      status: rpc.Api.GetTransactionStatus.FAILED,
-      resultXdr: {
-        result: () => ({
-          switch: () => ({ name: 'txFailed' }),
-        }),
-      },
-    }),
-  } as unknown as rpc.Server;
+  it('throws when the createAccount tx is not confirmed', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Account not found'))
+        .mockResolvedValueOnce(new Account(SPONSOR_KP.publicKey(), '42')),
+      sendTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: 'PENDING', hash: 'h2' }),
+      pollTransaction: vi.fn().mockResolvedValue({
+        status: rpc.Api.GetTransactionStatus.FAILED,
+        resultXdr: {
+          result: () => ({
+            switch: () => ({ name: 'txFailed' }),
+          }),
+        },
+      }),
+    } as unknown as rpc.Server;
 
-  await expect(
-    new StellarService(cfg, server).ensureAccountFunded(Keypair.random().publicKey()),
-  ).rejects.toThrow('failed on-chain');
-});
+    await expect(
+      new StellarService(cfg, server).ensureAccountFunded(
+        Keypair.random().publicKey(),
+      ),
+    ).rejects.toThrow('failed on-chain');
+  });
 
-// ── attachAndSubmit (fee bump) ────────────────────────────────────────────────
+  // ── attachAndSubmit (fee bump) ────────────────────────────────────────────────
 
-it('ensureAccountFunded re-throws when getAccount rejects with a non-not-found error', async () => {
-  const server = {
-    getAccount: vi.fn().mockRejectedValueOnce(new Error('RPC 500: service unavailable')),
-    sendTransaction: vi.fn(),
-  } as unknown as rpc.Server;
+  it('ensureAccountFunded re-throws when getAccount rejects with a non-not-found error', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('RPC 500: service unavailable')),
+      sendTransaction: vi.fn(),
+    } as unknown as rpc.Server;
 
-  await expect(
-    new StellarService(cfg, server).ensureAccountFunded(Keypair.random().publicKey()),
-  ).rejects.toThrow('RPC 500: service unavailable');
-  expect(server.sendTransaction).not.toHaveBeenCalled();
-});
+    await expect(
+      new StellarService(cfg, server).ensureAccountFunded(
+        Keypair.random().publicKey(),
+      ),
+    ).rejects.toThrow('RPC 500: service unavailable');
+    expect(server.sendTransaction).not.toHaveBeenCalled();
+  });
 
-it('wraps the inner tx in a sponsor-signed fee bump and submits it', async () => {
-  const { xdr, address, kp } = sampleTx();
-  const inner = TransactionBuilder.fromXDR(xdr, Networks.TESTNET) as Transaction;
-  const signatureHex = '0x' + kp.sign(inner.hash()).toString('hex');
+  it('wraps the inner tx in a sponsor-signed fee bump and submits it', async () => {
+    const { xdr, address, kp } = sampleTx();
+    const inner = TransactionBuilder.fromXDR(
+      xdr,
+      Networks.TESTNET,
+    ) as Transaction;
+    const signatureHex = '0x' + kp.sign(inner.hash()).toString('hex');
 
-  const server = {
-    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'tx123' }),
-    pollTransaction: vi.fn().mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
-  } as unknown as rpc.Server;
+    const server = {
+      sendTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: 'PENDING', hash: 'tx123' }),
+      pollTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
+    } as unknown as rpc.Server;
 
-  const result = await new StellarService(cfg, server).attachAndSubmit(xdr, address, signatureHex);
+    const result = await new StellarService(cfg, server).attachAndSubmit(
+      xdr,
+      address,
+      signatureHex,
+    );
 
-  expect(result).toEqual({ txHash: 'tx123' });
-  const submitted = (server.sendTransaction as any).mock.calls[0][0];
-  expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTxFeeBump');
-});
+    expect(result).toEqual({ txHash: 'tx123' });
+    const submitted = (server.sendTransaction as any).mock.calls[0][0];
+    expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTxFeeBump');
+  });
 
-// ── fundClient (sponsor → cliente) ────────────────────────────────────────────
+  // ── fundClient (sponsor → cliente) ────────────────────────────────────────────
 
-it('fundClient envia um payment nativo do sponsor para o cliente e espera confirmar', async () => {
-  const server = {
-    getAccount: vi.fn().mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
-    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'pay1' }),
-    pollTransaction: vi.fn().mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
-  } as unknown as rpc.Server;
+  it('fundClient envia um payment nativo do sponsor para o cliente e espera confirmar', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
+      sendTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: 'PENDING', hash: 'pay1' }),
+      pollTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: rpc.Api.GetTransactionStatus.SUCCESS }),
+    } as unknown as rpc.Server;
 
-  const client = Keypair.random().publicKey();
-  await new StellarService(cfg, server).fundClient(client, 100000000n); // 10 XLM
+    const client = Keypair.random().publicKey();
+    await new StellarService(cfg, server).fundClient(client, 100000000n); // 10 XLM
 
-  expect(server.getAccount).toHaveBeenCalledWith(SPONSOR_KP.publicKey());
-  expect(server.sendTransaction).toHaveBeenCalledTimes(1);
+    expect(server.getAccount).toHaveBeenCalledWith(SPONSOR_KP.publicKey());
+    expect(server.sendTransaction).toHaveBeenCalledTimes(1);
 
-  const submitted = (server.sendTransaction as any).mock.calls[0][0];
-  // Tx simples (não fee-bump) com um único payment nativo pro cliente.
-  expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTx');
-  const op = submitted.operations[0];
-  expect(op.type).toBe('payment');
-  expect(op.destination).toBe(client);
-  expect(op.asset.isNative()).toBe(true);
-  expect(Number(op.amount)).toBe(10);
-});
+    const submitted = (server.sendTransaction as any).mock.calls[0][0];
+    // Tx simples (não fee-bump) com um único payment nativo pro cliente.
+    expect(submitted.toEnvelope().switch().name).toBe('envelopeTypeTx');
+    const op = submitted.operations[0];
+    expect(op.type).toBe('payment');
+    expect(op.destination).toBe(client);
+    expect(op.asset.isNative()).toBe(true);
+    expect(Number(op.amount)).toBe(10);
+  });
 
-it('fundClient lança quando o payment não confirma', async () => {
-  const server = {
-    getAccount: vi.fn().mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
-    sendTransaction: vi.fn().mockResolvedValue({ status: 'PENDING', hash: 'pay2' }),
-    pollTransaction: vi.fn().mockResolvedValue({
-      status: rpc.Api.GetTransactionStatus.FAILED,
-      resultXdr: { result: () => ({ switch: () => ({ name: 'txFailed' }) }) },
-    }),
-  } as unknown as rpc.Server;
+  it('fundClient lança quando o payment não confirma', async () => {
+    const server = {
+      getAccount: vi
+        .fn()
+        .mockResolvedValue(new Account(SPONSOR_KP.publicKey(), '10')),
+      sendTransaction: vi
+        .fn()
+        .mockResolvedValue({ status: 'PENDING', hash: 'pay2' }),
+      pollTransaction: vi.fn().mockResolvedValue({
+        status: rpc.Api.GetTransactionStatus.FAILED,
+        resultXdr: { result: () => ({ switch: () => ({ name: 'txFailed' }) }) },
+      }),
+    } as unknown as rpc.Server;
 
-  await expect(
-    new StellarService(cfg, server).fundClient(Keypair.random().publicKey(), 100000000n),
-  ).rejects.toThrow('failed on-chain');
-});
+    await expect(
+      new StellarService(cfg, server).fundClient(
+        Keypair.random().publicKey(),
+        100000000n,
+      ),
+    ).rejects.toThrow('failed on-chain');
+  });
 
-// ── getNativeBalance ──────────────────────────────────────────────────────────
+  // ── getNativeBalance ──────────────────────────────────────────────────────────
 
-it('getNativeBalance lê o balance nativo do AccountEntry (stroops)', async () => {
-  const addr = Keypair.random().publicKey();
-  const server = {
-    getLedgerEntries: vi.fn().mockResolvedValue({
-      entries: [
-        { val: { account: () => ({ balance: () => ({ toString: () => '250000000' }) }) } },
-      ],
-      latestLedger: 1,
-    }),
-  } as unknown as rpc.Server;
+  it('getNativeBalance lê o balance nativo do AccountEntry (stroops)', async () => {
+    const addr = Keypair.random().publicKey();
+    const server = {
+      getLedgerEntries: vi.fn().mockResolvedValue({
+        entries: [
+          {
+            val: {
+              account: () => ({
+                balance: () => ({ toString: () => '250000000' }),
+              }),
+            },
+          },
+        ],
+        latestLedger: 1,
+      }),
+    } as unknown as rpc.Server;
 
-  const bal = await new StellarService(cfg, server).getNativeBalance(addr);
-  expect(bal).toBe(250000000n); // 25 XLM
-  expect(server.getLedgerEntries).toHaveBeenCalledTimes(1);
-});
+    const bal = await new StellarService(cfg, server).getNativeBalance(addr);
+    expect(bal).toBe(250000000n); // 25 XLM
+    expect(server.getLedgerEntries).toHaveBeenCalledTimes(1);
+  });
 
-it('getNativeBalance retorna 0n quando a conta não existe (sem entries)', async () => {
-  const server = {
-    getLedgerEntries: vi.fn().mockResolvedValue({ entries: [], latestLedger: 1 }),
-  } as unknown as rpc.Server;
+  it('getNativeBalance retorna 0n quando a conta não existe (sem entries)', async () => {
+    const server = {
+      getLedgerEntries: vi
+        .fn()
+        .mockResolvedValue({ entries: [], latestLedger: 1 }),
+    } as unknown as rpc.Server;
 
-  const bal = await new StellarService(cfg, server).getNativeBalance(Keypair.random().publicKey());
-  expect(bal).toBe(0n);
+    const bal = await new StellarService(cfg, server).getNativeBalance(
+      Keypair.random().publicKey(),
+    );
+    expect(bal).toBe(0n);
+  });
 });

@@ -1,3 +1,10 @@
+/**
+ * Módulo: company.service
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: A empresa é achada ou criada a partir do usuário do Privy.
+ * Sequência: find-or-creates by privyUserId.
+ */
 import { CompanyService } from './company.service';
 
 const prisma = {
@@ -6,13 +13,15 @@ const prisma = {
   },
 } as any;
 
-it('find-or-creates by privyUserId', async () => {
-  const svc = new CompanyService(prisma);
-  const c = await svc.findOrCreate('did:privy:abc');
-  expect(c.id).toBe('co_1');
-  expect(prisma.company.upsert).toHaveBeenCalledWith({
-    where: { privyUserId: 'did:privy:abc' },
-    create: { privyUserId: 'did:privy:abc' },
-    update: {},
+describe('company.service', () => {
+  it('find-or-creates by privyUserId', async () => {
+    const svc = new CompanyService(prisma);
+    const c = await svc.findOrCreate('did:privy:abc');
+    expect(c.id).toBe('co_1');
+    expect(prisma.company.upsert).toHaveBeenCalledWith({
+      where: { privyUserId: 'did:privy:abc' },
+      create: { privyUserId: 'did:privy:abc' },
+      update: {},
+    });
   });
 });

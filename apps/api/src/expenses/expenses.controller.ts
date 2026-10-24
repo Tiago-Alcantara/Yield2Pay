@@ -47,6 +47,8 @@ export class ExpensesController {
     @Query('category') category?: ExpenseCategory,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     try {
       return await this.expensesService.list(
@@ -54,6 +56,7 @@ export class ExpensesController {
         month,
         category,
         readPage(limit, offset),
+        from || to ? { from: from ?? '', to: to ?? '' } : undefined,
       );
     } catch (error) {
       if (error instanceof ExpenseInvalidError) {
