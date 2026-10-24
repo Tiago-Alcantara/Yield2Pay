@@ -1,3 +1,10 @@
+/**
+ * Módulo: errorNotifications
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: A fila de avisos publica o erro e quem escuta recebe na ordem.
+ * Sequência: exposes the published notification; starts with nothing to show; notifies subscribers when a notification is published and dismissed; stops notifying after unsubscribe; ignores a repeat of the status already on screen so a retry loop cannot flicker it; replaces the notification when a different failure arrives; shows the same status again once the user dismissed the first one; maps a status the dialog has no copy for onto one it does; keeps the original error id when the status is mapped.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ErrorStatusCode } from '@yield2pay/shared';
 import {

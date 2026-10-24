@@ -1,3 +1,10 @@
+/**
+ * Módulo: household
+ * Criado em: 2026-10-19
+ * Última atualização: 2026-10-22
+ * Intuito: Os tipos da casa aceitam um gasto com quem lançou e uma conta família.
+ * Sequência: accepts an expense row with who added it.
+ */
 import { describe, it, expect } from 'vitest';
 import type { ExpenseView, AccountView } from './household';
 

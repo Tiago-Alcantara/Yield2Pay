@@ -215,7 +215,7 @@ Let `today` be the São Paulo calendar date. A month is in progress when it is t
 
 `previousMonth` is the calendar month before `month`.
 
-`averageCents` is the mean of the five calendar months immediately before `month`. A month with no expenses contributes `0`.
+`averageCents` is the mean of the closed months before today's month, at most five, and never a month before the household's first expense. The open month and any later month contribute `0` to this mean. A closed month inside that window with no expenses contributes `0`. `freedom` uses this same figure no matter which month is on screen.
 
 ```
 monthTotalCents

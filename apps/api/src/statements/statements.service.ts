@@ -1,11 +1,11 @@
 import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { classifyMerchant, isFixedRepeat } from '../expenses/classify';
+import { classifyMerchant, idsToMarkFixed } from '../expenses/classify';
 import { HouseholdService } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseCsv } from './parse-csv';
-import { parseOfx } from './parse-ofx';
+import { decodeOfx, parseOfx } from './parse-ofx';
 import { parsePdf } from './parse-pdf';
 import {
   StatementDuplicateError,
@@ -45,6 +45,14 @@ export class StatementsService {
     const format = formatFromFilename(filename);
     const rows = await this.parseBytes(format, bytes);
     const hasDebit = rows.some((row) => row.signed === 'debit');
+    const debits = rows.filter((row) => isUsableRow(row) && !isIncome(row, format, hasDebit));
+    const incomes = rows.filter((row) => isUsableRow(row) && isIncome(row, format, hasDebit));
+    if (debits.length === 0 && incomes.length === 0) {
+      throw new StatementFormatError();
+    }
+    if (debits.length === 0) {
+      return { statementId: '', imported: 0, skipped: rows.length };
+    }
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -59,25 +67,21 @@ export class StatementsService {
         });
 
         let imported = 0;
-        let skipped = 0;
-        for (const row of rows) {
-          if (!isUsableRow(row) || isIncome(row, format, hasDebit)) {
-            skipped += 1;
-            continue;
+        let skipped = rows.length - debits.length;
+        const merchants: string[] = [];
+        for (const row of debits) {
+          if (row.fitId) {
+            const existing = await tx.expense.findFirst({
+              where: { householdId, fitId: row.fitId },
+              select: { id: true },
+            });
+            if (existing) {
+              skipped += 1;
+              continue;
+            }
           }
 
-          const earlier = await tx.expense.findMany({
-            where: {
-              householdId,
-              merchant: { equals: row.merchant, mode: 'insensitive' },
-              spentOn: { lt: monthStartUtc(row.spentOn) },
-            },
-            select: { amountCents: true },
-          });
-          const fixed = earlier.some((previous) =>
-            isFixedRepeat(previous.amountCents, row.amountCents),
-          );
-
+          const category = classifyMerchant(row.merchant);
           await tx.expense.create({
             data: {
               householdId,
@@ -85,14 +89,21 @@ export class StatementsService {
               statementId: statement.id,
               spentOn: new Date(row.spentOn),
               merchant: row.merchant,
-              category: classifyMerchant(row.merchant),
-              fixed,
+              category,
+              fixed: false,
               amountCents: row.amountCents,
+              ...(row.fitId ? { fitId: row.fitId } : {}),
             },
           });
+          merchants.push(row.merchant);
           imported += 1;
         }
 
+        if (imported === 0) {
+          throw new StatementDuplicateError();
+        }
+
+        await markFixedRepeats(tx, householdId, merchants);
         return { statementId: statement.id, imported, skipped };
       });
     } catch (error) {
@@ -118,6 +129,22 @@ export class StatementsService {
     });
   }
 
+  async list(companyId: string) {
+    const { householdId } = await this.household.requireMembership(companyId);
+    const rows = await this.prisma.statement.findMany({
+      where: { householdId },
+      orderBy: { importedAt: 'desc' },
+      take: 20,
+      include: { _count: { select: { expenses: true } } },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      filename: row.filename,
+      importedAt: row.importedAt.toISOString(),
+      expenseCount: row._count.expenses,
+    }));
+  }
+
   private async parseBytes(
     format: 'csv' | 'ofx' | 'pdf',
     bytes: Buffer,
@@ -126,7 +153,7 @@ export class StatementsService {
       return parseCsv(bytes.toString('utf8'));
     }
     if (format === 'ofx') {
-      return parseOfx(bytes.toString('utf8'));
+      return parseOfx(decodeOfx(bytes));
     }
     const text = await pdfBufferToText(bytes);
     const rows = parsePdf(text);
@@ -161,9 +188,43 @@ function isIncome(row: ParsedStatementRow, format: string, hasDebit: boolean): b
   return format === 'csv' && row.signed === 'unsigned' && hasDebit;
 }
 
-function monthStartUtc(spentOn: string): Date {
-  const [year, month] = spentOn.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, 1));
+type ExpenseWriter = {
+  expense: {
+    findMany: (args: {
+      where: { householdId: string };
+      select: { id: true; merchant: true; spentOn: true; amountCents: true; category: true };
+    }) => Promise<Array<{ id: string; merchant: string; spentOn: Date; amountCents: number; category: string }>>;
+    updateMany: (args: {
+      where: { id: { in: string[] } };
+      data: { fixed: boolean };
+    }) => Promise<unknown>;
+  };
+};
+
+async function markFixedRepeats(
+  tx: ExpenseWriter,
+  householdId: string,
+  merchants: string[],
+) {
+  void merchants;
+  const rows = await tx.expense.findMany({
+    where: { householdId },
+    select: { id: true, merchant: true, spentOn: true, amountCents: true, category: true },
+  });
+  const ids = idsToMarkFixed(
+    rows.map((row) => ({
+      id: row.id,
+      merchant: row.merchant,
+      spentOn: row.spentOn.toISOString().slice(0, 10),
+      amountCents: row.amountCents,
+      category: row.category,
+    })),
+  );
+  if (ids.length === 0) return;
+  await tx.expense.updateMany({
+    where: { id: { in: ids } },
+    data: { fixed: true },
+  });
 }
 
 async function pdfBufferToText(bytes: Buffer): Promise<string> {

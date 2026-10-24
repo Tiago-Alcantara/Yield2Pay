@@ -10,9 +10,9 @@
  * authenticated user to the dashboard.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth';
 import { useIsMobile } from '@/lib/useIsMobile';
 
@@ -53,6 +53,19 @@ const L = {
 
 type Lang = keyof typeof L;
 
+const FAMILY_LOGIN = {
+  pt: {
+    brandTitle: 'Os gastos da casa, num só lugar.',
+    brandSub: 'Entre com o Google. O primeiro acesso começa em seguida.',
+    subtitle: 'Use sua conta Google para abrir os gastos da casa.',
+  },
+  en: {
+    brandTitle: 'Household expenses, in one place.',
+    brandSub: 'Sign in with Google. First-time setup starts right after.',
+    subtitle: 'Use your Google account to open the household expenses.',
+  },
+} as const;
+
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 
 function SealIcon({ name }: { name: string }) {
@@ -79,13 +92,22 @@ function SealIcon({ name }: { name: string }) {
   );
 }
 
+/** Só aceita caminho interno. O padrão é o painel da família. */
+function safeNext(value: string | null): string {
+  if (value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\')) {
+    return value;
+  }
+  return '/dashboard';
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function LoginPage() {
+function LoginScreen() {
   const router = useRouter();
+  const next = safeNext(useSearchParams().get('next'));
   const { ready, authenticated } = usePrivy();
   const { initOAuth, loading } = useLoginWithOAuth({
-    onComplete: () => router.replace('/dashboard'),
+    onComplete: () => router.replace(next),
     onError: (err) => {
       console.error('[Yield2Pay] Privy OAuth error:', err);
       setError(true);
@@ -96,12 +118,12 @@ export default function LoginPage() {
   const [lang, setLang] = useState<Lang>('pt');
   const [error, setError] = useState(false);
 
-  const t = L[lang];
+  const t = next.startsWith('/b2b') ? L[lang] : { ...L[lang], ...FAMILY_LOGIN[lang] };
 
   // Already authenticated (or just returned from the Google redirect) → leave.
   useEffect(() => {
-    if (ready && authenticated) router.replace('/dashboard');
-  }, [ready, authenticated, router]);
+    if (ready && authenticated) router.replace(next);
+  }, [ready, authenticated, router, next]);
 
   async function signInWithGoogle() {
     setError(false);
@@ -258,5 +280,13 @@ export default function LoginPage() {
         </section>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginScreen />
+    </Suspense>
   );
 }

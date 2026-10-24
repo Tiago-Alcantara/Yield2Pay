@@ -1,3 +1,10 @@
+/**
+ * Módulo: ErrorDialog
+ * Criado em: 2026-08-19
+ * Última atualização: 2026-10-22
+ * Intuito: O diálogo de erro mostra a mensagem e fecha quando o usuário pede.
+ * Sequência: is a modal alert dialog described by its own title and message; moves focus to the title when it opens; closes on Escape; closes when the veil is clicked but not when the card is; closes from the × and from the secondary button; retries the action on a 408; sends a 401 to login; just closes on a 400 so the user can fix the data on the screen behind; never offers to leave the screen the user was on; shows the error id with its copy button; never shows technical details, not even when the payload carries them.
+ */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

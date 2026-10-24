@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppConfigModule } from './config/config.module';
+import { isFinancialProductEnabled } from './config/financial-product';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { WalletModule } from './wallet/wallet.module';
@@ -18,26 +19,38 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { SummaryModule } from './summary/summary.module';
 import { LessonsModule } from './lessons/lessons.module';
 
-@Module({
-  imports: [
-    ScheduleModule.forRoot(),
-    AppConfigModule,
-    PrismaModule,
+/** Cofre, carteira, depósito, saque, ramp, Stellar e ledger. Fora do grafo com a flag desligada. */
+export function financialModules(raw: Record<string, string | undefined> = process.env) {
+  if (!isFinancialProductEnabled(raw)) return [];
+  return [
     WalletModule,
     VaultModule,
     LedgerModule,
     StellarModule,
     DepositModule,
     WithdrawModule,
-    BillsModule,
     JobsModule,
     RampModule,
+  ];
+}
+
+export function appImports(raw: Record<string, string | undefined> = process.env) {
+  return [
+    ScheduleModule.forRoot(),
+    AppConfigModule,
+    PrismaModule,
+    ...financialModules(raw),
+    BillsModule,
     HouseholdModule,
     StatementsModule,
     ExpensesModule,
     SummaryModule,
     LessonsModule,
-  ],
+  ];
+}
+
+@Module({
+  imports: appImports(),
   controllers: [HealthController],
   providers: [],
 })

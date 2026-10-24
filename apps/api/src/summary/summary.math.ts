@@ -15,6 +15,8 @@ export interface SummaryInput {
   incomeCents: number | null;
   reserveCents: number | null;
   goalMonths: number | null;
+  /** Earliest YYYY-MM with an expense. Null when the household has none. */
+  firstExpenseMonth?: string | null;
 }
 
 export function saoPauloToday(now: Date): string {
@@ -28,6 +30,15 @@ export function saoPauloToday(now: Date): string {
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function laterMonth(left: string, right: string): string {
+  return left > right ? left : right;
+}
+
+function earliestMonth(expenses: SummaryExpense[]): string | null {
+  const months = expenses.map((expense) => expense.spentOn.slice(0, 7)).sort();
+  return months[0] ?? null;
 }
 
 function shiftMonth(month: string, delta: number): string {
@@ -53,6 +64,28 @@ function inMonth(spentOn: string, month: string): boolean {
 
 function sum(expenses: SummaryExpense[]): number {
   return expenses.reduce((total, expense) => total + expense.amountCents, 0);
+}
+
+/** Mean of up to five closed months, starting at the first month that has an expense. */
+function averageOfClosedMonths(
+  today: string,
+  expenses: SummaryExpense[],
+  firstExpenseMonth: string | null,
+): number {
+  if (!firstExpenseMonth) return 0;
+  const current = today.slice(0, 7);
+  const lastClosed = shiftMonth(current, -1);
+  if (firstExpenseMonth > lastClosed) return 0;
+  const start = laterMonth(shiftMonth(lastClosed, -4), firstExpenseMonth);
+  const months: string[] = [];
+  for (let key = start; key <= lastClosed; key = shiftMonth(key, 1)) {
+    months.push(key);
+  }
+  if (months.length === 0) return 0;
+  return Math.round(
+    months.reduce((total, key) => total + sum(fullMonth(expenses, key)), 0) /
+      months.length,
+  );
 }
 
 function fullMonth(
@@ -134,17 +167,27 @@ export function summarize(input: SummaryInput): HouseholdSummary {
     .map(([category, amountCents]) => ({ category, amountCents }))
     .sort((left, right) => right.amountCents - left.amountCents);
 
+  const openMonth = today.slice(0, 7);
   const lastSix = Array.from({ length: 6 }, (_, index) =>
     shiftMonth(month, index - 5),
   );
   const lastSixMonths = lastSix.map((key) => ({
     month: key,
-    amountCents: sum(fullMonth(expenses, key)),
+    amountCents:
+      key === openMonth
+        ? sum(
+            fullMonth(expenses, key).filter(
+              (expense) => dayOf(expense.spentOn) <= todayDay,
+            ),
+          )
+        : sum(fullMonth(expenses, key)),
   }));
-  const averageCents = Math.round(
-    lastSix
-      .slice(0, 5)
-      .reduce((total, key) => total + sum(fullMonth(expenses, key)), 0) / 5,
+  const averageCents = averageOfClosedMonths(
+    today,
+    expenses,
+    input.firstExpenseMonth === undefined
+      ? earliestMonth(expenses)
+      : input.firstExpenseMonth,
   );
 
   const freedom =
@@ -180,7 +223,10 @@ export function summarize(input: SummaryInput): HouseholdSummary {
       previous: cumulative(previousExpenses, daysInMonth(previousMonth)),
     },
     fixedVsVariable: lastSix.map((key) => {
-      const rows = fullMonth(expenses, key);
+      const rows =
+        key === openMonth
+          ? fullMonth(expenses, key).filter((expense) => dayOf(expense.spentOn) <= todayDay)
+          : fullMonth(expenses, key);
       return {
         month: key,
         fixedCents: sum(rows.filter((expense) => expense.fixed)),

@@ -1,3 +1,10 @@
+/**
+ * Módulo: useDepositFlow
+ * Criado em: 2026-06-30
+ * Última atualização: 2026-10-22
+ * Intuito: O fluxo de depósito passa por valor, construção, assinatura e envio.
+ * Sequência: start: cria order e vai pra awaiting_pix; confirm: claim + depósito (trunca targetAmount a 7 casas) → done; confirm: pula o claim quando skip=true; confirm: retry após falha no depósito NÃO re-claima.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDepositFlow } from './useDepositFlow';

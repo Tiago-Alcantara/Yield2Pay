@@ -15,12 +15,15 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ExecutionContext } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { isFinancialProductEnabled } from '../src/config/financial-product';
 import { AuthGuard } from '../src/auth/auth.guard';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { StellarService } from '../src/stellar/stellar.service';
 import { RESERVE_BUFFER_BASE_UNITS } from '../src/common/reserve';
 
-describe('Wallet balance + deposit pré-check (HTTP hermético)', () => {
+const describeProduct = isFinancialProductEnabled() ? describe : describe.skip;
+
+describeProduct('Wallet balance + deposit pré-check (HTTP hermético)', () => {
   let app: INestApplication;
 
   const stellar = {

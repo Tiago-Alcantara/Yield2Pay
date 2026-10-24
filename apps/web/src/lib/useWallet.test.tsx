@@ -1,4 +1,11 @@
 /**
+ * Módulo: useWallet
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: A carteira conecta, lê o endereço e trata a ausência de sessão.
+ * Sequência: returns address from existing stellar wallet and calls registerWallet once; creates a stellar wallet when none exists, then registers it; exposes address as null when user has no stellar wallet yet; exposes address when user already has a stellar wallet.
+ */
+/**
  * Tests for useWallet hook.
  *
  * Mocks:

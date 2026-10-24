@@ -1,7 +1,15 @@
-import { HouseholdService } from './household.service';
+/**
+ * Módulo: household.service
+ * Criado em: 2026-10-19
+ * Última atualização: 2026-10-22
+ * Intuito: Conta, perfil, onboarding e saída do grupo seguem as regras da casa.
+ * Sequência: creates a household and an owner membership; rejects a second household for the same person; returns initials from the name shown, keeping an emoji whole; rejects an empty name, a name past 32 characters, an email change, and a role; blocks the last admin from leaving the group; putProfile marks onboarding complete; skip only sets onboardingCompleted; rejects a profile goal that is not 6, 12, 24 or 60 months; rejects a negative income and an unknown crypto experience; patch beginner does not change onboardingCompleted; lets only the owner invite, and blocks someone already in a group; accepts a pending invite when the Google email matches and the person is free; rejects accept when the person already belongs to a group; saves the name shown on the platform; blocks a member from renaming the group; completes onboarding without changing income, reserve, or goal months; drops crypto actions when the person has not bought crypto; rejects an unknown goal and writes nothing; uses the first name when the nickname is empty.
+ */
+import { HouseholdService, initialsOf, readDisplayNamePatch } from './household.service';
 import {
   HouseholdConflictError,
   HouseholdForbiddenError,
+  HouseholdInvalidError,
 } from './household.errors';
 
 function fakePrisma() {
@@ -9,6 +17,8 @@ function fakePrisma() {
     householdMember: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      count: vi.fn(),
+      delete: vi.fn(),
     },
     household: {
       create: vi.fn(),
@@ -51,19 +61,34 @@ describe('HouseholdService', () => {
     );
   });
 
-  it('returns family account initials from the full name', async () => {
+  it('returns initials from the name shown, keeping an emoji whole', async () => {
     const prisma = fakePrisma();
     prisma.personName.findUnique.mockResolvedValue({
-      displayName: 'Ana', fullName: 'Ana Lima',
+      displayName: 'Zé 😀', fullName: 'Tiago Alcântara',
     });
     prisma.householdMember.findUnique.mockResolvedValue(null);
     const svc = new HouseholdService(prisma as never);
     const account = await svc.getAccount('co_1');
-    expect(account).toMatchObject({
-      initials: 'AL',
-      accountType: 'family',
-      household: null,
-    });
+    expect(account.initials).toBe('Z😀');
+    expect(initialsOf('Ana Lima', null)).toBe('AL');
+    expect(initialsOf(null, '')).toBe('?');
+  });
+
+  it('rejects an empty name, a name past 32 characters, an email change, and a role', () => {
+    expect(() => readDisplayNamePatch({ displayName: '  ' })).toThrow(HouseholdInvalidError);
+    expect(() => readDisplayNamePatch({ displayName: 'a'.repeat(33) })).toThrow('32 caracteres');
+    expect(() => readDisplayNamePatch({ displayName: 'Ana', email: 'ana@x.com' })).toThrow('e-mail');
+    expect(() => readDisplayNamePatch({ displayName: 'Ana', role: 'owner' })).toThrow('papel');
+    expect(readDisplayNamePatch({ displayName: ' Ana ' })).toBe('Ana');
+  });
+
+  it('blocks the last admin from leaving the group', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'owner' });
+    prisma.householdMember.count.mockResolvedValue(0);
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.leave('co_1')).rejects.toThrow('último admin');
+    expect(prisma.householdMember.delete).not.toHaveBeenCalled();
   });
 
   it('putProfile marks onboarding complete', async () => {
@@ -190,5 +215,116 @@ describe('HouseholdService', () => {
     prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });
     const svc = new HouseholdService(prisma as never);
     await expect(svc.renameHousehold('co_1', 'Nova casa')).rejects.toBeInstanceOf(HouseholdForbiddenError);
+  });
+
+  it('completes onboarding without changing income, reserve, or goal months', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'member' });
+    prisma.personName.findUnique.mockResolvedValue({
+      displayName: 'Mari', fullName: 'Marina Souza', email: 'mari@example.com',
+    });
+    prisma.household.findUnique.mockResolvedValue({
+      id: 'h1', name: 'Casa', onboardingCompleted: true,
+    });
+    const svc = new HouseholdService(prisma as never);
+    await svc.completeOnboarding('co_1', 'mari@example.com', {
+      fullName: 'Marina Souza',
+      displayName: 'Mari',
+      goals: ['gastos', 'aprender'],
+      importMode: 'manual',
+      cryptoFamiliarity: 'ouvi',
+      cryptoActions: [],
+      showFreedom: false,
+      showFamily: false,
+      learnCrypto: true,
+    });
+    expect(prisma.personName.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { displayName: 'Mari', fullName: 'Marina Souza' },
+    }));
+    const data = prisma.household.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      goals: ['gastos', 'aprender'],
+      importMode: 'manual',
+      cryptoFamiliarity: 'ouvi',
+      cryptoActions: [],
+      showFreedom: false,
+      showFamily: false,
+      cryptoExperience: 'beginner',
+      onboardingCompleted: true,
+    });
+    expect(data.monthlyIncomeCents).toBeUndefined();
+    expect(data.reserveCents).toBeUndefined();
+    expect(data.goalMonths).toBeUndefined();
+  });
+
+  it('drops crypto actions when the person has not bought crypto', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'owner' });
+    prisma.household.findUnique.mockResolvedValue({ id: 'h1', name: 'Casa', onboardingCompleted: true });
+    const svc = new HouseholdService(prisma as never);
+    await svc.completeOnboarding('co_1', null, {
+      fullName: null,
+      displayName: null,
+      goals: [],
+      importMode: null,
+      cryptoFamiliarity: 'nunca',
+      cryptoActions: ['stable', 'autocustodia'],
+      showFreedom: true,
+      showFamily: false,
+      learnCrypto: false,
+    });
+    expect(prisma.personName.upsert).not.toHaveBeenCalled();
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: 'h1' },
+      data: expect.objectContaining({
+        cryptoActions: [],
+        cryptoExperience: 'declined',
+        onboardingCompleted: true,
+      }),
+    });
+  });
+
+  it('rejects an unknown goal and writes nothing', async () => {
+    const prisma = fakePrisma();
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.completeOnboarding('co_1', null, {
+      fullName: 'Ana',
+      displayName: 'Ana',
+      goals: ['nope' as never],
+      importMode: 'ofx',
+      cryptoFamiliarity: 'ouvi',
+      cryptoActions: [],
+      showFreedom: true,
+      showFamily: false,
+      learnCrypto: true,
+    })).rejects.toThrow('goals is invalid');
+    expect(prisma.household.update).not.toHaveBeenCalled();
+    expect(prisma.personName.upsert).not.toHaveBeenCalled();
+  });
+
+  it('uses the first name when the nickname is empty', async () => {
+    const prisma = fakePrisma();
+    prisma.householdMember.findUnique.mockResolvedValue({ householdId: 'h1', role: 'owner' });
+    prisma.personName.findUnique.mockResolvedValue({ displayName: 'Marina', fullName: 'Marina Souza' });
+    prisma.household.findUnique.mockResolvedValue({ id: 'h1', name: 'Casa', onboardingCompleted: true });
+    const svc = new HouseholdService(prisma as never);
+    await svc.completeOnboarding('co_1', null, {
+      fullName: ' Marina Souza ',
+      displayName: ' ',
+      goals: ['reserva'],
+      importMode: 'ofx',
+      cryptoFamiliarity: 'comprei',
+      cryptoActions: ['rendimento'],
+      showFreedom: true,
+      showFamily: false,
+      learnCrypto: true,
+    });
+    expect(prisma.personName.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { displayName: 'Marina', fullName: 'Marina Souza' },
+    }));
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: 'h1' },
+      data: expect.objectContaining({ cryptoExperience: 'fund', cryptoActions: ['rendimento'] }),
+    });
   });
 });

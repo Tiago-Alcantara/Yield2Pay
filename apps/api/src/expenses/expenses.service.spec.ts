@@ -1,3 +1,10 @@
+/**
+ * Módulo: expenses.service
+ * Criado em: 2026-10-19
+ * Última atualização: 2026-10-22
+ * Intuito: Gastos do grupo são listados, criados, reclassificados e apagados sem misturar casas.
+ * Sequência: lists the group and attaches the adder name; rejects a month that is not YYYY-MM; pages the month with limit and offset; rejects a limit outside 1 to 200; reads distinct months from the database; deletes an expense that belongs to the group; does not delete an expense outside the group; creates a manual expense for the group; rejects an expense dated after today; lists a custom date range; rejects an expense without amount; does not patch an expense outside the group.
+ */
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
 
@@ -13,6 +20,7 @@ function fakePrisma() {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
       count: vi.fn().mockResolvedValue(1),
@@ -36,7 +44,7 @@ describe('ExpensesService', () => {
     const svc = new ExpensesService(prisma as never, households as never);
     const page = await svc.list('co_ana', '2026-10');
     expect(page.total).toBe(1);
-    expect(page.items[0].addedBy).toEqual({ displayName: 'Bia', initials: 'BS' });
+    expect(page.items[0].addedBy).toEqual({ displayName: 'Bia', initials: 'B' });
     expect(page.items[0].date).toBe('2026-10-12');
   });
 
@@ -75,11 +83,17 @@ describe('ExpensesService', () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     prisma.expense.findMany.mockResolvedValue([]);
-    prisma.$queryRaw.mockResolvedValue([{ month: '2026-10' }, { month: '2026-09' }]);
+    prisma.$queryRaw.mockResolvedValue([
+      { month: '2026-10', amountCents: 15000 },
+      { month: '2026-09', amountCents: 4000 },
+    ]);
     const svc = new ExpensesService(prisma as never, households as never);
     const months = await svc.months('co_ana');
     expect(prisma.expense.findMany).not.toHaveBeenCalled();
-    expect(months).toEqual(['2026-10', '2026-09']);
+    expect(months).toEqual([
+      { month: '2026-10', amountCents: 15000 },
+      { month: '2026-09', amountCents: 4000 },
+    ]);
   });
 
   it('deletes an expense that belongs to the group', async () => {
@@ -115,6 +129,33 @@ describe('ExpensesService', () => {
     expect(prisma.expense.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ householdId: 'h1', amountCents: 18740, category: 'groceries' }),
     });
+  });
+
+  it('rejects an expense dated after today', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    const svc = new ExpensesService(prisma as never, households as never);
+    await expect(svc.create('co_ana', {
+      merchant: 'Padaria', amountCents: 1000, spentOn: '2099-01-01', category: 'groceries',
+    })).rejects.toThrow('date is in the future');
+    expect(prisma.expense.create).not.toHaveBeenCalled();
+  });
+
+  it('lists a custom date range', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findMany.mockResolvedValue([]);
+    prisma.personName.findMany.mockResolvedValue([]);
+    const svc = new ExpensesService(prisma as never, households as never);
+    await svc.list('co_ana', '', undefined, undefined, { from: '2026-08-01', to: '2026-11-30' });
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        spentOn: {
+          gte: new Date('2026-08-01T00:00:00.000Z'),
+          lt: new Date('2026-12-01T00:00:00.000Z'),
+        },
+      }),
+    }));
   });
 
   it('rejects an expense without amount', async () => {

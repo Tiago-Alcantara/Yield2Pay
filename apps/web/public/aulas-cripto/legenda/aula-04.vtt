@@ -1,0 +1,17 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:01:30.000
+O endereço vem da chave pública e pode ser compartilhado.
+
+2
+00:01:30.000 --> 00:03:00.000
+A chave privada assina as transações e nunca deve ser mostrada.
+
+3
+00:03:00.000 --> 00:04:30.000
+A frase de recuperação recria todas as chaves: guarde no papel.
+
+4
+00:04:30.000 --> 00:06:00.000
+Ninguém legítimo pede a sua frase ou a sua chave privada.

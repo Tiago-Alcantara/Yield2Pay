@@ -39,13 +39,16 @@ export type AppEnv = 'production' | 'staging' | 'development';
  */
 export type ErrorStatusCode = 400 | 401 | 403 | 404 | 409 | 408 | 500 | 502 | 503;
 
-/** Bloco de depuração — presente apenas fora de produção. */
+/**
+ * Bloco de depuração — presente apenas fora de produção.
+ * A API não envia `stack`; esse campo só existe em erros nascidos no browser.
+ */
 export interface ErrorTechnicalDetails {
   method: string;
   endpoint: string;
   requestId: string;
   message: string;
-  stack: string;
+  stack?: string;
 }
 
 /** Corpo de toda resposta de erro da API. */
@@ -62,3 +65,5 @@ export interface ApiErrorPayload {
 }
 
 export * from './household';
+export * from './onboarding';
+export * from './lesson-quiz';

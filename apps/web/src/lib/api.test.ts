@@ -1,3 +1,10 @@
+/**
+ * Módulo: api
+ * Criado em: 2026-06-24
+ * Última atualização: 2026-10-22
+ * Intuito: O cliente HTTP manda o token e avisa a tela quando a resposta é erro.
+ * Sequência: attaches bearer token and posts deposit build; throws ApiError on non-2xx; publishes the failure so the popup can show it; still throws so the screens that handle the error inline keep working.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApi, ApiError } from './api';
 import { dismissErrorNotification, getErrorNotification } from './errorNotifications';

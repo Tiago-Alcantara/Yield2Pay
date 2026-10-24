@@ -33,12 +33,14 @@ async function bootstrap() {
   // (comma-separated); if unset, reflect any origin (fine for MVP — lock down
   // to the real web domain before production).
   const corsOrigin = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-    : true;
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : process.env.APP_ENV === 'production'
+      ? ['https://yield2pay.com', 'https://www.yield2pay.com']
+      : true;
   app.enableCors({ origin: corsOrigin, credentials: true });
   const config = app.get<Env>(APP_CONFIG);
   // Todo erro sai daqui no mesmo formato (ApiErrorPayload) que as telas de erro
-  // consomem; fora de produção o corpo ainda carrega technicalDetails.
+  // consomem; fora de produção o corpo ainda carrega technicalDetails, sem stack.
   app.useGlobalFilters(new AllExceptionsFilter(config.appEnv));
   await app.listen(config.port);
 }
