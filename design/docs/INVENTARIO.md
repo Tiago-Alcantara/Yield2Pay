@@ -43,20 +43,20 @@ Presentes em `apps/web/src/components`. Marcados com ⚠ quando não há espelho
 
 ## Telas do app
 - `/`
+- `/aprender`
+- `/b2b`
+- `/b2b/dashboard`
+- `/b2b/deposit`
+- `/b2b/withdraw`
+- `/conceitos`
+- `/configuracoes`
+- `/conta`
 - `/dashboard`
-- `/deposit`
-- `/family`
-- `/family/aprender`
-- `/family/conceitos`
-- `/family/configuracoes`
-- `/family/conta`
-- `/family/dashboard`
-- `/family/dashboard/[subId]`
-- `/family/deposito`
-- `/family/onboarding`
-- `/family/saque`
+- `/dashboard/[subId]`
+- `/deposito`
 - `/login`
-- `/withdraw`
+- `/onboarding`
+- `/saque`
 
 UI kits em `design/ui_kits`: `yield2pay-dashboard`, `yield2pay-deposit`, `yield2pay-landing`.
 Telas sem kit correspondente devem ser documentadas em `design/ui_kits/` ao serem estabilizadas.
