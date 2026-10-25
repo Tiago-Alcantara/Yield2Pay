@@ -788,12 +788,14 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header
           id="painel-header"
+          className="y2p-header"
           style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: isMobile ? 'stretch' : 'center',
             justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: isMobile ? 8 : 16,
+            flexDirection: isMobile ? 'column' : 'row',
+            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            gap: isMobile ? 10 : 16,
             padding: isMobile ? '12px 16px' : '20px 32px',
             borderBottom: '1px solid #2A2D31',
             position: 'sticky',
@@ -804,30 +806,41 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
             zIndex: 10,
           }}
         >
-          <div>
-            <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4' }}>
-              {userName ? 'Olá, ' + userName : 'Painel da família'}
-            </div>
-            {!isMobile && (
-              <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 2 }}>
-                {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
+          <div className="y2p-header-greet" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4' }}>
+                {userName ? 'Olá, ' + userName : 'Painel da família'}
               </div>
+              {!isMobile && (
+                <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 2 }}>
+                  {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
+                </div>
+              )}
+            </div>
+            {isMobile && (
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+                {initials}
+              </button>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <FilterBar
-              month={month}
-              months={pills}
-              totals={totals}
-              expenses={expenses}
-              filters={filters}
-              onFilters={setFilters}
-              onMonth={pickMonth}
-              onApply={applyFilters}
-            />
-            <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
-              {initials}
-            </button>
+          <div className="y2p-header-actions" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
+            <div style={{ flex: isMobile ? 1 : undefined, minWidth: 0, width: isMobile ? '100%' : undefined }}>
+              <FilterBar
+                month={month}
+                months={pills}
+                totals={totals}
+                expenses={expenses}
+                filters={filters}
+                onFilters={setFilters}
+                onMonth={pickMonth}
+                onApply={applyFilters}
+              />
+            </div>
+            {!isMobile && (
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+                {initials}
+              </button>
+            )}
           </div>
         </header>
 
