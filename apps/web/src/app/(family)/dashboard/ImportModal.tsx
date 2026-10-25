@@ -368,13 +368,13 @@ export function ImportModal({
                 <label htmlFor="gasto-onde" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Onde</label>
                 <input id="gasto-onde" placeholder="Ex.: Padaria da esquina" value={where} onChange={(event) => { setWhere(event.target.value); setManualError(''); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 15.5, outline: 'none' }} />
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <label htmlFor="gasto-valor" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Valor</label>
                 <input id="gasto-valor" inputMode="decimal" placeholder="R$ 0,00" value={amount} onChange={(event) => { setAmount(event.target.value); setManualError(''); setConfirmHuge(false); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 15.5, outline: 'none' }} />
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <label htmlFor="gasto-data" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Data</label>
-                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none' }} />
+                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} className="y2p-date" style={{ width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none', colorScheme: 'dark' }} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <CategoryChips value={manualCategory} onChange={setManualCategory} />

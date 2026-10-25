@@ -22,6 +22,20 @@ body { margin: 0; background: #0E0F11; }
 .y2p button { font-family: inherit; color: inherit; cursor: pointer; }
 .y2p :focus-visible { outline: 2px solid #C0C2C5; outline-offset: 3px; border-radius: 4px; }
 .y2p input[type='range'] { accent-color: #E6E8EA; width: 100%; margin-top: 12px; }
+.y2p-date,
+.y2p input[type='date'],
+.y2p-overlay input[type='date'] {
+  min-width: 0;
+  max-width: 100%;
+  color-scheme: dark;
+}
+.y2p-date::-webkit-calendar-picker-indicator,
+.y2p input[type='date']::-webkit-calendar-picker-indicator,
+.y2p-overlay input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  margin-left: 4px;
+}
 
 .y2p-mono { font-family: 'Geist Mono', monospace; }
 .y2p-eyebrow {

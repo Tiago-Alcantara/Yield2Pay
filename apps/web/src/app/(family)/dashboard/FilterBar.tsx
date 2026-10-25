@@ -404,7 +404,7 @@ function FiltersModal({
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8a8d91' }}>Gastos</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', margin: '6px 0 0' }}>Filtros</h2>
           </div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="y2p-filter" style={{ width: 40, height: 40, borderRadius: 999, border: '1px solid #3a3d42', background: '#131417', color: '#C0C2C5', fontFamily: 'inherit', fontSize: 18, cursor: 'pointer' }}>×</button>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="y2p-filter" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 999, border: '1px solid #3a3d42', background: '#131417', color: '#C0C2C5', fontFamily: 'inherit', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderTop: '1px solid #2A2D31' }}>
@@ -442,13 +442,13 @@ function FiltersModal({
                 })}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: '#9A9DA1' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, fontSize: 13.5, color: '#9A9DA1' }}>
                   De
-                  <input type="date" aria-label="De" value={draft.from} min={minDate} max={maxDate} onChange={(event) => patch({ from: event.target.value })} style={dateStyle} />
+                  <input type="date" aria-label="De" value={draft.from} min={minDate} max={maxDate} onChange={(event) => patch({ from: event.target.value })} className="y2p-date" style={dateStyle} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: '#9A9DA1' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, fontSize: 13.5, color: '#9A9DA1' }}>
                   Até
-                  <input type="date" aria-label="Até" value={draft.to} min={minDate} max={maxDate} onChange={(event) => patch({ to: event.target.value })} style={dateStyle} />
+                  <input type="date" aria-label="Até" value={draft.to} min={minDate} max={maxDate} onChange={(event) => patch({ to: event.target.value })} className="y2p-date" style={dateStyle} />
                 </label>
               </div>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#8a8d91' }}>
@@ -528,6 +528,8 @@ function CatButton({ label, on, onClick }: { label: string; on: boolean; onClick
 const dateStyle: CSSProperties = {
   height: 46,
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   padding: '0 14px',
   borderRadius: 12,
   border: '1px solid #3a3d42',

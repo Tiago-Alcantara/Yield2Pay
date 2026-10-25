@@ -503,8 +503,12 @@
 }
 .conta-xclose {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
   height: 40px;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--field);
