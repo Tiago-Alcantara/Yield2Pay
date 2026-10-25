@@ -304,7 +304,11 @@ export function ContaModal({
             <div className="conta-kicker">Sua conta</div>
             <h1 id="conta-title">Configurações</h1>
           </div>
-          <button type="button" className="conta-xclose" aria-label="Fechar" onClick={onClose}>×</button>
+          <button type="button" className="conta-xclose" aria-label="Fechar" onClick={onClose}>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
         </header>
         <div className="conta-sheet-body">
           <nav className="conta-tabs" aria-label="Seções">

@@ -506,17 +506,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--mut);
   font-size: 18px;
-  line-height: 1;
+  line-height: 0;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+.conta-xclose svg { display: block; flex: none; }
 .conta-xclose:hover { border-color: #8a8d91; color: var(--tx); }
 .conta-sheet-body {
   flex: 1;

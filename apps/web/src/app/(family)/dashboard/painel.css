@@ -22,12 +22,25 @@ body { margin: 0; background: #0E0F11; }
 .y2p button { font-family: inherit; color: inherit; cursor: pointer; }
 .y2p :focus-visible { outline: 2px solid #C0C2C5; outline-offset: 3px; border-radius: 4px; }
 .y2p input[type='range'] { accent-color: #E6E8EA; width: 100%; margin-top: 12px; }
+/* Date nativo: no Safari iOS a data longa (ex. "25 de out. de 2026")
+   tem min-content > que a coluna do iPhone e estoura o card. */
 .y2p-date,
 .y2p input[type='date'],
 .y2p-overlay input[type='date'] {
-  min-width: 0;
+  display: block;
+  width: 100%;
+  min-width: 0 !important;
   max-width: 100%;
   color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.y2p-date::-webkit-date-and-time-value,
+.y2p input[type='date']::-webkit-date-and-time-value,
+.y2p-overlay input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+  min-width: 0;
 }
 .y2p-date::-webkit-calendar-picker-indicator,
 .y2p input[type='date']::-webkit-calendar-picker-indicator,
@@ -35,7 +48,31 @@ body { margin: 0; background: #0E0F11; }
   cursor: pointer;
   opacity: 0.7;
   margin-left: 4px;
+  flex-shrink: 0;
 }
+.y2p-date-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.y2p-xclose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid #3a3d42;
+  background: #131417;
+  color: #C0C2C5;
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.y2p-xclose:hover { border-color: #8a8d91; color: #E6E8EA; }
+.y2p-xclose svg { display: block; flex: none; }
 
 .y2p-mono { font-family: 'Geist Mono', monospace; }
 .y2p-eyebrow {
@@ -685,4 +722,26 @@ body { margin: 0; background: #0E0F11; }
   .y2p-body { padding: 16px 12px; }
   .y2p-tx { grid-template-columns: 44px minmax(0, 1fr) auto auto; padding: 12px 14px; }
   .y2p-cat { display: none; }
+
+  /* iPhone: liberar largura para o date nativo do Safari (pt-BR longo). */
+  .y2p-overlay { padding: 3vh 10px; align-items: flex-start; }
+  .y2p-import {
+    padding: 20px 14px !important;
+    margin: 2vh auto !important;
+    border-radius: 16px !important;
+  }
+  .y2p-import-card { padding: 16px !important; }
+  .y2p-import-manual {
+    grid-template-columns: 1fr !important;
+  }
+  .y2p-date,
+  .y2p input[type='date'],
+  .y2p-overlay input[type='date'] {
+    font-size: 16px !important; /* evita zoom no iOS */
+    padding-right: 10px !important;
+  }
+  .y2p-filters-dialog { max-width: 100% !important; border-radius: 18px !important; }
+  .y2p-filters-head,
+  .y2p-filters-section,
+  .y2p-filters-dialog > div { padding-left: 14px !important; padding-right: 14px !important; }
 }

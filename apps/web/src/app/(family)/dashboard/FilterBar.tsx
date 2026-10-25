@@ -398,16 +398,20 @@ function FiltersModal({
 
   return (
     <div role="presentation" className="y2p-overlay" style={{ zIndex: 60, background: 'rgba(8,9,10,.72)', alignItems: 'flex-start', padding: '5vh 16px' }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-label="Filtros" style={{ position: 'relative', maxWidth: 580, width: '100%', borderRadius: 24, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 80px -30px rgba(0,0,0,.8)', display: 'flex', flexDirection: 'column', animation: 'y2pIn .35s ease' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '22px 24px 18px' }}>
-          <div>
+      <div role="dialog" aria-modal="true" aria-label="Filtros" className="y2p-filters-dialog" style={{ position: 'relative', maxWidth: 580, width: '100%', borderRadius: 24, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 80px -30px rgba(0,0,0,.8)', display: 'flex', flexDirection: 'column', animation: 'y2pIn .35s ease', minWidth: 0, boxSizing: 'border-box' }}>
+        <div className="y2p-filters-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '22px 24px 18px' }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8a8d91' }}>Gastos</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', margin: '6px 0 0' }}>Filtros</h2>
           </div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="y2p-filter" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 999, border: '1px solid #3a3d42', background: '#131417', color: '#C0C2C5', fontFamily: 'inherit', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>×</button>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="y2p-xclose">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderTop: '1px solid #2A2D31' }}>
+        <div className="y2p-filters-section" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderTop: '1px solid #2A2D31' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#9A9DA1' }}>Período</div>
             <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid #2A2D31', background: '#0E0F11' }}>
@@ -442,11 +446,11 @@ function FiltersModal({
                 })}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, fontSize: 13.5, color: '#9A9DA1' }}>
+                <label className="y2p-date-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: '#9A9DA1' }}>
                   De
                   <input type="date" aria-label="De" value={draft.from} min={minDate} max={maxDate} onChange={(event) => patch({ from: event.target.value })} className="y2p-date" style={dateStyle} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, fontSize: 13.5, color: '#9A9DA1' }}>
+                <label className="y2p-date-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: '#9A9DA1' }}>
                   Até
                   <input type="date" aria-label="Até" value={draft.to} min={minDate} max={maxDate} onChange={(event) => patch({ to: event.target.value })} className="y2p-date" style={dateStyle} />
                 </label>

@@ -325,17 +325,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: #131417;
   color: #c0c2c5;
   font-size: 18px;
-  line-height: 1;
+  line-height: 0;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+.aula-close svg { display: block; flex: none; }
 
 .aula-close:hover { border-color: #8a8d91; color: #e6e8ea; }
 
