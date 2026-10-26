@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { ExpenseCategory, ExpenseView } from '@yield2pay/shared';
+import { useIsMobile } from '@/lib/useIsMobile';
 import {
   CATEGORY_LABEL,
   brl0,
@@ -169,6 +170,7 @@ export function FilterBar({
   onMonth: (month: string) => void;
   onApply: (filters: ExpenseFilters, month: string) => void;
 }) {
+  const isMobile = useIsMobile();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState(false);
@@ -178,6 +180,7 @@ export function FilterBar({
   const chips = filterChips(filters);
   const index = Math.max(0, months.indexOf(month));
   const label = filters.mode === 'custom' ? rangeLabel(filters) : `${cap(mesNome(month))} ${month.slice(0, 4)}`;
+  const controlHeight = isMobile ? 44 : 52;
 
   useEffect(() => {
     if (!menu) return;
@@ -216,10 +219,10 @@ export function FilterBar({
   const options = [...months].reverse();
 
   return (
-    <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2, height: 52, padding: '0 6px', borderRadius: 999, border: '1px solid #2A2D31', background: '#131417', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)' }}>
-          <button type="button" aria-label="Mês anterior" disabled={index <= 0} onClick={() => chooseMonth(months[index - 1])} className="y2p-hover" style={arrowStyle(index <= 0)}>‹</button>
+    <div ref={rootRef} className="y2p-filterbar" style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'stretch' : 'flex-end', gap: 10, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
+      <div className="y2p-filterbar-row" style={{ display: 'flex', flexWrap: isMobile ? 'nowrap' : 'wrap', gap: isMobile ? 8 : 8, alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end', width: isMobile ? '100%' : undefined, minWidth: 0 }}>
+        <div className="y2p-period" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 2, height: controlHeight, padding: isMobile ? '0 4px' : '0 6px', borderRadius: 999, border: '1px solid #2A2D31', background: '#131417', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)', flex: isMobile ? '1 1 0' : undefined, minWidth: 0, maxWidth: '100%' }}>
+          <button type="button" aria-label="Mês anterior" disabled={index <= 0} onClick={() => chooseMonth(months[index - 1])} className="y2p-hover" style={arrowStyle(index <= 0, isMobile)}>‹</button>
           <button
             type="button"
             aria-haspopup="listbox"
@@ -227,17 +230,17 @@ export function FilterBar({
             aria-controls={menuId}
             onClick={() => setMenu((current) => !current)}
             className="y2p-hover"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, height: 42, minWidth: 176, padding: '0 12px', border: 'none', borderRadius: 12, background: 'transparent', color: '#F2F3F4', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 6 : 14, height: isMobile ? 36 : 42, minWidth: isMobile ? 0 : 176, flex: isMobile ? '1 1 0' : undefined, padding: isMobile ? '0 6px' : '0 12px', border: 'none', borderRadius: 12, background: 'transparent', color: '#F2F3F4', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', overflow: 'hidden' }}
           >
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, overflow: 'hidden' }}>
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8a8d91' }}>Período</span>
-              <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
+              <span style={{ fontSize: isMobile ? 13.5 : 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
             </span>
-            <span style={{ fontSize: 10, color: '#9A9DA1' }}>▼</span>
+            <span style={{ fontSize: 10, color: '#9A9DA1', flex: 'none' }}>▼</span>
           </button>
-          <button type="button" aria-label="Próximo mês" disabled={index >= months.length - 1} onClick={() => chooseMonth(months[index + 1])} className="y2p-hover" style={arrowStyle(index >= months.length - 1)}>›</button>
+          <button type="button" aria-label="Próximo mês" disabled={index >= months.length - 1} onClick={() => chooseMonth(months[index + 1])} className="y2p-hover" style={arrowStyle(index >= months.length - 1, isMobile)}>›</button>
           {menu && (
-            <div id={menuId} role="listbox" aria-label="Escolher mês" style={{ position: 'absolute', right: 0, top: 'calc(100% + 10px)', zIndex: 31, width: 'min(300px, 86vw)', padding: 6, borderRadius: 16, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 60px -20px rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div id={menuId} role="listbox" aria-label="Escolher mês" style={{ position: 'absolute', right: isMobile ? 'auto' : 0, left: isMobile ? 0 : 'auto', top: 'calc(100% + 10px)', zIndex: 31, width: 'min(300px, 86vw)', padding: 6, borderRadius: 16, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 60px -20px rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {options.map((item) => {
                 const on = filters.mode !== 'custom' && item === month;
                 const partial = item === saoPauloMonth();
@@ -269,7 +272,7 @@ export function FilterBar({
             </div>
           )}
         </div>
-        <button type="button" onClick={() => openModal()} className="y2p-filter" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 52, padding: '0 20px 0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: 'linear-gradient(180deg,#26282c,#16181b)', color: '#E6E8EA', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08)' }}>
+        <button type="button" onClick={() => openModal()} className="y2p-filter" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, height: controlHeight, padding: isMobile ? '0 14px 0 12px' : '0 20px 0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: 'linear-gradient(180deg,#26282c,#16181b)', color: '#E6E8EA', fontFamily: 'inherit', fontSize: isMobile ? 13.5 : 14.5, fontWeight: 600, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08)', flex: 'none', whiteSpace: 'nowrap' }}>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }} aria-hidden="true">
             <span style={{ width: 16, height: 1.5, background: 'currentColor' }} />
             <span style={{ width: 11, height: 1.5, background: 'currentColor' }} />
@@ -282,7 +285,7 @@ export function FilterBar({
         </button>
       </div>
       {chips.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8a8d91', marginRight: 4 }}>Filtros ativos</span>
           {chips.map((chip) => (
             <button key={chip.key} type="button" aria-label={`Remover filtro ${chip.label}`} onClick={() => onFilters({ ...filters, ...chip.clear })} className="y2p-filter" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px 0 13px', borderRadius: 999, border: '1px solid #3a3d42', background: '#131417', color: '#E6E8EA', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
@@ -314,16 +317,17 @@ export function FilterBar({
   );
 }
 
-function arrowStyle(disabled: boolean): CSSProperties {
+function arrowStyle(disabled: boolean, compact = false): CSSProperties {
   return {
-    width: 36,
-    height: 36,
+    width: compact ? 30 : 36,
+    height: compact ? 30 : 36,
+    flex: 'none',
     borderRadius: 999,
     border: 'none',
     background: 'transparent',
     color: '#9A9DA1',
     fontFamily: 'inherit',
-    fontSize: 18,
+    fontSize: compact ? 16 : 18,
     cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? 0.35 : 1,
   };

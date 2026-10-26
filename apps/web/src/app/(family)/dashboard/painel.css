@@ -665,7 +665,38 @@ body { margin: 0; background: #0E0F11; }
   .y2p-btn-side { width: auto; margin-top: 0; height: 36px; padding: 0 16px; }
   .y2p-user { display: none; }
   .y2p-invite { padding: 0; }
-  .y2p-header { padding: 12px 16px; gap: 8px; }
+  .y2p-header {
+    padding: 12px 16px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+  }
+  .y2p-header-greet {
+    width: 100%;
+    min-width: 0;
+  }
+  .y2p-header-actions {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+  .y2p-filterbar {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+  }
+  .y2p-filterbar-row {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  .y2p-period {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+  }
   .y2p-greet { font-size: 16px; }
   .y2p-greet-sub { display: none; }
   .y2p-body { padding: 16px 12px; }
