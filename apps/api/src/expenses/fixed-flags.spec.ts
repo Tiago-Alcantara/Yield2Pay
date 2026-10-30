@@ -6,7 +6,9 @@
  * Sequência: marks a second month of rent and leaves an unrelated grocery untouched.
  */
 import {
+  clearLegacyKeyCache,
   expenseGroupWhere,
+  loadLegacyFixedIds,
   planExpenseWrite,
   rowsInMerchantGroup,
 } from './fixed-flags';
@@ -184,5 +186,33 @@ describe('planExpenseWrite', () => {
     expect(encoded).toContain('"merchantKey":""');
     expect(encoded).toContain('netflix');
     expect(encoded).toContain('netflix ');
+  });
+});
+
+describe('loadLegacyFixedIds', () => {
+  beforeEach(() => {
+    clearLegacyKeyCache();
+  });
+
+  it('não consulta de novo a casa que já não tem chave vazia', async () => {
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const findMany = vi.fn();
+    const db = { expense: { findFirst, findMany } };
+    await expect(loadLegacyFixedIds(db as never, 'casa-a')).resolves.toBeNull();
+    await expect(loadLegacyFixedIds(db as never, 'casa-a')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(findMany).not.toHaveBeenCalled();
+    await loadLegacyFixedIds(db as never, 'casa-b');
+    expect(findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it('continua consultando enquanto ainda existe chave vazia', async () => {
+    const findFirst = vi.fn().mockResolvedValue({ id: 'probe' });
+    const findMany = vi.fn().mockResolvedValue([]);
+    const db = { expense: { findFirst, findMany } };
+    await loadLegacyFixedIds(db as never, 'casa-a');
+    await loadLegacyFixedIds(db as never, 'casa-a');
+    expect(findFirst).toHaveBeenCalledTimes(2);
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 });

@@ -7,6 +7,7 @@
  */
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
+import { clearLegacyKeyCache } from './fixed-flags';
 
 const households = {
   requireMembership: vi
@@ -40,6 +41,10 @@ function fakePrisma() {
 }
 
 describe('ExpensesService', () => {
+  beforeEach(() => {
+    clearLegacyKeyCache();
+  });
+
   it('lists the group and attaches the adder name', async () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');

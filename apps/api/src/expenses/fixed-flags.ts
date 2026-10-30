@@ -234,15 +234,26 @@ const GROUP_SELECT = {
   sharedMerchantKey: true,
 } as const;
 
+const householdsWithoutLegacyKeys = new Set<string>();
+
+/** Os testes reutilizam o mesmo id de casa no mesmo processo. */
+export function clearLegacyKeyCache(): void {
+  householdsWithoutLegacyKeys.clear();
+}
+
 export async function loadLegacyFixedIds(
   db: Pick<PrismaClient, 'expense'>,
   householdId: string,
 ): Promise<ReadonlySet<string> | null> {
+  if (householdsWithoutLegacyKeys.has(householdId)) return null;
   const probe = await db.expense.findFirst({
     where: { householdId, merchantKey: '' },
     select: { id: true },
   });
-  if (!probe) return null;
+  if (!probe) {
+    householdsWithoutLegacyKeys.add(householdId);
+    return null;
+  }
   const rows = await db.expense.findMany({
     where: { householdId, merchantKey: '' },
     select: {
