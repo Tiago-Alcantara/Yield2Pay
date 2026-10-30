@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import './family.css';
+import './themes.css';
 import { FamilySessionGate } from './_components/FamilySessionGate';
 import { FamilyProvider } from './_lib/FamilyProvider';
+import { ThemeProvider, ThemeScript } from './_lib/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'Yield2Pay para famílias',
@@ -17,8 +19,11 @@ export const metadata: Metadata = {
  */
 export default function FamilyLayout({ children }: { children: React.ReactNode }) {
   return (
-    <FamilyProvider>
-      <FamilySessionGate>{children}</FamilySessionGate>
-    </FamilyProvider>
+    <ThemeProvider>
+      <ThemeScript />
+      <FamilyProvider>
+        <FamilySessionGate>{children}</FamilySessionGate>
+      </FamilyProvider>
+    </ThemeProvider>
   );
 }
