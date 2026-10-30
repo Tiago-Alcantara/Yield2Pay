@@ -6,26 +6,17 @@
  * Sequência: dois deploys seguidos; Netflix antiga sai fixa; dois creates ao mesmo tempo concordam.
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { applyKeyChanges, previewHouseholdBackfill } from './backfill-preview';
 import { ExpensesService } from './expenses.service';
 import { StatementsService } from '../statements/statements.service';
 
-const DATABASE_URL =
-  'postgresql://yield2pay:yield2pay@127.0.0.1:5432/yield2pay_test?schema=public';
-const API_DIR = '/workspace/apps/api';
-const MIGRATIONS = `${API_DIR}/prisma/migrations`;
+const DATABASE_URL = process.env.PG_TEST_URL;
+const API_DIR = resolve(__dirname, '../..');
 
-function fileChecksum(name: string): string {
-  return createHash('sha256')
-    .update(readFileSync(`${MIGRATIONS}/${name}/migration.sql`))
-    .digest('hex');
-}
-
-function prismaCli(args: string[], databaseUrl = DATABASE_URL): string {
+function prismaCli(args: string[], databaseUrl: string): string {
   return execFileSync('pnpm', ['exec', 'prisma', ...args], {
     cwd: API_DIR,
     env: { ...process.env, DATABASE_URL: databaseUrl },
@@ -33,34 +24,17 @@ function prismaCli(args: string[], databaseUrl = DATABASE_URL): string {
   });
 }
 
-describe('postgres real', () => {
+describe.skipIf(!DATABASE_URL)('postgres real', () => {
+  if (!DATABASE_URL) return;
+  const databaseUrl = DATABASE_URL;
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+    adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
   const stamp = `round2-${Date.now()}`;
   let companyId = '';
   let householdId = '';
 
   beforeAll(async () => {
-    const checksums = [
-      [
-        '20261030120000_expense_precomputed_keys',
-        fileChecksum('20261030120000_expense_precomputed_keys'),
-      ],
-      [
-        '20261030143000_expense_fixed_manual',
-        fileChecksum('20261030143000_expense_fixed_manual'),
-      ],
-    ] as const;
-    for (const [name, checksum] of checksums) {
-      await prisma.$executeRaw`
-        UPDATE "_prisma_migrations"
-        SET "checksum" = ${checksum}
-        WHERE "migration_name" = ${name}
-          AND "checksum" <> ${checksum}
-          AND "finished_at" IS NOT NULL
-      `;
-    }
     const failed = await prisma.$queryRaw<Array<{ migration_name: string }>>`
       SELECT "migration_name"
       FROM "_prisma_migrations"
@@ -69,15 +43,18 @@ describe('postgres real', () => {
         AND "rolled_back_at" IS NULL
     `;
     if (failed.length > 0) {
-      prismaCli([
-        'migrate',
-        'resolve',
-        '--rolled-back',
-        '20261030150000_expense_shared_key_index_concurrent',
-      ]);
+      prismaCli(
+        [
+          'migrate',
+          'resolve',
+          '--rolled-back',
+          '20261030150000_expense_shared_key_index_concurrent',
+        ],
+        databaseUrl,
+      );
     }
-    prismaCli(['migrate', 'deploy']);
-    prismaCli(['migrate', 'deploy']);
+    prismaCli(['migrate', 'deploy'], databaseUrl);
+    prismaCli(['migrate', 'deploy'], databaseUrl);
     const pending = await prisma.$queryRaw<Array<{ migration_name: string }>>`
       SELECT "migration_name"
       FROM "_prisma_migrations"
