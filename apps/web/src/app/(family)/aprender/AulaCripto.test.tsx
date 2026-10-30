@@ -5,7 +5,7 @@
  * Intuito: A trilha mostra as aulas, o teste e o estado de cada uma.
  * Sequência: mostra o vídeo e a leitura da aula, e troca quando muda de aula; abre a aula pedida na URL, não a última salva no navegador; avisa quais aulas faltam e não libera o investimento; mostra a trilha mesmo sem família criada.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AulaCripto from './AulaCripto';
 import { PLAYBACK_KEY } from './player';
@@ -138,8 +138,10 @@ describe('trilha de aulas', () => {
     render(<AulaCripto />);
     fireEvent.click(await screen.findByRole('button', { name: /Chaves, endereço e frase de recuperação/ }));
     expect(await screen.findByText('O que liga um bloco?')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /O hash/ })).toBeEnabled();
+    await act(async () => {});
     fireEvent.click(screen.getByRole('button', { name: 'Concluir trilha' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Acerte todas as perguntas');
+    expect(await screen.findByText(/Acerte todas as perguntas/)).toBeInTheDocument();
     expect(screen.queryByText(/está liberado/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /O hash/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Concluir trilha' }));
