@@ -21,6 +21,7 @@ function fakePrisma() {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: 'e1' }),
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
@@ -57,8 +58,8 @@ describe('StatementsService', () => {
         contentHash: contentHash(Buffer.from(csv)),
       },
     });
-    expect(prisma.expense.create).toHaveBeenCalledWith({
-      data: {
+    expect(prisma.expense.createMany).toHaveBeenCalledWith({
+      data: [{
         householdId: 'h1',
         addedByCompanyId: 'co_1',
         statementId: 'st1',
@@ -67,7 +68,9 @@ describe('StatementsService', () => {
         category: 'groceries',
         fixed: false,
         amountCents: 1000,
-      },
+        merchantKey: 'supermercado dia',
+        sharedMerchantKey: 'supermercado dia',
+      }],
     });
     expect(result).toEqual({ statementId: 'st1', imported: 1, skipped: 0 });
   });
@@ -98,7 +101,7 @@ describe('StatementsService', () => {
   it('skips an OFX row whose FITID was already imported', async () => {
     const ofx = '<STMTTRN><DTPOSTED>20261012</DTPOSTED><TRNAMT>-10.00</TRNAMT><NAME>Uber</NAME><FITID>fit-1</FITID></STMTTRN>';
     const prisma = fakePrisma();
-    prisma.expense.findFirst.mockResolvedValue({ id: 'already' });
+    prisma.expense.findMany.mockResolvedValue([{ fitId: 'fit-1' }]);
     const household = {
       requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
@@ -107,7 +110,7 @@ describe('StatementsService', () => {
     await expect(svc.importFile('co_1', 'banco.ofx', Buffer.from(ofx))).rejects.toThrow(
       'statement already imported',
     );
-    expect(prisma.expense.create).not.toHaveBeenCalled();
+    expect(prisma.expense.createMany).not.toHaveBeenCalled();
   });
 
   it('rejects an OFX file with no usable transaction', async () => {
@@ -139,7 +142,7 @@ describe('StatementsService', () => {
       svc.importFile('co_1', 'out.csv', Buffer.from(csvEmptyValor)),
     ).rejects.toThrow('Invalid statement file');
 
-    expect(prisma.expense.create).not.toHaveBeenCalled();
+    expect(prisma.expense.createMany).not.toHaveBeenCalled();
     expect(prisma.statement.create).not.toHaveBeenCalled();
   });
 
@@ -181,15 +184,15 @@ describe('StatementsService', () => {
     const result = await svc.importFile('co_1', 'nubank.csv', Buffer.from(mixed));
 
     expect(result).toEqual({ statementId: 'st1', imported: 1, skipped: 1 });
-    expect(prisma.expense.create).toHaveBeenCalledTimes(1);
-    expect(prisma.expense.create).toHaveBeenCalledWith(
+    expect(prisma.expense.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.expense.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: [expect.objectContaining({
           merchant: 'Padaria',
           category: 'groceries',
           amountCents: 1890,
           fixed: false,
-        }),
+        })],
       }),
     );
   });

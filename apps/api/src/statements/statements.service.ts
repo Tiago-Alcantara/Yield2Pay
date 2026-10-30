@@ -1,7 +1,8 @@
 import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { classifyMerchant, idsToMarkFixed } from '../expenses/classify';
+import { classifyMerchant } from '../expenses/classify';
+import { planExpenseWrite } from '../expenses/fixed-flags';
 import { HouseholdService } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseCsv } from './parse-csv';
@@ -66,45 +67,82 @@ export class StatementsService {
           },
         });
 
-        let imported = 0;
-        let skipped = rows.length - debits.length;
-        const merchants: string[] = [];
-        for (const row of debits) {
-          if (row.fitId) {
-            const existing = await tx.expense.findFirst({
-              where: { householdId, fitId: row.fitId },
-              select: { id: true },
-            });
-            if (existing) {
-              skipped += 1;
-              continue;
-            }
-          }
-
-          const category = classifyMerchant(row.merchant);
-          await tx.expense.create({
-            data: {
-              householdId,
-              addedByCompanyId: companyId,
-              statementId: statement.id,
-              spentOn: new Date(row.spentOn),
-              merchant: row.merchant,
-              category,
-              fixed: false,
-              amountCents: row.amountCents,
-              ...(row.fitId ? { fitId: row.fitId } : {}),
-            },
+        const fitIds = [...new Set(debits.flatMap((row) => (row.fitId ? [row.fitId] : [])))];
+        const knownFits = new Set<string>();
+        if (fitIds.length > 0) {
+          const found = await tx.expense.findMany({
+            where: { householdId, fitId: { in: fitIds } },
+            select: { fitId: true },
           });
-          merchants.push(row.merchant);
-          imported += 1;
+          for (const row of found) {
+            if (row.fitId) knownFits.add(row.fitId);
+          }
         }
 
-        if (imported === 0) {
+        let skipped = rows.length - debits.length;
+        const fresh: ParsedStatementRow[] = [];
+        for (const row of debits) {
+          if (row.fitId && knownFits.has(row.fitId)) {
+            skipped += 1;
+            continue;
+          }
+          if (row.fitId) knownFits.add(row.fitId);
+          fresh.push(row);
+        }
+        if (fresh.length === 0) {
           throw new StatementDuplicateError();
         }
 
-        await markFixedRepeats(tx, householdId, merchants);
-        return { statementId: statement.id, imported, skipped };
+        const existing = await tx.expense.findMany({
+          where: { householdId },
+          select: {
+            id: true,
+            merchant: true,
+            spentOn: true,
+            amountCents: true,
+            category: true,
+            fixed: true,
+            sharedMerchantKey: true,
+          },
+        });
+        const plan = planExpenseWrite(
+          existing,
+          fresh.map((row) => ({
+            merchant: row.merchant,
+            spentOn: row.spentOn,
+            amountCents: row.amountCents,
+            category: classifyMerchant(row.merchant),
+          })),
+        );
+        await tx.expense.createMany({
+          data: plan.inserts.map((row, index) => ({
+            householdId,
+            addedByCompanyId: companyId,
+            statementId: statement.id,
+            spentOn: new Date(row.spentOn),
+            merchant: row.merchant,
+            category: row.category,
+            fixed: row.fixed,
+            amountCents: row.amountCents,
+            merchantKey: row.merchantKey,
+            sharedMerchantKey: row.sharedMerchantKey,
+            ...(fresh[index]?.fitId ? { fitId: fresh[index].fitId } : {}),
+          })),
+        });
+        if (plan.markFixed.length > 0) {
+          await tx.expense.updateMany({
+            where: { id: { in: plan.markFixed } },
+            data: { fixed: true },
+          });
+        }
+        for (const [sharedKey, ids] of plan.sharedKeyUpdates) {
+          if (ids.length === 0) continue;
+          await tx.expense.updateMany({
+            where: { id: { in: ids } },
+            data: { sharedMerchantKey: sharedKey },
+          });
+        }
+        return { statementId: statement.id, imported: fresh.length, skipped };
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -186,45 +224,6 @@ function isIncome(row: ParsedStatementRow, format: string, hasDebit: boolean): b
     return true;
   }
   return format === 'csv' && row.signed === 'unsigned' && hasDebit;
-}
-
-type ExpenseWriter = {
-  expense: {
-    findMany: (args: {
-      where: { householdId: string };
-      select: { id: true; merchant: true; spentOn: true; amountCents: true; category: true };
-    }) => Promise<Array<{ id: string; merchant: string; spentOn: Date; amountCents: number; category: string }>>;
-    updateMany: (args: {
-      where: { id: { in: string[] } };
-      data: { fixed: boolean };
-    }) => Promise<unknown>;
-  };
-};
-
-async function markFixedRepeats(
-  tx: ExpenseWriter,
-  householdId: string,
-  merchants: string[],
-) {
-  void merchants;
-  const rows = await tx.expense.findMany({
-    where: { householdId },
-    select: { id: true, merchant: true, spentOn: true, amountCents: true, category: true },
-  });
-  const ids = idsToMarkFixed(
-    rows.map((row) => ({
-      id: row.id,
-      merchant: row.merchant,
-      spentOn: row.spentOn.toISOString().slice(0, 10),
-      amountCents: row.amountCents,
-      category: row.category,
-    })),
-  );
-  if (ids.length === 0) return;
-  await tx.expense.updateMany({
-    where: { id: { in: ids } },
-    data: { fixed: true },
-  });
 }
 
 async function pdfBufferToText(bytes: Buffer): Promise<string> {
