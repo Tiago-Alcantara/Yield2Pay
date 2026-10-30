@@ -60,11 +60,11 @@ export function textOf(message, roots = repoRoots) {
 }
 
 export function messageText(ruleId, message, roots = repoRoots) {
-  let text = textOf(message, roots);
-  if (!String(ruleId ?? '').startsWith('react-hooks/')) return text;
-  text = text.replace(/:\d+:\d+\b/g, '');
-  text = text.replace(/\s>\s*\d+\s+\||\s\d+\s+\|/g, ' ');
-  return text.replace(/\s+/g, ' ').trim();
+  if (!String(ruleId ?? '').startsWith('react-hooks/')) return textOf(message, roots);
+  const raw = String(message ?? '')
+    .replace(/(\.[cm]?[jt]sx?):\d+:\d+\b/g, '$1')
+    .replace(/^\s*>?\s*\d+\s+\|/gm, '');
+  return textOf(raw, roots);
 }
 
 function addCount(found, signature) {

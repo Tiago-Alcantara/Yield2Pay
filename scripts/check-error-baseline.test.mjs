@@ -31,13 +31,23 @@ test('o mesmo quadro vira a mesma assinatura na máquina local e no runner', () 
 
 test('linha e coluna do react-hooks não entram na assinatura', () => {
   const body = (line) =>
-    `Error: Cannot access refs during render apps/web/src/app/(family)/conta/ContaModal.tsx:${line}:3 ${line - 2} | const x = 1; > ${line} | x.current = y; | ^^^^^^^^^^^^^^^ Cannot update ref during render`;
+    `Error: Cannot access refs during render apps/web/src/app/(family)/conta/ContaModal.tsx:${line}:3\n${line - 2} | const x = 1;\n> ${line} | x.current = y;\n  | ^^^^^^^^^^^^^^^ Cannot update ref during render`;
   const shifted = messageText('react-hooks/refs', body(53));
   assert.equal(shifted, messageText('react-hooks/refs', body(54)));
   assert.equal(shifted.includes(':53:3'), false);
   assert.equal(/\d+\s+\|/.test(shifted), false);
   assert.match(shifted, /x\.current = y/);
   assert.match(messageText('prettier/prettier', 'keep line 12 | as text'), /12 \|/);
+});
+
+test('dígitos do código continuam na assinatura do react-hooks', () => {
+  const frame = (n) =>
+    `Error: Calling setState synchronously within an effect apps/web/src/AulaCripto.tsx:173:5\n172 | const requested = Number(aulaQuery);\n> 173 | if (n < ${n} || requested < 1) return;\n    | ^^^^^^^^ Avoid calling setState() directly within an effect`;
+  const smaller = messageText('react-hooks/set-state-in-effect', frame(1));
+  const larger = messageText('react-hooks/set-state-in-effect', frame(7));
+  assert.notEqual(smaller, larger);
+  assert.match(smaller, /n < 1 \|\|/);
+  assert.match(larger, /n < 7 \|\|/);
 });
 
 test('uma mensagem diferente continua sendo outra assinatura', () => {
@@ -82,7 +92,7 @@ test('erro idêntico duplicado no mesmo arquivo fica acima da baseline', () => {
     'apps/web/src/app/(family)/conta/ContaModal.tsx',
   );
   const message =
-    'Error: Cannot access refs during render ContaModal.tsx:53:3 51 | const x = 1; > 53 | x.current = y; | ^^';
+    'Error: Cannot access refs during render ContaModal.tsx:53:3\n51 | const x = 1;\n> 53 | x.current = y;\n  | ^^';
   const counts = lintSignatures([
     {
       filePath: file,
