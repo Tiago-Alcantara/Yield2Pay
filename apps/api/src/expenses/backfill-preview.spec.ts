@@ -8,6 +8,7 @@
 import {
   applyKeyChanges,
   assertLocalDatabaseUrl,
+  assertProductionApply,
   previewHouseholdBackfill,
   type KeyWriter,
 } from './backfill-preview';
@@ -90,6 +91,24 @@ describe('previewHouseholdBackfill', () => {
     expect(changes[0]?.fixed).toBeUndefined();
     expect(changes[0]?.merchantKey).toBe('padaria');
   });
+
+  it('não muda fixed=true para false, mesmo sem marca manual', () => {
+    const changes = previewHouseholdBackfill([
+      {
+        id: 'a',
+        merchant: 'Padaria',
+        spentOn: '2026-10-02',
+        amountCents: 100,
+        category: 'groceries',
+        fixed: true,
+        fixedManual: false,
+        merchantKey: '',
+        sharedMerchantKey: '',
+      },
+    ]);
+    expect(changes[0]?.fixed).toBeUndefined();
+    expect(changes[0]?.merchantKey).toBe('padaria');
+  });
 });
 
 describe('applyKeyChanges', () => {
@@ -158,5 +177,40 @@ describe('assertLocalDatabaseUrl', () => {
     expect(() =>
       assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5432/yield2pay'),
     ).toThrow('precisa ser de teste');
+    expect(() =>
+      assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5432/contest'),
+    ).toThrow('precisa ser de teste');
+    expect(() =>
+      assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5432/latest'),
+    ).toThrow('precisa ser de teste');
+    expect(() =>
+      assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5434/yield2pay_test'),
+    ).toThrow('porta');
+    expect(() =>
+      assertLocalDatabaseUrl(
+        'postgresql://u:p@127.0.0.1:5432/yield2pay_test?port=5433',
+      ),
+    ).toThrow('porta na query');
+    expect(() =>
+      assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5433/casa_test'),
+    ).not.toThrow();
+  });
+});
+
+describe('assertProductionApply', () => {
+  const remote = 'postgresql://u:p@db.example.com:5432/yield2pay';
+  const stamp = { database: 'yield2pay', host: 'db.example.com', port: '5432' };
+
+  it('exige o nome do banco e uma simulação do mesmo alvo', () => {
+    expect(assertProductionApply(remote, 'yield2pay', stamp)).toEqual(stamp);
+    expect(() => assertProductionApply(remote, 'outro', stamp)).toThrow(
+      'nome confirmado',
+    );
+    expect(() => assertProductionApply(remote, 'yield2pay', null)).toThrow(
+      'simulação',
+    );
+    expect(() =>
+      assertProductionApply(`${remote}?host=evil.example`, 'yield2pay', stamp),
+    ).toThrow('host na query');
   });
 });
