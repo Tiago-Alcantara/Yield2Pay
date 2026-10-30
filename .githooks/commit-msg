@@ -3,8 +3,6 @@
 # O padrão é o mesmo de scripts/check-no-coauthored-by.sh.
 # POSIX sh: Linux, macOS e Git Bash.
 set -eu
-LC_ALL=C.UTF-8
-export LC_ALL
 
 if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
   echo "commit-msg: arquivo da mensagem ausente" >&2
