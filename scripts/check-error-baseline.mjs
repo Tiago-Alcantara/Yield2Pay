@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,13 +16,6 @@ const labels = {
 const dump = process.argv[2] === '--dump';
 const key = dump ? null : process.argv[2];
 
-if (!dump && !Object.hasOwn(labels, key)) {
-  console.error(
-    'uso: node scripts/check-error-baseline.mjs <api-lint|web-lint|api-tsc|web-tsc>',
-  );
-  process.exit(2);
-}
-
 function run(args) {
   return spawnSync('pnpm', args, {
     cwd: root,
@@ -31,19 +24,51 @@ function run(args) {
   });
 }
 
-function textOf(message) {
-  return String(message ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
+function pathForms(dirPath) {
+  const posix = dirPath.split(path.sep).join('/');
+  return [posix, posix.replaceAll('/', '\\')];
+}
+
+export function rootsOf(dir) {
+  const resolved = path.resolve(dir);
+  const forms = new Set(pathForms(resolved));
+  try {
+    for (const form of pathForms(realpathSync(resolved))) forms.add(form);
+  } catch {
+    // Sem o diretório, o caminho resolvido ainda identifica a raiz.
+  }
+  return [...forms].filter((item) => item && item !== '/' && item !== '\\');
+}
+
+const repoRoots = rootsOf(root);
+
+export function stripRoots(text, roots = repoRoots) {
+  let out = String(text ?? '');
+  const ordered = [...roots].sort((a, b) => b.length - a.length);
+  for (const variant of ordered) {
+    if (!variant || variant === '/' || variant === '\\') continue;
+    const usesWin = variant.includes('\\') && !variant.includes('/');
+    const sep = usesWin ? '\\' : '/';
+    const prefix = variant.endsWith(sep) ? variant : `${variant}${sep}`;
+    out = out.split(prefix).join('');
+  }
+  return out;
+}
+
+export function textOf(message, roots = repoRoots) {
+  return stripRoots(message, roots).replace(/\s+/g, ' ').trim();
 }
 
 function relPath(filePath) {
-  const abs = path.resolve(filePath);
-  const rel = path.relative(root, abs);
-  return rel.split(path.sep).join('/');
+  const stripped = stripRoots(String(filePath ?? '').replaceAll('\\', '/'));
+  if (!stripped) return '';
+  const absolute =
+    path.posix.isAbsolute(stripped) || /^[A-Za-z]:\//.test(stripped);
+  if (!absolute) return stripped.replace(/^\.\//, '');
+  return path.relative(root, path.resolve(stripped)).split(path.sep).join('/');
 }
 
-function lintSignatures(report) {
+export function lintSignatures(report) {
   const found = new Set();
   for (const file of report) {
     const arquivo = relPath(file.filePath || '');
@@ -62,7 +87,7 @@ function tscSignatures(text) {
   for (const line of text.split(/\r?\n/)) {
     const withFile = line.match(/^(.*)\(\d+,\d+\): error (TS\d+): (.*)$/);
     if (withFile) {
-      const arquivo = withFile[1].replaceAll('\\', '/');
+      const arquivo = relPath(withFile[1]);
       found.add(`${arquivo}|${withFile[2]}|${textOf(withFile[3])}`);
       continue;
     }
@@ -164,35 +189,48 @@ function collect(which) {
   return which.endsWith('-lint') ? collectLint(which) : collectTsc(which);
 }
 
-if (dump) {
-  const payload = {};
-  for (const which of keys) payload[which] = [...collect(which)].sort();
-  process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
-  process.exit(0);
-}
+function main() {
+  if (!dump && !Object.hasOwn(labels, key)) {
+    console.error(
+      'uso: node scripts/check-error-baseline.mjs <api-lint|web-lint|api-tsc|web-tsc>',
+    );
+    process.exit(2);
+  }
 
-const baseline = JSON.parse(
-  readFileSync(path.join(root, 'scripts/error-baseline.json'), 'utf8'),
-);
-const known = baseline[key];
-if (!Array.isArray(known) || known.some((item) => typeof item !== 'string')) {
-  console.error(`baseline inválido para ${key}`);
-  process.exit(2);
-}
+  if (dump) {
+    const payload = {};
+    for (const which of keys) payload[which] = [...collect(which)].sort();
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    process.exit(0);
+  }
 
-const label = labels[key];
-const current = collect(key);
-const base = new Set(known);
-const fresh = [...current].filter((item) => !base.has(item)).sort();
-
-if (fresh.length > 0) {
-  console.error(
-    `${label}: ${fresh.length} assinatura(s) nova(s), fora da baseline.`,
+  const baseline = JSON.parse(
+    readFileSync(path.join(root, 'scripts/error-baseline.json'), 'utf8'),
   );
-  for (const item of fresh) console.error(item);
-  process.exit(1);
+  const known = baseline[key];
+  if (!Array.isArray(known) || known.some((item) => typeof item !== 'string')) {
+    console.error(`baseline inválido para ${key}`);
+    process.exit(2);
+  }
+
+  const label = labels[key];
+  const current = collect(key);
+  const base = new Set(known);
+  const fresh = [...current].filter((item) => !base.has(item)).sort();
+
+  if (fresh.length > 0) {
+    console.error(
+      `${label}: ${fresh.length} assinatura(s) nova(s), fora da baseline.`,
+    );
+    for (const item of fresh) console.error(item);
+    process.exit(1);
+  }
+
+  console.log(
+    `${label}: ${current.size} assinatura(s) no código, ${base.size} na baseline.`,
+  );
 }
 
-console.log(
-  `${label}: ${current.size} assinatura(s) no código, ${base.size} na baseline.`,
-);
+const entry = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const self = fileURLToPath(import.meta.url);
+if (entry === self) main();
