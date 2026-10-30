@@ -2,10 +2,10 @@
  * Módulo: householdApi
  * Criado em: 2026-10-30
  * Última atualização: 2026-10-30
- * Intuito: O pedido do painel estoura sozinho e o erro chega na hora, sem uma segunda espera.
- * Sequência: rejects a hung request when the timeout elapses.
+ * Intuito: O pedido do painel estoura sozinho e cada mês de gastos sai numa chamada só.
+ * Sequência: rejects a hung request when the timeout elapses; loads a month with one /expenses call.
  */
-import { createHouseholdApi } from './householdApi';
+import { createHouseholdApi, MONTH_EXPENSE_LIMIT } from './householdApi';
 
 describe('householdApi request', () => {
   afterEach(() => {
@@ -33,5 +33,22 @@ describe('householdApi request', () => {
     const elapsed = performance.now() - started;
     expect(error).toMatchObject({ timeout: true });
     expect(elapsed).toBeLessThan(40 + 1000);
+  });
+
+  it('loads a month with one /expenses call', async () => {
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify({
+      items: [{ id: 'e1', date: '2026-10-02', merchant: 'Netflix', category: 'subscriptions', fixed: true, amountCents: 5590, addedBy: { displayName: 'Ana', initials: 'A' } }],
+      total: 1,
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const api = createHouseholdApi(async () => 'tok', { timeoutMs: 1000 });
+    const rows = await api.getExpenses({ month: '2026-10' });
+    expect(rows).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('/expenses?');
+    expect(url).toContain('month=2026-10');
+    expect(url).toContain(`limit=${MONTH_EXPENSE_LIMIT}`);
+    expect(url).not.toContain('offset=');
   });
 });

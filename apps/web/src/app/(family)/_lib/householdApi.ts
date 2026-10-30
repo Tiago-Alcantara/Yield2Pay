@@ -22,6 +22,9 @@ type GetToken = () => Promise<string | null>;
 /** A tela mostra o erro assim que este prazo estoura, sem uma segunda espera. */
 export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
 
+/** Um mês inteiro volta numa página só. A API aceita este teto. */
+export const MONTH_EXPENSE_LIMIT = '5000';
+
 export type HouseholdRequestError = Error & { status?: number; timeout?: boolean };
 
 export interface HouseholdCurrent {
@@ -139,25 +142,16 @@ export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: n
       }),
     skipProfile: () => request<void>('/household/profile/skip', { method: 'POST' }),
     getExpenses: async (opts?: { month?: string; from?: string; to?: string; category?: ExpenseCategory }) => {
-      const pageSize = 100;
-      const items: ExpenseView[] = [];
-      let offset = 0;
-      for (;;) {
-        const page = await request<ExpensePage>(
-          `/expenses${queryString({
-            month: opts?.from ? undefined : opts?.month,
-            from: opts?.from,
-            to: opts?.to,
-            category: opts?.category,
-            limit: String(pageSize),
-            offset: String(offset),
-          })}`,
-        );
-        items.push(...page.items);
-        if (page.items.length === 0 || items.length >= page.total) break;
-        offset += page.items.length;
-      }
-      return items;
+      const page = await request<ExpensePage>(
+        `/expenses${queryString({
+          month: opts?.from ? undefined : opts?.month,
+          from: opts?.from,
+          to: opts?.to,
+          category: opts?.category,
+          limit: MONTH_EXPENSE_LIMIT,
+        })}`,
+      );
+      return page.items;
     },
     getExpenseMonths: async () => {
       const rows = await request<Array<string | MonthTotal>>('/expenses/months');
