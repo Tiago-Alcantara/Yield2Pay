@@ -3,7 +3,6 @@ import type { ExpenseCategory } from '@yield2pay/shared';
 import { HouseholdService } from '../household/household.service';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { PrismaService } from '../prisma/prisma.service';
-import { refreshFixedFlags } from '../expenses/fixed-flags';
 import { saoPauloToday, summarize } from './summary.math';
 
 @Injectable()
@@ -22,7 +21,6 @@ export class SummaryService {
       throw new HouseholdNotFoundError();
     }
 
-    await refreshFixedFlags(this.prisma, householdId);
     const today = saoPauloToday(new Date());
     const todayMonth = today.slice(0, 7);
     const chartStart = utcMonthStart(month, -5);

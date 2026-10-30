@@ -4,7 +4,7 @@ import { HouseholdService, initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { saoPauloToday } from '../summary/summary.math';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
-import { refreshFixedFlags } from './fixed-flags';
+import { planExpenseWrite } from './fixed-flags';
 
 type PatchExpense = {
   category?: ExpenseCategory;
@@ -19,7 +19,7 @@ type ExpensePageQuery = {
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 5000;
 
 @Injectable()
 export class ExpensesService {
@@ -37,7 +37,6 @@ export class ExpensesService {
   ): Promise<ExpensePage> {
     const { limit, offset } = readPage(page);
     const { householdId } = await this.household.requireMembership(companyId);
-    await refreshFixedFlags(this.prisma, householdId);
     const { gte, lt } = range ? utcDayRange(range.from, range.to) : utcMonthRange(requireMonth(month));
     const where = {
       householdId,
@@ -104,6 +103,25 @@ export class ExpensesService {
           : undefined,
       );
     }
+    const existing = (await this.prisma.expense.findMany({
+      where: { householdId },
+      select: {
+        id: true,
+        merchant: true,
+        spentOn: true,
+        amountCents: true,
+        category: true,
+        fixed: true,
+        sharedMerchantKey: true,
+      },
+    })) ?? [];
+    const plan = planExpenseWrite(existing, [{
+      merchant,
+      spentOn: body.spentOn,
+      amountCents: body.amountCents as number,
+      category: body.category,
+    }]);
+    const drafted = plan.inserts[0];
     const created = await this.prisma.expense.create({
       data: {
         householdId,
@@ -111,10 +129,25 @@ export class ExpensesService {
         spentOn: new Date(`${body.spentOn}T00:00:00.000Z`),
         merchant,
         category: body.category,
-        fixed: false,
+        fixed: drafted?.fixed ?? false,
+        merchantKey: drafted?.merchantKey ?? '',
+        sharedMerchantKey: drafted?.sharedMerchantKey ?? '',
         amountCents: body.amountCents as number,
       },
     });
+    if (plan.markFixed.length > 0) {
+      await this.prisma.expense.updateMany({
+        where: { id: { in: plan.markFixed } },
+        data: { fixed: true },
+      });
+    }
+    for (const [sharedKey, ids] of plan.sharedKeyUpdates) {
+      if (ids.length === 0) continue;
+      await this.prisma.expense.updateMany({
+        where: { id: { in: ids } },
+        data: { sharedMerchantKey: sharedKey },
+      });
+    }
     const names = await this.loadNames([created.addedByCompanyId]);
     return toExpenseView(created, names);
   }

@@ -43,6 +43,7 @@ describe('ExpensesService', () => {
     ]);
     const svc = new ExpensesService(prisma as never, households as never);
     const page = await svc.list('co_ana', '2026-10');
+    expect(prisma.expense.updateMany).not.toHaveBeenCalled();
     expect(page.total).toBe(1);
     expect(page.items[0].addedBy).toEqual({ displayName: 'Bia', initials: 'B' });
     expect(page.items[0].date).toBe('2026-10-12');
@@ -70,12 +71,15 @@ describe('ExpensesService', () => {
     );
   });
 
-  it('rejects a limit outside 1 to 200', async () => {
+  it('rejects a limit outside 1 to 5000', async () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     const svc = new ExpensesService(prisma as never, households as never);
     await expect(
       svc.list('co_ana', '2026-10', undefined, { limit: 0, offset: 0 }),
+    ).rejects.toThrow('limit is invalid');
+    await expect(
+      svc.list('co_ana', '2026-10', undefined, { limit: 5001, offset: 0 }),
     ).rejects.toThrow('limit is invalid');
   });
 
@@ -128,6 +132,32 @@ describe('ExpensesService', () => {
     expect(row.merchant).toBe('Padaria');
     expect(prisma.expense.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ householdId: 'h1', amountCents: 18740, category: 'groceries' }),
+    });
+  });
+
+  it('marks the earlier rent fixed when the next month is created', async () => {
+    const prisma = fakePrisma();
+    membership(prisma, 'h1');
+    prisma.expense.findMany.mockResolvedValue([{
+      id: 'rent', merchant: 'Aluguel', spentOn: new Date('2026-09-05T00:00:00.000Z'),
+      amountCents: 250000, category: 'housing', fixed: false, sharedMerchantKey: 'aluguel',
+    }]);
+    prisma.expense.create.mockResolvedValue({
+      id: 'rent2', spentOn: new Date('2026-10-05T00:00:00.000Z'), merchant: 'Aluguel',
+      category: 'housing', fixed: true, amountCents: 250000, addedByCompanyId: 'co_ana',
+    });
+    prisma.personName.findMany.mockResolvedValue([]);
+    const svc = new ExpensesService(prisma as never, households as never);
+    const row = await svc.create('co_ana', {
+      merchant: 'Aluguel', amountCents: 250000, spentOn: '2026-10-05', category: 'housing',
+    });
+    expect(row.fixed).toBe(true);
+    expect(prisma.expense.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ fixed: true, merchantKey: 'aluguel', sharedMerchantKey: 'aluguel' }),
+    });
+    expect(prisma.expense.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['rent'] } },
+      data: { fixed: true },
     });
   });
 
