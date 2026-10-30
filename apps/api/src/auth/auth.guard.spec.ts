@@ -3,7 +3,7 @@
  * Criado em: 2026-06-24
  * Última atualização: 2026-10-22
  * Intuito: O guarda só deixa passar um token que o Privy confirma, e grava o companyId no pedido.
- * Sequência: rejects when no bearer token; rejects when bearer token is empty; rejects when verify throws; verifies token and attaches companyId.
+ * Sequência: rejects when no bearer token; rejects when bearer token is empty; rejects when verify throws; verifies token and attaches companyId; usa o e-mail gravado sem chamar o Privy.
  */
 import { AuthGuard } from './auth.guard';
 import { UnauthorizedException } from '@nestjs/common';
@@ -51,7 +51,10 @@ describe('auth.guard', () => {
       verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),
       getEmail: vi.fn().mockResolvedValue('bia@example.com'),
     };
-    const company = { findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }) };
+    const company = {
+      findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }),
+      storedEmail: vi.fn().mockResolvedValue(null),
+    };
     const guard = new AuthGuard(privy as any, company as any);
     const req: any = { headers: { authorization: 'Bearer tok123' } };
     const c = ctx(req.headers);
@@ -63,5 +66,26 @@ describe('auth.guard', () => {
     expect(privy.verify).toHaveBeenCalledWith('tok123');
     expect(req.companyId).toBe('co_9');
     expect(req.email).toBe('bia@example.com');
+    expect(privy.getEmail).toHaveBeenCalledWith('did:privy:z');
+  });
+
+  it('usa o e-mail gravado e não pergunta ao Privy', async () => {
+    const privy = {
+      verify: vi.fn().mockResolvedValue({ privyUserId: 'did:privy:z' }),
+      getEmail: vi.fn(),
+    };
+    const company = {
+      findOrCreate: vi.fn().mockResolvedValue({ id: 'co_9' }),
+      storedEmail: vi.fn().mockResolvedValue('bia@example.com'),
+    };
+    const guard = new AuthGuard(privy as any, company as any);
+    const req: any = { headers: { authorization: 'Bearer tok123' } };
+    const ok = await guard.canActivate({
+      switchToHttp: () => ({ getRequest: () => req }),
+    } as any);
+    expect(ok).toBe(true);
+    expect(privy.getEmail).not.toHaveBeenCalled();
+    expect(req.email).toBe('bia@example.com');
+    expect(req.companyId).toBe('co_9');
   });
 });

@@ -16,13 +16,6 @@ export class AuthGuard implements CanActivate {
   ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    console.log(
-      '[AuthGuard] HIT',
-      req.method,
-      req.url,
-      'auth=',
-      req.headers['authorization']?.slice(0, 30),
-    );
     const header: string | undefined = req.headers['authorization'];
     if (!header?.startsWith('Bearer '))
       throw new UnauthorizedException('missing bearer token');
@@ -35,20 +28,23 @@ export class AuthGuard implements CanActivate {
       console.error('[AuthGuard] privy.verify failed:', e);
       throw new UnauthorizedException('invalid token');
     }
-    let email: string | null = null;
-    try {
-      email = await this.privy.getEmail(claims.privyUserId);
-    } catch {
-      email = null;
-    }
     try {
       const company = await this.companies.findOrCreate(claims.privyUserId);
+      const stored = await this.companies.storedEmail(company.id);
       req.companyId = company.id;
-      req.email = email;
+      req.email = stored ?? (await this.readEmail(claims.privyUserId));
       return true;
     } catch (e) {
       console.error('[AuthGuard] findOrCreate failed:', e);
       throw e;
+    }
+  }
+
+  private async readEmail(privyUserId: string): Promise<string | null> {
+    try {
+      return await this.privy.getEmail(privyUserId);
+    } catch {
+      return null;
     }
   }
 }

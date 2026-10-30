@@ -28,4 +28,13 @@ export class CompanyService {
       throw e;
     }
   }
+
+  async storedEmail(companyId: string): Promise<string | null> {
+    const person = await this.prisma.personName.findUnique({
+      where: { companyId },
+      select: { email: true },
+    });
+    const email = person?.email?.trim().toLowerCase() ?? '';
+    return email || null;
+  }
 }
