@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
@@ -20,15 +20,15 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18
+        image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # postgres:18
         env:
           POSTGRES_USER: yield2pay
           POSTGRES_PASSWORD: yield2pay
-          POSTGRES_DB: yield2pay
+          POSTGRES_DB: yield2pay_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U yield2pay -d yield2pay"
+          --health-cmd "pg_isready -U yield2pay -d yield2pay_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -37,23 +37,26 @@ jobs:
       NEXT_PUBLIC_FINANCIAL_PRODUCT: "false"
       APP_ENV: development
       NEXT_PUBLIC_APP_ENV: development
-      DATABASE_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay?schema=public
-      PG_TEST_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay?schema=public
+      PRIVY_APP_ID: ci-privy-app
+      PRIVY_APP_SECRET: ci-privy-secret
+      DATABASE_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay_test?schema=public
+      PG_TEST_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay_test?schema=public
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Instalar pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 10.33.2
           run_install: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Instalar dependências
@@ -64,25 +67,20 @@ jobs:
       - name: Gerar cliente Prisma
         run: pnpm --filter @yield2pay/api exec prisma generate
 
-      # Já falha na develop (erros anteriores). Não bloqueia o PR.
       - name: Lint da API
-        continue-on-error: true
-        run: pnpm --filter @yield2pay/api exec eslint "{src,apps,libs,test}/**/*.ts"
+        run: node scripts/check-error-baseline.mjs api-lint
 
-      # Já falha na develop (erros anteriores). Não bloqueia o PR.
       - name: Lint da web
-        continue-on-error: true
-        run: pnpm --filter @yield2pay/web exec eslint .
+        run: node scripts/check-error-baseline.mjs web-lint
 
-      # Já falha na develop (specs e configs do Vitest). Não bloqueia o PR.
       - name: tsc da API
-        continue-on-error: true
-        run: pnpm --filter @yield2pay/api exec tsc --noEmit --pretty false --project tsconfig.json
+        run: node scripts/check-error-baseline.mjs api-tsc
 
-      # Já falha na develop (teste da conta). Não bloqueia o PR.
       - name: tsc da web
-        continue-on-error: true
-        run: pnpm --filter @yield2pay/web exec tsc --noEmit --pretty false --project tsconfig.json
+        run: node scripts/check-error-baseline.mjs web-tsc
+
+      - name: tsc da API (build)
+        run: pnpm --filter @yield2pay/api exec tsc --noEmit --pretty false --project tsconfig.build.json
 
       - name: Build da API
         run: pnpm --filter @yield2pay/api build
@@ -95,6 +93,11 @@ jobs:
 
       - name: Testes da API
         run: pnpm --filter @yield2pay/api test
+
+      - name: Testes e2e da API
+        env:
+          RUN_DB_TESTS: "1"
+        run: pnpm --filter @yield2pay/api test:e2e
 
       - name: Testes da web
         run: pnpm --filter @yield2pay/web test
