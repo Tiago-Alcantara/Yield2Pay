@@ -1,13 +1,14 @@
 /**
- * Simula o preenchimento de merchant_key, shared_merchant_key e fixed.
- * Só lê o banco nesta máquina. Não há caminho de escrita: --apply encerra o processo.
+ * Preenche merchant_key, shared_merchant_key e fixed.
+ * Sem --apply só lê. Com --apply grava em lotes, uma transação por lote,
+ * e só num banco local cujo nome é de teste.
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import {
+  applyKeyChanges,
   assertLocalDatabaseUrl,
-  assertSimulationOnly,
   previewHouseholdBackfill,
 } from '../src/expenses/backfill-preview';
 
@@ -17,11 +18,7 @@ function fail(message: string): never {
 }
 
 async function main(): Promise<void> {
-  try {
-    assertSimulationOnly(process.argv.slice(2));
-  } catch (error) {
-    fail(error instanceof Error ? error.message : 'recusado');
-  }
+  const apply = process.argv.slice(2).includes('--apply');
   const databaseUrl = process.env.DATABASE_URL ?? '';
   if (!databaseUrl) fail('recusado: DATABASE_URL ausente');
   try {
@@ -30,6 +27,7 @@ async function main(): Promise<void> {
     fail(error instanceof Error ? error.message : 'recusado');
   }
 
+  const started = Date.now();
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
@@ -41,6 +39,8 @@ async function main(): Promise<void> {
   let wouldChangeKey = 0;
   let wouldChangeSharedKey = 0;
   let wouldChangeFixed = 0;
+  let batches = 0;
+  let rowsWritten = 0;
   for (const household of households) {
     const rows = await prisma.expense.findMany({
       where: { householdId: household.id },
@@ -51,6 +51,7 @@ async function main(): Promise<void> {
         amountCents: true,
         category: true,
         fixed: true,
+        fixedManual: true,
         merchantKey: true,
         sharedMerchantKey: true,
       },
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
         amountCents: row.amountCents,
         category: row.category,
         fixed: row.fixed,
+        fixedManual: row.fixedManual,
         merchantKey: row.merchantKey,
         sharedMerchantKey: row.sharedMerchantKey,
       })),
@@ -73,16 +75,26 @@ async function main(): Promise<void> {
       if (change.sharedMerchantKey !== undefined) wouldChangeSharedKey += 1;
       if (change.fixed !== undefined) wouldChangeFixed += 1;
     }
+    if (apply && changes.length > 0) {
+      const written = await applyKeyChanges(prisma, changes);
+      batches += written.batches;
+      rowsWritten += written.rows;
+    }
   }
   const after = await prisma.expense.count();
   await prisma.$disconnect();
-  if (before !== after) fail('a simulação alterou a contagem de despesas');
-  console.log('Nada foi gravado.');
+  const ms = Date.now() - started;
+  if (before !== after) fail('o preenchimento alterou a contagem de despesas');
+  if (!apply) console.log('Nada foi gravado.');
+  else
+    console.log(
+      `Gravou ${rowsWritten} linhas em ${batches} lotes em ${ms} ms.`,
+    );
   console.log(
     JSON.stringify(
       {
-        modo: 'simulacao',
-        gravou: false,
+        modo: apply ? 'gravacao' : 'simulacao',
+        gravou: apply,
         casas: households.length,
         despesasLidas: rowsRead,
         despesasAntes: before,
@@ -90,6 +102,9 @@ async function main(): Promise<void> {
         mudariamChave: wouldChangeKey,
         mudariamChaveCompartilhada: wouldChangeSharedKey,
         mudariamFixo: wouldChangeFixed,
+        lotes: batches,
+        linhasGravadas: rowsWritten,
+        ms,
       },
       null,
       2,

@@ -58,6 +58,9 @@ importers:
       pg:
         specifier: ^8.22.0
         version: 8.22.0
+      pg-connection-string:
+        specifier: 2.14.0
+        version: 2.14.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -12501,7 +12504,7 @@ snapshots:
 
   extension-port-stream@3.0.0:
     dependencies:
-      readable-stream: 3.6.2
+      readable-stream: 4.7.0
       webextension-polyfill: 0.10.0
 
   eyes@0.1.8: {}
