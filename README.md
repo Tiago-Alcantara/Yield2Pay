@@ -497,6 +497,10 @@ pnpm web:test         # só o frontend
 
 Configure `apps/api/.env` e `apps/web/.env.local` a partir dos respectivos `*.example`.
 
+### Mensagens de commit
+
+`pnpm install` executa `git config core.hooksPath .githooks`. O hook `commit-msg` remove toda linha `Co-authored-by:`, sem diferenciar maiúsculas e sem alterar o resto da mensagem. Funciona no Linux, no macOS e no Git Bash do Windows. O GitHub Actions recusa o pull request se algum commit ainda tiver essa linha.
+
 > [!TIP]
 > A landing **`/family`** abre só com `pnpm dev:web` em `http://localhost:3000/family`. O painel,
 > a conta e as aulas precisam da API e do banco (`pnpm dev:app`). As telas autenticadas (`/login`, `(app)`) precisam de um

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Remove toda linha Co-authored-by da mensagem, sem diferenciar maiúsculas.
+# O restante da mensagem permanece igual. POSIX sh: Linux, macOS e Git Bash.
+set -eu
+
+if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
+  echo "commit-msg: arquivo da mensagem ausente" >&2
+  exit 1
+fi
+
+msg_file=$1
+tmp_file="${msg_file}.tmp.$$"
+trap 'rm -f "$tmp_file"' EXIT
+
+sed '/[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:/d' "$msg_file" > "$tmp_file"
+mv "$tmp_file" "$msg_file"
+trap - EXIT

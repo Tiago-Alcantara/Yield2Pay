@@ -1,0 +1,2 @@
+.githooks/commit-msg text eol=lf
+scripts/check-no-coauthored-by.sh text eol=lf

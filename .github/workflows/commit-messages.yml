@@ -1,0 +1,25 @@
+name: Mensagens de commit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  co-authored-by:
+    name: Sem Co-authored-by
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Buscar a base e a ponta do pull request
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags origin "pull/${{ github.event.pull_request.number }}/head"
+
+      - name: Recusar Co-authored-by
+        run: sh scripts/check-no-coauthored-by.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
