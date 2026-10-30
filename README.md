@@ -120,18 +120,20 @@ Oito rotas, bilíngues (PT/EN), navegáveis de ponta a ponta em
 | [`/family`](apps/web/src/app/family/page.tsx) | Landing: hero, **calculadora de liberdade**, como funciona, o que está por trás, lista de espera |
 | [`/family/onboarding`](apps/web/src/app/family/onboarding/) | Abertura de conta e carteira |
 | [`/family/deposito`](apps/web/src/app/family/deposito/) | Depósito via PIX (`PixDepositCard`) |
-| [`/family/dashboard`](apps/web/src/app/family/dashboard/) | Percentual de Liberdade, saldo, assinaturas, histórico |
+| [`/family/dashboard`](apps/web/src/app/family/dashboard/) | **Painel de gastos da casa**: filtros, gráficos, importação de extrato, tempo de liberdade da reserva |
 | [`/family/dashboard/[subId]`](apps/web/src/app/family/dashboard/) | Detalhe de uma assinatura |
 | [`/family/saque`](apps/web/src/app/family/saque/) | Saque do principal |
+| [`/family/conta`](apps/web/src/app/family/conta/) | Conta e pessoas da casa (convites, sair, remover) — também abre como modal no painel |
+| [`/family/aprender`](apps/web/src/app/family/aprender/) | Aulas de cripto (7 aulas) com progresso salvo |
 | [`/family/conceitos`](apps/web/src/app/family/conceitos/) | Carteira, moeda estável, rendimento + FAQ |
 | [`/family/configuracoes`](apps/web/src/app/family/configuracoes/) | Perfil, segurança, carteira, PIX, assinaturas, notificações, privacidade (LGPD) |
 
 > [!IMPORTANT]
-> **O que ainda NÃO está ligado.** Estas telas são **front puro**. Os números são calculados no
-> cliente, **sem Privy, DeFindex ou PIX por trás** nesta vertical, e a lista de espera só valida o
-> e-mail e mostra o estado "enviado" — não persiste em lugar nenhum. O backend real
-> (auth, depósito, saque, bills, ledger) **já roda em testnet** para o produto B2B; falta **plugar
-> as telas famílias nele** — ver o [roadmap](#-roadmap).
+> **O que já está ligado e o que não está.** Conta, casa e convites, perfil do onboarding, gastos,
+> importação de extratos, resumo do painel e aulas **já usam a API** (`/account`, `/households`,
+> `/household/*`, `/expenses`, `/statements`, `/lessons`). Ainda ficam **só no cliente**: depósito,
+> saque, o Percentual de Liberdade do rendimento e a lista de espera. Ver o [roadmap](#-roadmap) e a
+> [proposta de integração](docs/DOCUMENTACAO.md#10-integração-family--rendimento).
 
 <details>
 <summary><b>Estrutura interna da vertical</b></summary>
@@ -291,9 +293,14 @@ tocar nos outros.
 | **Deposit** | Histórico de depósitos no cofre | `amount` (BigInt), `txHash` (único) |
 | **RecurringBill** | Assinaturas | `vendor`, `monthlyCost` (BigInt), `type`, `status` |
 | **YieldSnapshot** | Estado diário | `vaultValue`, `principal`, `spendable` (BigInt) |
+| **Household** | Casa (perfil do onboarding) | `ownerCompanyId`, `monthlyIncomeCents`, `reserveCents`, `goalMonths` |
+| **HouseholdMember** / **HouseholdInvite** | Pessoas e convites da casa | `role`, `email`, `status` |
+| **Statement** | Extrato importado | `contentHash` (único por casa — não duplica) |
+| **Expense** | Gasto da casa | `category`, `fixed`, `amountCents`, `addedByCompanyId` |
+| **LessonProgress** | Progresso nas aulas | `lessonId`, `completed` |
 
-Quando a vertical famílias for plugada, ela reaproveita esse mesmo núcleo — e é aí que entra o
-**campo "autor" por movimentação** (ver [decisões de produto](#-decisões-de-produto)).
+Os gastos da Family já guardam o autor (`addedByCompanyId`); falta levar o mesmo campo para
+`Deposit` e `RampOrder` (ver [decisões de produto](#-decisões-de-produto)).
 
 </details>
 
@@ -318,8 +325,8 @@ apps/web/src/
 
 - **Sem Tailwind, sem lib de gráfico.** Estilo por **design tokens** (`--fx-*`) + inline. Estética
   "private bank": monocromático preto/prata, superfícies brushed-metal, dark mode. Gráfico em CSS puro.
-- **`/family` fica fora do `AuthGate`** — roda sem credencial nenhuma, o que torna a vertical
-  navegável em qualquer clone do repo.
+- **`/family` usa o `FamilySessionGate`**, não o `AuthGate`: exige sessão Privy mas não cria
+  carteira Stellar. Sem `NEXT_PUBLIC_PRIVY_APP_ID` ele deixa passar, para navegar no protótipo.
 - **`packages/shared`** define o contrato uma vez (`Bill`, `SpendableView`, DTOs de tx) e os dois
   lados consomem: segurança de tipo ponta a ponta sem publicar SDK.
 
@@ -378,17 +385,18 @@ hooks, utils, componentes, telas de erro e a matemática da vertical `/family`.
 financiamento automático de conta, gas patrocinado via fee-bump, deposit/withdraw reais no cofre
 DeFindex, saldo on-chain, catálogo de serviços, bills e snapshot diário. A **rampa Etherfuse**
 (PIX ⇄ USDC) está **codada e ligada** ao depósito e ao saque, rodando contra o **sandbox** — com
-*mock mode* automático quando falta a API key. A vertical **famílias** é um **protótipo de
-frontend**. O contrato escrow próprio segue **especificado, não codado**.
+*mock mode* automático quando falta a API key. A vertical **famílias** já tem backend para
+conta, casa, gastos, extratos e aulas; depósito e saque nela ainda são protótipo. O contrato escrow próprio segue **especificado, não codado**.
 
 ### Vertical famílias
 
 | | Item | Status |
 |:---:|---|---|
 | 🎨 | Telas `/family` — 8 rotas, PT/EN, fluxos completos | ✅ **protótipo navegável** |
-| 🔌 | Plugar `/family` no backend (auth · deposit · withdraw · bills · ledger) | 🚧 **próximo** |
+| 🔌 | `/family` no backend: conta, casa, convites, onboarding, gastos, extratos, resumo, aulas | ✅ **feito** |
+| 🔗 | Integrar com o Rendimento: cofre na casa, depósito/saque reais, gastos fixos → contas ([proposta](docs/DOCUMENTACAO.md#10-integração-family--rendimento)) | 🚧 **próximo** |
 | 💾 | Persistir o Percentual de Liberdade no backend (hoje só no cliente) | 📋 planejado |
-| 👤 | Campo **"autor"** em cada movimentação (prepara conta familiar) | 📋 planejado |
+| 👤 | Campo **"autor"** em cada movimentação (feito em gastos; falta em depósitos e ordens) | 🚧 parcial |
 | ✉️ | Integrar a lista de espera (hoje só valida e mostra "enviado") | 📋 planejado |
 | 🔑 | Login social Google/Apple ligado ao Privy na vertical | 📋 planejado |
 
@@ -490,8 +498,8 @@ pnpm web:test         # só o frontend
 Configure `apps/api/.env` e `apps/web/.env.local` a partir dos respectivos `*.example`.
 
 > [!TIP]
-> A vertical **`/family` roda sem credencial nenhuma** — é front puro. Basta `pnpm dev:web` e abrir
-> `http://localhost:3000/family`. As telas autenticadas (`/login`, `(app)`) precisam de um
+> A landing **`/family`** abre só com `pnpm dev:web` em `http://localhost:3000/family`. O painel,
+> a conta e as aulas precisam da API e do banco (`pnpm dev:app`). As telas autenticadas (`/login`, `(app)`) precisam de um
 > `NEXT_PUBLIC_PRIVY_APP_ID` real.
 
 ---
@@ -506,6 +514,9 @@ Configure `apps/api/.env` e `apps/web/.env.local` a partir dos respectivos `*.ex
 - [`docs/PROMPT-PITCH-SLIDES.md`](docs/PROMPT-PITCH-SLIDES.md) — roteiro dos slides do pitch.
 
 **Técnica**
+- [`docs/DOCUMENTACAO.md`](docs/DOCUMENTACAO.md) — **comece aqui**: arquitetura, modelo de dados,
+  todos os endpoints, regras de negócio e a integração Family ↔ Rendimento.
+- [`docs/diagrams/`](docs/diagrams/) — diagrama da arquitetura geral.
 - [`docs/Yield2Pay_Documentacao_Tecnica.md`](docs/Yield2Pay_Documentacao_Tecnica.md) — spec completa
   (§8: status implementado em testnet vs. planejado).
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — deploy (Vercel + Render).
