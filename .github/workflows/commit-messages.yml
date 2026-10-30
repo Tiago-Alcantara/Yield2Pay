@@ -2,24 +2,44 @@ name: Mensagens de commit
 
 on:
   pull_request:
+  push:
+    branches:
+      - develop
 
 permissions:
   contents: read
+
+concurrency:
+  group: commit-messages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   co-authored-by:
     name: Sem Co-authored-by
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-
-      - name: Buscar a base e a ponta do pull request
-        run: |
-          git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
-          git fetch --no-tags origin "pull/${{ github.event.pull_request.number }}/head"
+          persist-credentials: false
 
       - name: Recusar Co-authored-by
-        run: sh scripts/check-no-coauthored-by.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$BASE_REF"
+            git fetch --no-tags origin "pull/$PR_NUMBER/head"
+            sh scripts/check-no-coauthored-by.sh "$BASE_SHA" "$HEAD_SHA"
+          else
+            sh scripts/check-no-coauthored-by.sh --push "$BEFORE_SHA" "$AFTER_SHA"
+          fi
