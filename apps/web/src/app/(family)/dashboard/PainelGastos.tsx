@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
 import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
-import { createHouseholdApi } from '../_lib/householdApi';
+import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS } from '../_lib/householdApi';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -29,28 +29,18 @@ import {
   lessonTrack,
   mesNome,
   metaLabel,
+  MONTH_RANGE_CAP_NOTE,
+  monthsCovering,
   nf,
+  shiftMonth,
   openingMonth,
   reais,
   saoPauloDay,
   saoPauloMonth,
   saoPauloToday,
-  shiftMonth,
   sortMonths,
   type ChartId,
 } from './painel-format';
-
-function monthsCovering(from: string, to: string): string[] {
-  if (!from || !to) return [];
-  const [start, end] = from <= to ? [from.slice(0, 7), to.slice(0, 7)] : [to.slice(0, 7), from.slice(0, 7)];
-  const months: string[] = [];
-  let cursor = start;
-  while (cursor <= end && months.length < 36) {
-    months.push(cursor);
-    cursor = shiftMonth(cursor, 1);
-  }
-  return months;
-}
 
 function categoriesOf(rows: ExpenseView[]) {
   const totals = new Map<ExpenseCategory, number>();
@@ -199,12 +189,31 @@ export default function PainelGastos() {
 
 function PrivyPainel() {
   const { getAccessToken, logout } = usePrivy();
-  return <PainelScreen getToken={getAccessToken} onLogout={() => void logout()} />;
+  const { identityToken } = useIdentityToken();
+  const identityRef = useRef(identityToken);
+  identityRef.current = identityToken;
+  return (
+    <PainelScreen
+      getToken={getAccessToken}
+      getIdentityToken={async () => identityRef.current}
+      onLogout={() => void logout()}
+    />
+  );
 }
 
-function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: () => void }) {
+function PainelScreen({
+  getToken,
+  getIdentityToken,
+  onLogout,
+}: {
+  getToken: GetToken;
+  getIdentityToken?: () => Promise<string | null>;
+  onLogout?: () => void;
+}) {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const getIdentityRef = useRef(getIdentityToken);
+  getIdentityRef.current = getIdentityToken;
   const monthRequest = useRef(0);
   const expenseCache = useRef<Record<string, ExpenseView[]>>({});
   const summaryCache = useRef<Record<string, HouseholdSummary>>({});
@@ -236,10 +245,13 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [rangeNote, setRangeNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
 
-  const api = () => createHouseholdApi(() => getTokenRef.current());
+  const api = () => createHouseholdApi(() => getTokenRef.current(), {
+    getIdentityToken: getIdentityRef.current,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -276,7 +288,16 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }, [onbOpen]);
 
   useEffect(() => {
-    const client = api();
+    const cancel = new AbortController();
+    const deadline = new AbortController();
+    const timer = setTimeout(() => {
+      deadline.abort(new DOMException('The operation timed out', 'TimeoutError'));
+    }, DASHBOARD_LOAD_TIMEOUT_MS);
+    const client = createHouseholdApi(() => getTokenRef.current(), {
+      timeoutMs: 0,
+      signal: AbortSignal.any([deadline.signal, cancel.signal]),
+      getIdentityToken: getIdentityRef.current,
+    });
     let cancelled = false;
     (async () => {
       try {
@@ -331,8 +352,15 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      cancel.abort();
     };
   }, [loadAttempt]);
+
+  function forgetCachedMonths() {
+    expenseCache.current = {};
+    summaryCache.current = {};
+  }
 
   function rememberMonth(next: string, expenseRows: ExpenseView[], summaryView: HouseholdSummary) {
     expenseCache.current[next] = expenseRows;
@@ -340,6 +368,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }
 
   function pickMonth(next: string) {
+    setRangeNote('');
     setFilters((current) => (current.mode === 'mes' ? current : { ...current, mode: 'mes' }));
     setShowAll(false);
     const cachedExpenses = expenseCache.current[next];
@@ -397,9 +426,11 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     setFilters(next);
     setShowAll(false);
     if (next.mode === 'custom') {
+      const covered = monthsCovering(next.from, next.to);
+      setRangeNote(covered.truncated ? MONTH_RANGE_CAP_NOTE : '');
       const request = ++monthRequest.current;
       setSummaryState('loading');
-      void loadMonths(monthsCovering(next.from, next.to))
+      void loadMonths(covered.months)
         .then((rows) => {
           if (monthRequest.current !== request) return;
           setExpenses(rows);
@@ -411,17 +442,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         });
       return;
     }
+    setRangeNote('');
     if (nextMonth !== month) pickMonth(nextMonth);
     else if (expenseCache.current[nextMonth]) setExpenses(expenseCache.current[nextMonth]);
   }
 
   async function refresh(selected: string) {
     const client = api();
-    const targets = filters.mode === 'custom' ? monthsCovering(filters.from, filters.to) : [selected];
-    targets.forEach((item) => {
-      delete expenseCache.current[item];
-      delete summaryCache.current[item];
-    });
+    forgetCachedMonths();
+    const covered = filters.mode === 'custom' ? monthsCovering(filters.from, filters.to) : { months: [selected], truncated: false };
+    const targets = covered.months;
+    setRangeNote(covered.truncated ? MONTH_RANGE_CAP_NOTE : '');
     const [monthList, pages, summaryView] = await Promise.all([
       client.getExpenseMonths(),
       Promise.all(targets.map((item) => client.getExpenses({ month: item }))),
@@ -460,9 +491,8 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }
 
   async function changeCategory(id: string, category: ExpenseCategory) {
-    const updated = await api().patchExpense(id, { category });
-    setExpenses((rows) => rows.map((row) => (row.id === id ? { ...row, category: updated.category } : row)));
-    setSummary(await api().getHouseholdSummary({ month }));
+    await api().patchExpense(id, { category });
+    await refresh(month);
   }
 
   async function createExpense(body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) {
@@ -982,6 +1012,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: '#E6E8EA' }}>{rangeNote}</p> : null}
               {summaryState === 'ready' && (
                 <p style={{ fontSize: 14.5, color: '#9A9DA1', margin: '7px 0 0' }}>
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
@@ -1142,6 +1173,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         getToken={getToken}
+        getIdentityToken={getIdentityRef.current}
         onLogout={onLogout}
         onAccount={(next) => setAccount((prev) => (
           prev?.household && next.household

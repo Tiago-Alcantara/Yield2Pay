@@ -19,8 +19,10 @@ import type {
 
 type GetToken = () => Promise<string | null>;
 
-/** A tela mostra o erro assim que este prazo estoura, sem uma segunda espera. */
+/** Pedidos avulsos estouram neste prazo. A carga do painel usa um prazo só, de 9 s. */
 export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
+
+export const DASHBOARD_LOAD_TIMEOUT_MS = 9_000;
 
 /** Um mês inteiro volta numa página só. A API aceita este teto. */
 export const MONTH_EXPENSE_LIMIT = '5000';
@@ -36,7 +38,7 @@ export interface HouseholdCurrent {
 }
 
 function isRequestTimeout(error: unknown): boolean {
-  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+  return error instanceof Error && error.name === 'TimeoutError';
 }
 
 function queryString(params: Record<string, string | undefined>): string {
@@ -48,7 +50,14 @@ function queryString(params: Record<string, string | undefined>): string {
   return encoded ? `?${encoded}` : '';
 }
 
-export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: number }) {
+export function createHouseholdApi(
+  getToken: GetToken,
+  options?: {
+    timeoutMs?: number;
+    signal?: AbortSignal;
+    getIdentityToken?: () => Promise<string | null>;
+  },
+) {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
   const timeoutMs = options?.timeoutMs ?? HOUSEHOLD_REQUEST_TIMEOUT_MS;
 
@@ -58,8 +67,15 @@ export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: n
     if (token != null && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    const timeout = AbortSignal.timeout(timeoutMs);
-    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    if (options?.getIdentityToken && !headers.has('privy-id-token')) {
+      const idToken = await options.getIdentityToken();
+      if (idToken) headers.set('privy-id-token', idToken);
+    }
+    const signals: AbortSignal[] = [];
+    if (timeoutMs > 0) signals.push(AbortSignal.timeout(timeoutMs));
+    if (options?.signal) signals.push(options.signal);
+    if (init.signal) signals.push(init.signal);
+    const signal = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
     let response: Response;
     try {
       response = await fetch(`${baseUrl}${path}`, { ...init, headers, signal });
@@ -142,16 +158,32 @@ export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: n
       }),
     skipProfile: () => request<void>('/household/profile/skip', { method: 'POST' }),
     getExpenses: async (opts?: { month?: string; from?: string; to?: string; category?: ExpenseCategory }) => {
-      const page = await request<ExpensePage>(
-        `/expenses${queryString({
-          month: opts?.from ? undefined : opts?.month,
-          from: opts?.from,
-          to: opts?.to,
-          category: opts?.category,
-          limit: MONTH_EXPENSE_LIMIT,
-        })}`,
-      );
-      return page.items;
+      const items: ExpenseView[] = [];
+      let cursor: string | undefined;
+      let total = Number.POSITIVE_INFINITY;
+      let guard = 0;
+      while (items.length < total && guard < 20) {
+        guard += 1;
+        const page = await request<ExpensePage>(
+          `/expenses${queryString({
+            month: opts?.from ? undefined : opts?.month,
+            from: opts?.from,
+            to: opts?.to,
+            category: opts?.category,
+            limit: MONTH_EXPENSE_LIMIT,
+            cursor,
+          })}`,
+        );
+        items.push(...page.items);
+        total = page.total;
+        if (page.items.length === 0 || items.length >= page.total) break;
+        const last = page.items[page.items.length - 1];
+        const next = page.nextCursor
+          ?? (last && page.items.length >= Number(MONTH_EXPENSE_LIMIT) ? `${last.date}|${last.id}` : '');
+        if (!next || next === cursor) break;
+        cursor = next;
+      }
+      return items;
     },
     getExpenseMonths: async () => {
       const rows = await request<Array<string | MonthTotal>>('/expenses/months');
@@ -184,6 +216,10 @@ export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: n
       const token = await getToken();
       const headers: Record<string, string> = {};
       if (token != null) headers.Authorization = `Bearer ${token}`;
+      if (options?.getIdentityToken) {
+        const idToken = await options.getIdentityToken();
+        if (idToken) headers['privy-id-token'] = idToken;
+      }
       const body = new FormData();
       body.append('file', file);
       const response = await fetch(`${baseUrl}/statements`, { method: 'POST', headers, body });

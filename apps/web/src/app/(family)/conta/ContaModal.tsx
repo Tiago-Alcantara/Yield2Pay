@@ -33,6 +33,7 @@ export function ContaModal({
   open,
   onClose,
   getToken,
+  getIdentityToken,
   onLogout,
   onAccount,
   onProfile,
@@ -42,6 +43,7 @@ export function ContaModal({
   open: boolean;
   onClose: () => void;
   getToken: GetToken;
+  getIdentityToken?: () => Promise<string | null>;
   onLogout?: () => void;
   onAccount?: (account: AccountView) => void;
   onProfile?: (profile: HouseholdProfile) => void;
@@ -51,10 +53,14 @@ export function ContaModal({
   const router = useRouter();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const getIdentityRef = useRef(getIdentityToken);
+  getIdentityRef.current = getIdentityToken;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const confirmRef = useRef<Confirm | null>(null);
-  const api = () => createHouseholdApi(() => getTokenRef.current());
+  const api = () => createHouseholdApi(() => getTokenRef.current(), {
+    getIdentityToken: getIdentityRef.current,
+  });
 
   const [account, setAccount] = useState<AccountView | null>(null);
   const [profile, setProfile] = useState<HouseholdProfile | null>(null);

@@ -5,7 +5,7 @@
  * Intuito: Abrir o painel faz no máximo duas ondas e uma /expenses por mês, e o erro aparece na tela.
  * Sequência: opens in two waves with one expenses call; switching month does not reload the house; a failed load shows the error.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('next/navigation', () => ({
@@ -146,5 +146,88 @@ describe('PainelGastos', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toMatch(/Não foi possível carregar/);
     expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('shows the load error within 9s when account is slow and expenses hang', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const target = String(url);
+      if (target.includes('/account')) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => resolve(new Response(JSON.stringify(payload(target)), { status: 200 })), 7500);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(init.signal?.reason ?? Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        });
+      }
+      if (target.includes('/expenses?')) {
+        return new Promise((_resolve, reject) => {
+          const fail = () => reject(init?.signal?.reason ?? Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          if (init?.signal?.aborted) fail();
+          else init?.signal?.addEventListener('abort', fail, { once: true });
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const started = performance.now();
+    render(<PainelGastos />);
+    const alert = await screen.findByRole('alert', {}, { timeout: 12_000 });
+    const elapsed = performance.now() - started;
+    expect(alert.textContent).toMatch(/Não foi possível carregar/);
+    expect(elapsed).toBeGreaterThan(8_000);
+    expect(elapsed).toBeLessThan(9_800);
+  }, 15_000);
+
+  it('reloads another month after a write that can change its fixed flag', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const target = String(url);
+      calls.push(`${init?.method ?? 'GET'} ${target}`);
+      if (init?.method === 'PATCH') {
+        return Promise.resolve(new Response(JSON.stringify({ ...expense, category: 'groceries' }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await screen.findByRole('heading', { name: 'Gastos de setembro' });
+    const before = calls.filter((call) => call.includes('/expenses?')).length;
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    await screen.findByRole('heading', { name: 'Gastos de outubro' });
+    expect(calls.filter((call) => call.includes('/expenses?'))).toHaveLength(before);
+    await user.selectOptions(screen.getByLabelText('Categoria de Netflix'), 'groceries');
+    await waitFor(() => {
+      expect(calls.filter((call) => call.includes('/expenses?')).length).toBeGreaterThan(before);
+    });
+    const afterWrite = calls.filter((call) => call.includes('/expenses?')).length;
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await screen.findByRole('heading', { name: 'Gastos de setembro' });
+    await waitFor(() => {
+      expect(calls.filter((call) => call.includes('/expenses?')).length).toBeGreaterThan(afterWrite);
+    });
+  });
+
+  it('warns when a custom range is cut at 36 months', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const target = String(url);
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { month: '2023-01', amountCents: 1000 },
+          { month: '2026-10', amountCents: 5590 },
+        ]), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    await user.click(screen.getByRole('button', { name: /Período personalizado/i }));
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2023-01-01' } });
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-30' } });
+    await user.click(screen.getByRole('button', { name: /Mostrar/ }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Mostramos só os primeiros 36 meses deste período.');
   });
 });
