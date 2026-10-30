@@ -63,16 +63,6 @@ function categoriesOf(rows: ExpenseView[]) {
     .sort((left, right) => right.amountCents - left.amountCents);
 }
 
-function IconPainel() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
-    </svg>
-  );
-}
 function IconGastos() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -89,23 +79,6 @@ function IconLiberdade() {
     </svg>
   );
 }
-function IconAprender() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 6.5 12 3l8 3.5V18l-8 3.5L4 18V6.5z" />
-      <path d="M12 6.5V21" />
-    </svg>
-  );
-}
-function IconLogout() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3" />
-      <path d="M10 16l4-4-4-4" />
-      <path d="M14 12H4" />
-    </svg>
-  );
-}
 function IconTrash() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -117,13 +90,6 @@ function IconTrash() {
     </svg>
   );
 }
-
-const NAV = [
-  { href: '#s-topo', label: 'Painel', icon: <IconPainel /> },
-  { href: '#s-gastos', label: 'Gastos', icon: <IconGastos /> },
-  { href: '#s-liberdade', label: 'Liberdade', icon: <IconLiberdade /> },
-  { href: '/aprender', label: 'Aprender', icon: <IconAprender /> },
-] as const;
 
 const EMPTY_SUMMARY: HouseholdSummary = {
   monthTotalCents: 0,
@@ -164,7 +130,7 @@ function StatCard({
   compact?: boolean;
 }) {
   return (
-    <div style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 24 }}>
+    <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 24 }}>
       <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>
         {title}
       </div>
@@ -225,13 +191,13 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [progress, setProgress] = useState<LessonProgressView[]>([]);
   const [chart, setChart] = useState<ChartId>('cat');
   const [showAll, setShowAll] = useState(false);
-  const [nav, setNav] = useState('#s-topo');
   const [onbOpen, setOnbOpen] = useState(false);
   const [onbKey, setOnbKey] = useState(0);
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+  const [importManual, setImportManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -240,6 +206,24 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const router = useRouter();
 
   const api = () => createHouseholdApi(() => getTokenRef.current());
+
+  // Ações rápidas da doca chegam como ?acao=importar|novo|convidar.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const acao = params.get('acao');
+    if (!acao) return;
+    requestAnimationFrame(() => {
+      if (acao === 'importar' || acao === 'novo') {
+        setImportManual(acao === 'novo');
+        setImportOpen(true);
+      } else if (acao === 'convidar') {
+        scrollToId('s-convidar');
+      }
+    });
+    params.delete('acao');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -563,7 +547,6 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const statusLabel = pctReal == null ? 'Meta em aberto' : pctReal >= 100 ? 'Meta alcançada' : 'Em andamento';
   const sentence = libertySentence(freedom, reserveCents, goal);
   const userName = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0] || '';
-  const userFull = account?.displayName?.trim() || account?.fullName?.trim() || 'Conta família';
   const initials = account?.initials || '?';
   const isOwner = account?.household?.role === 'owner';
   const pills = months.length ? months : [month];
@@ -650,142 +633,13 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         minHeight: '100vh',
-        background: '#0E0F11',
-        color: '#F2F3F4',
+        background: 'var(--fam-page, #0E0F11)',
+        color: 'var(--fx-text-strong, #F2F3F4)',
         fontFamily: "'Hanken Grotesk', system-ui, -apple-system, sans-serif",
         WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <aside
-        data-screen-label="Menu"
-        style={isMobile ? {
-          flex: '0 0 auto',
-          background: '#16181B',
-          borderBottom: '1px solid #2A2D31',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '12px 14px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
-        } : {
-          flex: '0 0 240px',
-          background: '#16181B',
-          borderRight: '1px solid #2A2D31',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '22px 14px',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-        }}
-      >
-        <a
-          href="/dashboard"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            textDecoration: 'none',
-            padding: isMobile ? '4px 10px' : '6px 10px 22px',
-          }}
-        >
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)',
-              transform: 'rotate(45deg)',
-              borderRadius: 2,
-              boxShadow: '0 0 12px rgba(192,194,197,.35)',
-            }}
-          />
-          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: '#F2F3F4' }}>Yield2Pay</span>
-        </a>
-        <nav style={isMobile ? {
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 2,
-          overflowX: 'auto',
-          paddingBottom: 4,
-        } : { display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {NAV.filter((item) => (item.href !== '/aprender' || profile?.cryptoExperience !== 'declined') && (item.href !== '#s-liberdade' || liberdadeOn)).map((item) => {
-            const on = nav === item.href;
-            return (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => {
-                  if (item.href.startsWith('/')) {
-                    router.push(item.href);
-                    return;
-                  }
-                  setNav(item.href);
-                  scrollToId(item.href.slice(1));
-                }}
-                style={isMobile ? {
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 4,
-                  flexShrink: 0,
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 8,
-                  padding: '6px 10px',
-                  fontFamily: 'inherit',
-                  fontSize: 10,
-                  fontWeight: on ? 600 : 500,
-                  color: on ? '#F2F3F4' : '#9A9DA1',
-                  background: on ? '#1f2226' : 'transparent',
-                  whiteSpace: 'nowrap',
-                } : {
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 10,
-                  padding: '11px 12px',
-                  fontFamily: 'inherit',
-                  fontSize: 14.5,
-                  fontWeight: on ? 600 : 500,
-                  color: on ? '#F2F3F4' : '#9A9DA1',
-                  background: on ? '#1f2226' : 'transparent',
-                }}
-              >
-                {!isMobile && (
-                  <span style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 3, borderRadius: '0 3px 3px 0', background: on ? '#C0C2C5' : 'transparent' }} />
-                )}
-                <span style={{ display: 'flex', color: on ? '#F2F3F4' : '#9A9DA1' }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-        {!isMobile && (
-          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 10px', borderTop: '1px solid #2A2D31' }}>
-            <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9' }}>
-              {initials}
-            </span>
-            <button type="button" onClick={() => setSettingsOpen(true)} style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: '#F2F3F4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userFull}</span>
-              <span style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 10.5, color: '#9A9DA1' }}>Conta família</span>
-            </button>
-            {onLogout && (
-              <button type="button" aria-label="Sair" onClick={onLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9A9DA1', display: 'flex', padding: 4 }}>
-                <IconLogout />
-              </button>
-            )}
-          </div>
-        )}
-      </aside>
-
-      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 130 }}>
         <header
           id="painel-header"
           className="y2p-header"
@@ -866,7 +720,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 34, fontWeight: 600, marginTop: 18, letterSpacing: 'var(--fx-tracking-data)', lineHeight: 1.05, color: 'var(--fx-text-strong)' }}>{kpis[0].value}</div>
               <div role={summaryState === 'error' ? 'alert' : undefined} style={{ marginTop: 8, fontSize: 13.5, color: 'var(--fx-text-3)' }}>{kpis[0].sub}</div>
               <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button variant="primary" size="sm" onClick={() => setImportOpen(true)}>Importar extrato</Button>
+                <Button variant="primary" size="sm" onClick={() => { setImportManual(false); setImportOpen(true); }}>Importar extrato</Button>
                 {summaryState === 'error' && (
                   <Button variant="secondary" size="sm" onClick={() => { setSummaryState('loading'); setLoadAttempt((attempt) => attempt + 1); }}>Tentar de novo</Button>
                 )}
@@ -911,7 +765,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         )}
 
         {summaryState === 'ready' && (
-        <div style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
+        <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
           <Charts month={month} chart={chart} summary={viewSummary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
         )}
@@ -947,7 +801,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                 })}
               </div>
             </div>
-          <div className="y2p-list" style={{ marginTop: 20, background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18 }}>
+          <div className="y2p-list" style={{ marginTop: 20, background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18 }}>
             {rows.map((row) => (
               <div key={row.id} className="y2p-tx">
                 <span className="y2p-mono" style={{ fontSize: 13, color: '#9A9DA1' }}>
@@ -1000,7 +854,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         <div
           id="s-aprender"
           data-screen-label="Aprender"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 20, padding: 26, marginTop: 6 }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>
@@ -1048,7 +902,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form onSubmit={(event) => void onInvite(event)} style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
@@ -1063,7 +917,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
 
       {importOpen && (
         <ImportModal
-          initialMode={profile?.importMode ?? 'ofx'}
+          initialMode={importManual ? 'manual' : (profile?.importMode ?? 'ofx')}
           onClose={() => setImportOpen(false)}
           onImportFile={importFile}
           onUndoImport={undoImport}

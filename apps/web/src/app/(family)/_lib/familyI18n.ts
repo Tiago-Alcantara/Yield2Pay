@@ -285,6 +285,22 @@ const pt = {
     note: 'Ferramenta de pagamento não-custodial. Projeções são estimativas condicionais, nunca promessas.',
   },
 
+  dock: {
+    aria: 'Menu',
+    account: 'Conta',
+    nav: { painel: 'Painel', gastos: 'Gastos', liberdade: 'Liberdade', aprender: 'Aprender' },
+    import: 'Importar extrato',
+    goal: 'Definir meta do mês',
+    invite: 'Convidar família',
+    newExpense: 'Novo gasto',
+    switchGroup: 'Trocar grupo de finanças',
+    groupsTitle: 'Grupos de finanças',
+    groupsCount: (n: number) => `${n} grupos`,
+    groupShown: (name: string) => `Mostrando finanças de “${name}”.`,
+    newGroup: 'Criar novo grupo',
+    myAccount: 'Ver minha conta',
+  },
+
   settings: {
     back: '‹ Voltar ao painel',
     title: 'Configurações',
@@ -722,6 +738,22 @@ const en: FamilyDict = {
     ],
     backCta: 'Back to the dashboard',
     note: 'Non-custodial payment tool. Projections are conditional estimates, never promises.',
+  },
+
+  dock: {
+    aria: 'Menu',
+    account: 'Account',
+    nav: { painel: 'Dashboard', gastos: 'Spending', liberdade: 'Freedom', aprender: 'Learn' },
+    import: 'Import statement',
+    goal: 'Set monthly goal',
+    invite: 'Invite family',
+    newExpense: 'New expense',
+    switchGroup: 'Switch finance group',
+    groupsTitle: 'Finance groups',
+    groupsCount: (n: number) => `${n} groups`,
+    groupShown: (name: string) => `Showing finances for “${name}”.`,
+    newGroup: 'Create new group',
+    myAccount: 'View my account',
   },
 
   settings: {
