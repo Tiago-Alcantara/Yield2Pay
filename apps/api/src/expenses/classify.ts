@@ -91,17 +91,15 @@ export function merchantKey(name: string): string {
   return folded || name.trim().toLowerCase();
 }
 
-function sharedMerchantKey(key: string, keys: readonly string[]): string {
-  return (
-    keys
-      .filter(
-        (other) =>
-          other.length >= 4 &&
-          other.length < key.length &&
-          key.startsWith(`${other} `),
-      )
-      .sort((left, right) => left.length - right.length)[0] ?? key
-  );
+export function sharedMerchantKey(key: string, keys: readonly string[] | ReadonlySet<string>): string {
+  const keySet = keys instanceof Set ? keys : new Set(keys);
+  const parts = key.split(' ');
+  let prefix = '';
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    prefix = index === 0 ? parts[0] ?? '' : `${prefix} ${parts[index] ?? ''}`;
+    if (prefix.length >= 4 && keySet.has(prefix)) return prefix;
+  }
+  return key;
 }
 
 export function idsToMarkFixed(
@@ -114,9 +112,10 @@ export function idsToMarkFixed(
   }>,
 ): string[] {
   const keys = rows.map((row) => merchantKey(row.merchant));
+  const keySet = new Set(keys);
   const groups = new Map<string, typeof rows>();
   rows.forEach((row, index) => {
-    const key = sharedMerchantKey(keys[index] ?? '', keys);
+    const key = sharedMerchantKey(keys[index] ?? '', keySet);
     const list = groups.get(key) ?? [];
     list.push(row);
     groups.set(key, list);
