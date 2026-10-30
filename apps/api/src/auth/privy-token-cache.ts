@@ -3,13 +3,42 @@
  * Criado em: 2026-10-30
  * Última atualização: 2026-10-30
  * Intuito: A chave de verificação tem prazo e é buscada de novo se a assinatura falhar.
- * Sequência: várias validações dividem a mesma busca; o e-mail fica num LRU com teto e não guarda nulo.
+ * Sequência: quem já tem chave válida não espera o refetch; chave inválida não substitui a anterior.
  */
+import { createRequire } from 'node:module';
 import {
   emailFromLinkedAccounts,
   decodeJwtPayload,
   isSignatureFailure,
 } from './identity-email';
+
+const nodeRequire = createRequire(__filename);
+const { importSPKI } = nodeRequire(
+  nodeRequire.resolve('jose', {
+    paths: [nodeRequire.resolve('@privy-io/server-auth')],
+  }),
+) as {
+  importSPKI: (key: string, alg: string) => Promise<unknown>;
+};
+
+const KEY_FETCH_TIMEOUT_MS = 8_000;
+
+/**
+ * jose 4 importa o SPKI e não confere o algoritmo com o tipo da chave.
+ * ES256 aqui é P-256; RSA e lixo não entram no cache.
+ */
+async function assertEs256VerificationKey(key: string): Promise<void> {
+  const imported = (await importSPKI(key, 'ES256')) as {
+    asymmetricKeyType?: string;
+    asymmetricKeyDetails?: { namedCurve?: string };
+  };
+  if (
+    imported.asymmetricKeyType !== 'ec' ||
+    imported.asymmetricKeyDetails?.namedCurve !== 'prime256v1'
+  ) {
+    throw new Error('chave do Privy inválida');
+  }
+}
 
 export type PrivyTokenClient = {
   verifyAuthToken: (
@@ -61,6 +90,7 @@ export async function fetchPrivyVerificationKey(
   const response = await fetch(
     `${base}/api/v1/apps/${encodeURIComponent(appId)}`,
     {
+      signal: AbortSignal.timeout(KEY_FETCH_TIMEOUT_MS),
       headers: {
         Authorization: `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
         'privy-app-id': appId,
@@ -73,12 +103,17 @@ export async function fetchPrivyVerificationKey(
   if (typeof body.verification_key !== 'string' || !body.verification_key) {
     throw new Error('chave do Privy ausente');
   }
+  try {
+    await assertEs256VerificationKey(body.verification_key);
+  } catch {
+    throw new Error('chave do Privy inválida');
+  }
   return body.verification_key;
 }
 
 export function createPrivyTokenCache(
   client: PrivyTokenClient,
-  options: PrivyTokenCacheOptions = {},
+  options: PrivyTokenCacheOptions,
 ): PrivyTokenCache {
   const keyIntervalMs = options.keyIntervalMs ?? DEFAULT_KEY_INTERVAL_MS;
   const emailTtlMs = options.emailTtlMs ?? DEFAULT_EMAIL_TTL_MS;
@@ -94,29 +129,20 @@ export function createPrivyTokenCache(
     return !!keyHit && now() < keyHit.fetchedAt + keyIntervalMs;
   }
 
-  function verificationKey(force = false): Promise<string> {
+  function startKeyFetch(force: boolean): Promise<string> {
     if (keyPromise) return keyPromise;
-    if (!force && keyIsFresh()) return Promise.resolve(keyHit!.key);
-    if (
-      force &&
-      keyHit?.refreshedAfterFailure &&
-      now() < keyHit.fetchedAt + keyIntervalMs
-    ) {
-      return Promise.resolve(keyHit.key);
-    }
     const previous = keyHit;
-    keyPromise = fetchVerificationKey()
-      .then((key) => {
+    const pending = fetchVerificationKey()
+      .then(async (key) => {
+        await assertEs256VerificationKey(key);
         keyHit = {
           key,
           fetchedAt: now(),
           refreshedAfterFailure: force,
         };
-        keyPromise = null;
         return key;
       })
       .catch((error: unknown) => {
-        keyPromise = null;
         if (previous) {
           keyHit = {
             key: previous.key,
@@ -126,8 +152,26 @@ export function createPrivyTokenCache(
           return previous.key;
         }
         throw error;
+      })
+      .finally(() => {
+        if (keyPromise === pending) keyPromise = null;
       });
-    return keyPromise;
+    keyPromise = pending;
+    return pending;
+  }
+
+  function verificationKey(force = false): Promise<string> {
+    if (!force && keyIsFresh()) return Promise.resolve(keyHit!.key);
+    if (
+      force &&
+      keyHit?.refreshedAfterFailure &&
+      now() < keyHit.fetchedAt + keyIntervalMs
+    ) {
+      return Promise.resolve(keyHit.key);
+    }
+    const pending = startKeyFetch(force);
+    if (!force && keyHit) return Promise.resolve(keyHit.key);
+    return pending;
   }
 
   async function verifyWithKey(

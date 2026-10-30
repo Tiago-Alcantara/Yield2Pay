@@ -7,13 +7,12 @@
  */
 import { createServer, type Server } from 'node:http';
 import { createRequire } from 'node:module';
-import type { PrivyClient } from '@privy-io/server-auth';
 import {
   createPrivyTokenCache,
   fetchPrivyVerificationKey,
 } from './privy-token-cache';
 
-const require = createRequire(import.meta.url);
+const require = createRequire(__filename);
 const { generateKeyPair, exportSPKI, SignJWT } = require(
   require.resolve('jose', {
     paths: [require.resolve('@privy-io/server-auth')],
@@ -66,15 +65,29 @@ function appBody(verificationKey: string) {
   };
 }
 
+type PrivySdk = {
+  getVerificationKey: () => Promise<string>;
+  verifyAuthToken: (
+    token: string,
+    verificationKeyOverride?: string,
+  ) => Promise<{ userId: string }>;
+  getUser: (id: string) => Promise<{
+    google?: { email?: string | null } | null;
+    email?: { address?: string | null } | null;
+  }>;
+};
+
 describe('cliente real do Privy', () => {
   let server: Server;
   let calls: string[] = [];
   let current = '';
-  let Client: typeof PrivyClient;
+  let hang = false;
+  let Client: new (appId: string, appSecret: string) => PrivySdk;
 
   beforeAll(async () => {
     server = createServer((req, res) => {
       calls.push(req.url ?? '');
+      if (hang) return;
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(appBody(current)));
     });
@@ -86,7 +99,10 @@ describe('cliente real do Privy', () => {
       throw new Error('servidor de teste sem porta');
     }
     process.env.PRIVY_API_URL = `http://127.0.0.1:${address.port}`;
-    Client = (await import('@privy-io/server-auth')).PrivyClient;
+    const loaded = (await import('@privy-io/server-auth')) as {
+      PrivyClient: new (appId: string, appSecret: string) => PrivySdk;
+    };
+    Client = loaded.PrivyClient;
   });
 
   afterAll(async () => {
@@ -98,6 +114,7 @@ describe('cliente real do Privy', () => {
 
   beforeEach(() => {
     calls = [];
+    hang = false;
   });
 
   it('busca a chave fora do cache do SDK e aceita a chave nova depois da rotação', async () => {
@@ -170,4 +187,29 @@ describe('cliente real do Privy', () => {
     );
     expect(calls).toHaveLength(2);
   });
+
+  it('recusa chave lixo e RSA', async () => {
+    current = 'nao-e-uma-chave';
+    await expect(fetchPrivyVerificationKey(APP_ID, APP_SECRET)).rejects.toThrow(
+      'chave do Privy inválida',
+    );
+    const rsa = await generateKeyPair('RS256');
+    current = await exportSPKI(rsa.publicKey);
+    await expect(fetchPrivyVerificationKey(APP_ID, APP_SECRET)).rejects.toThrow(
+      'chave do Privy inválida',
+    );
+  });
+
+  it('desiste quando o Privy não responde', async () => {
+    hang = true;
+    const started = Date.now();
+    await expect(
+      fetchPrivyVerificationKey(APP_ID, APP_SECRET),
+    ).rejects.toThrow();
+    const elapsed = Date.now() - started;
+    hang = false;
+    server.closeAllConnections();
+    expect(elapsed).toBeGreaterThanOrEqual(5_000);
+    expect(elapsed).toBeLessThan(12_000);
+  }, 15_000);
 });
