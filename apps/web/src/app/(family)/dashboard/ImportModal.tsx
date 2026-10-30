@@ -249,11 +249,16 @@ export function ImportModal({
         aria-modal="true"
         aria-labelledby="import-title"
         id="s-importar"
-        style={{ background: '#0E0F11', color: '#EDEFF1', border: '1px solid #2A2D31', borderRadius: 20, padding: '32px 28px', width: 'min(920px, 100%)', margin: '4vh auto' }}
+        className="y2p-import"
+        style={{ background: '#0E0F11', color: '#EDEFF1', border: '1px solid #2A2D31', borderRadius: 20, padding: '32px 28px', width: 'min(920px, 100%)', margin: '4vh auto', maxWidth: '100%', boxSizing: 'border-box' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.2em', textTransform: 'uppercase', color: '#8a8d91' }}>Passo 1 de 2</div>
-          <button type="button" onClick={onClose} style={{ border: 'none', background: 'none', color: '#9A9DA1', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer' }}>Fechar</button>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="y2p-xclose">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
         <h2 id="import-title" style={{ fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-.022em', margin: '12px 0 0' }}>Traga seus gastos</h2>
         <p style={{ fontSize: 16.5, lineHeight: 1.6, color: '#9A9DA1', margin: '10px 0 0', maxWidth: 600 }}>Escolha um jeito. Nada fica salvo até você criar a conta.</p>
@@ -279,7 +284,7 @@ export function ImportModal({
           })}
         </div>
 
-        <div style={{ marginTop: 14, borderRadius: 18, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', padding: 26 }}>
+        <div className="y2p-import-card" style={{ marginTop: 14, borderRadius: 18, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', padding: 26, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
           {mode === 'ofx' && (
             <div
               onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
@@ -363,18 +368,18 @@ export function ImportModal({
           )}
 
           {mode === 'manual' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16 }}>
-              <div style={{ gridColumn: '1 / -1' }}>
+            <div className="y2p-import-manual" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16, minWidth: 0 }}>
+              <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>
                 <label htmlFor="gasto-onde" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Onde</label>
                 <input id="gasto-onde" placeholder="Ex.: Padaria da esquina" value={where} onChange={(event) => { setWhere(event.target.value); setManualError(''); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 15.5, outline: 'none' }} />
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <label htmlFor="gasto-valor" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Valor</label>
                 <input id="gasto-valor" inputMode="decimal" placeholder="R$ 0,00" value={amount} onChange={(event) => { setAmount(event.target.value); setManualError(''); setConfirmHuge(false); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 15.5, outline: 'none' }} />
               </div>
-              <div>
+              <div className="y2p-date-wrap">
                 <label htmlFor="gasto-data" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Data</label>
-                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none' }} />
+                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} className="y2p-date" style={{ width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none', colorScheme: 'dark' }} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <CategoryChips value={manualCategory} onChange={setManualCategory} />
