@@ -19,12 +19,21 @@ import type {
 
 type GetToken = () => Promise<string | null>;
 
+/** A tela mostra o erro assim que este prazo estoura, sem uma segunda espera. */
+export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
+
+export type HouseholdRequestError = Error & { status?: number; timeout?: boolean };
+
 export interface HouseholdCurrent {
   id: string;
   name: string;
   role: HouseholdRole;
   onboardingCompleted: boolean;
   pendingInvites: { id: string; email: string }[];
+}
+
+function isRequestTimeout(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }
 
 function queryString(params: Record<string, string | undefined>): string {
@@ -36,8 +45,9 @@ function queryString(params: Record<string, string | undefined>): string {
   return encoded ? `?${encoded}` : '';
 }
 
-export function createHouseholdApi(getToken: GetToken) {
+export function createHouseholdApi(getToken: GetToken, options?: { timeoutMs?: number }) {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  const timeoutMs = options?.timeoutMs ?? HOUSEHOLD_REQUEST_TIMEOUT_MS;
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const token = await getToken();
@@ -45,9 +55,21 @@ export function createHouseholdApi(getToken: GetToken) {
     if (token != null && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}${path}`, { ...init, headers, signal });
+    } catch (error) {
+      if (isRequestTimeout(error)) {
+        const timeoutError = new Error(`${init.method ?? 'GET'} ${path} timed out`) as HouseholdRequestError;
+        timeoutError.timeout = true;
+        throw timeoutError;
+      }
+      throw error;
+    }
     if (!response.ok) {
-      const error = new Error(`${init.method ?? 'GET'} ${path} failed`) as Error & { status: number };
+      const error = new Error(`${init.method ?? 'GET'} ${path} failed`) as HouseholdRequestError;
       error.status = response.status;
       throw error;
     }
