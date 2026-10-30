@@ -59,6 +59,11 @@ jobs:
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
 
+      # O lint com typecheck e o tsc leem o client gerado. Sem este passo
+      # o tsc acusa o schema inteiro como ausente.
+      - name: Gerar cliente Prisma
+        run: pnpm --filter @yield2pay/api exec prisma generate
+
       # Já falha na develop (erros anteriores). Não bloqueia o PR.
       - name: Lint da API
         continue-on-error: true
@@ -78,9 +83,6 @@ jobs:
       - name: tsc da web
         continue-on-error: true
         run: pnpm --filter @yield2pay/web exec tsc --noEmit --pretty false --project tsconfig.json
-
-      - name: Gerar cliente Prisma
-        run: pnpm --filter @yield2pay/api exec prisma generate
 
       - name: Build da API
         run: pnpm --filter @yield2pay/api build
