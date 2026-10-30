@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
-import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE } from '../_lib/householdApi';
+import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -180,6 +180,10 @@ const iconBadgeStyle: CSSProperties = {
 
 type GetToken = () => Promise<string | null>;
 
+function emptyExpenseRows(): ExpenseRows {
+  return Object.assign([] as ExpenseView[], { truncated: false });
+}
+
 export default function PainelGastos() {
   if (!isPrivyConfigured) {
     return <PainelScreen getToken={async () => LOCAL_DEV_TOKEN} />;
@@ -215,7 +219,7 @@ function PainelScreen({
     getIdentityRef.current = getIdentityToken;
   });
   const monthRequest = useRef(0);
-  const expenseCache = useRef<Record<string, ExpenseView[]>>({});
+  const expenseCache = useRef<Record<string, ExpenseRows>>({});
   const summaryCache = useRef<Record<string, HouseholdSummary>>({});
 
   const [phase, setPhase] = useState<'panel' | 'name' | 'onboarding'>('panel');
@@ -364,7 +368,7 @@ function PainelScreen({
     summaryCache.current = {};
   }
 
-  function rememberMonth(next: string, expenseRows: ExpenseView[], summaryView: HouseholdSummary) {
+  function rememberMonth(next: string, expenseRows: ExpenseRows, summaryView: HouseholdSummary) {
     expenseCache.current[next] = expenseRows;
     summaryCache.current[next] = summaryView;
   }
@@ -384,6 +388,7 @@ function PainelScreen({
       setExpenses(cachedExpenses);
       setSummary(cachedSummary);
       setSummaryState('ready');
+      setPageNote(cachedExpenses.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
       return;
     }
     setSummaryState('loading');
@@ -419,7 +424,7 @@ function PainelScreen({
     if (missing.length > 0) {
       const pages = await Promise.all(missing.map((item) => client.getExpenses({ month: item })));
       missing.forEach((item, index) => {
-        expenseCache.current[item] = pages[index] ?? [];
+        expenseCache.current[item] = pages[index] ?? emptyExpenseRows();
       });
       if (pages.some((page) => page.truncated)) setPageNote(EXPENSE_PAGE_CAP_NOTE);
     }
@@ -463,7 +468,7 @@ function PainelScreen({
       client.getHouseholdSummary({ month: selected }),
     ]);
     targets.forEach((item, index) => {
-      expenseCache.current[item] = pages[index] ?? [];
+      expenseCache.current[item] = pages[index] ?? emptyExpenseRows();
     });
     setPageNote(pages.some((page) => page.truncated) ? EXPENSE_PAGE_CAP_NOTE : '');
     summaryCache.current[selected] = summaryView;

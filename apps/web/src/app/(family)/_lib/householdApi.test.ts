@@ -50,7 +50,7 @@ describe('householdApi request', () => {
   });
 
   it('loads a month with one /expenses call', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
       items: [{ id: 'e1', date: '2026-10-02', merchant: 'Netflix', category: 'subscriptions', fixed: true, amountCents: 5590, addedBy: { displayName: 'Ana', initials: 'A' } }],
       total: 1,
     }), { status: 200 }));
