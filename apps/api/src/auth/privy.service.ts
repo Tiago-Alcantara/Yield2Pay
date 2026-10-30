@@ -2,7 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrivyClient } from '@privy-io/server-auth';
 import { APP_CONFIG } from '../config/config.module';
 import type { Env } from '../config/env';
-import { createPrivyTokenCache, type PrivyTokenCache } from './privy-token-cache';
+import {
+  createPrivyTokenCache,
+  type PrivyTokenCache,
+} from './privy-token-cache';
 
 // Mesmo valor enviado pelo painel quando o Privy não está configurado
 // (apps/web/src/app/(family)/_lib/localSession.ts).
@@ -20,11 +23,21 @@ export class PrivyService {
     this.client = new PrivyClient(config.privyAppId, config.privyAppSecret);
     this.tokens = createPrivyTokenCache(this.client);
   }
-  async verify(token: string): Promise<{ privyUserId: string }> {
+  async verify(
+    token: string,
+  ): Promise<{ privyUserId: string; email: string | null }> {
     if (this.localSession && token === LOCAL_DEV_TOKEN) {
-      return { privyUserId: LOCAL_DEV_USER_ID };
+      return { privyUserId: LOCAL_DEV_USER_ID, email: LOCAL_DEV_EMAIL };
     }
-    return this.tokens.verify(token);
+    const claims = await this.tokens.verify(token);
+    return { privyUserId: claims.privyUserId, email: null };
+  }
+
+  async emailFromIdentity(
+    idToken: string,
+    expectedUserId: string,
+  ): Promise<string | null> {
+    return this.tokens.emailFromIdentity(idToken, expectedUserId);
   }
 
   async getEmail(privyUserId: string): Promise<string | null> {

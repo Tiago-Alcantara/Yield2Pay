@@ -21,7 +21,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('missing bearer token');
     const token = header.slice('Bearer '.length);
     if (!token) throw new UnauthorizedException('missing bearer token');
-    let claims: { privyUserId: string };
+    let claims: { privyUserId: string; email: string | null };
     try {
       claims = await this.privy.verify(token);
     } catch (e) {
@@ -30,9 +30,9 @@ export class AuthGuard implements CanActivate {
     }
     try {
       const company = await this.companies.findOrCreate(claims.privyUserId);
-      const stored = await this.companies.storedEmail(company.id);
       req.companyId = company.id;
-      req.email = stored ?? (await this.readEmail(claims.privyUserId));
+      req.email =
+        claims.email ?? (await this.identityEmail(req, claims.privyUserId));
       return true;
     } catch (e) {
       console.error('[AuthGuard] findOrCreate failed:', e);
@@ -40,9 +40,15 @@ export class AuthGuard implements CanActivate {
     }
   }
 
-  private async readEmail(privyUserId: string): Promise<string | null> {
+  private async identityEmail(
+    req: AuthenticatedRequest,
+    privyUserId: string,
+  ): Promise<string | null> {
+    const header = req.headers['privy-id-token'];
+    const idToken = Array.isArray(header) ? header[0] : header;
+    if (!idToken) return null;
     try {
-      return await this.privy.getEmail(privyUserId);
+      return await this.privy.emailFromIdentity(idToken, privyUserId);
     } catch {
       return null;
     }

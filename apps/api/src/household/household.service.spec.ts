@@ -185,6 +185,20 @@ describe('HouseholdService', () => {
     });
   });
 
+  it('recusa o convite do e-mail antigo quando o Privy já trocou o e-mail', async () => {
+    const prisma = fakePrisma();
+    prisma.personName.findUnique.mockResolvedValue({ email: 'antigo@example.com' });
+    prisma.householdInvite.findUnique.mockResolvedValue({
+      id: 'inv1', householdId: 'h1', email: 'antigo@example.com', status: 'pending',
+    });
+    const svc = new HouseholdService(prisma as never);
+    await expect(svc.acceptInvite('co_bia', 'inv1', 'novo@example.com')).rejects.toBeInstanceOf(
+      HouseholdConflictError,
+    );
+    expect(prisma.householdMember.create).not.toHaveBeenCalled();
+    expect(prisma.personName.findUnique).not.toHaveBeenCalled();
+  });
+
   it('rejects accept when the person already belongs to a group', async () => {
     const prisma = fakePrisma();
     prisma.householdInvite.findUnique.mockResolvedValue({
@@ -239,7 +253,7 @@ describe('HouseholdService', () => {
       learnCrypto: true,
     });
     expect(prisma.personName.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      update: { displayName: 'Mari', fullName: 'Marina Souza' },
+      update: { displayName: 'Mari', fullName: 'Marina Souza', email: 'mari@example.com' },
     }));
     const data = prisma.household.update.mock.calls[0][0].data;
     expect(data).toMatchObject({
