@@ -190,3 +190,9 @@ export const THEME_STORAGE_KEY = 'y2p-tema';
 export function isThemeId(value: string | null | undefined): value is string {
   return !!value && THEMES.some((t) => t.id === value);
 }
+
+/**
+ * Script inline que aplica o tema salvo antes do primeiro paint (evita flash).
+ * Roda no layout raiz; fora da vertical de famílias (/b2b, /login) não aplica.
+ */
+export const THEME_BOOT_SCRIPT = `try{var p=location.pathname;if(!/^\\/(b2b|login)(\\/|$)/.test(p)){var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t)document.documentElement.dataset.theme=t}}catch(e){}`;

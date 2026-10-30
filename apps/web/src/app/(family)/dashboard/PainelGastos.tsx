@@ -130,15 +130,15 @@ function StatCard({
   compact?: boolean;
 }) {
   return (
-    <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 24 }}>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>
+    <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 24 }}>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>
         {title}
       </div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: compact ? 26 : 32, fontWeight: 600, color: silver ? '#C0C2C5' : '#F2F3F4', marginTop: 14, letterSpacing: '.01em', lineHeight: 1.15 }}>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: compact ? 26 : 32, fontWeight: 600, color: silver ? 'var(--fx-silver, #C0C2C5)' : 'var(--fx-text-strong, #F2F3F4)', marginTop: 14, letterSpacing: '.01em', lineHeight: 1.15 }}>
         {value}
       </div>
-      <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 8 }}>{label}</div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#C0C2C5', marginTop: 6 }}>{sub}</div>
+      <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 8 }}>{label}</div>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver, #C0C2C5)', marginTop: 6 }}>{sub}</div>
     </div>
   );
 }
@@ -152,8 +152,8 @@ const iconBadgeStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: 'linear-gradient(160deg,#43464b,#1b1d21)',
-  border: '1px solid #4a4d52',
-  color: '#D4D6D9',
+  border: '1px solid var(--fx-border-metal, #4a4d52)',
+  color: 'var(--fx-silver-bright, #D4D6D9)',
 };
 
 type GetToken = () => Promise<string | null>;
@@ -512,7 +512,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           <form className="y2p-card" onSubmit={(event) => void createGroup(event)} style={{ flex: '1 1 auto' }}>
             <div className="y2p-eyebrow">Sua casa</div>
             <h1 className="y2p-h2">Como se chama este grupo?</h1>
-            <p className="y2p-p" style={{ color: '#9A9DA1' }}>
+            <p className="y2p-p" style={{ color: 'var(--fx-text-2, #9A9DA1)' }}>
               O painel de gastos é da casa inteira. Você pode convidar o resto da família depois.
             </p>
             <input
@@ -651,10 +651,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
             flexWrap: isMobile ? 'nowrap' : 'wrap',
             gap: isMobile ? 10 : 16,
             padding: isMobile ? '12px 16px' : '20px 32px',
-            borderBottom: '1px solid #2A2D31',
+            borderBottom: '1px solid var(--fx-border, #2A2D31)',
             position: 'sticky',
             top: 0,
-            background: 'rgba(14,15,17,.82)',
+            background: 'var(--fam-header-bg, rgba(14,15,17,.82))',
             backdropFilter: 'blur(14px)',
             WebkitBackdropFilter: 'blur(14px)',
             zIndex: 10,
@@ -662,17 +662,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         >
           <div className="y2p-header-greet" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4' }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)' }}>
                 {userName ? 'Olá, ' + userName : 'Painel da família'}
               </div>
               {!isMobile && (
-                <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 2 }}>
+                <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>
                   {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
                 </div>
               )}
             </div>
             {isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -691,7 +691,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               />
             </div>
             {!isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -765,7 +765,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         )}
 
         {summaryState === 'ready' && (
-        <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
+        <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26 }}>
           <Charts month={month} chart={chart} summary={viewSummary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
         )}
@@ -773,9 +773,9 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         <div id="s-gastos" data-screen-label="Gastos" style={{ marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
               {summaryState === 'ready' && (
-                <p style={{ fontSize: 14.5, color: '#9A9DA1', margin: '7px 0 0' }}>
+                <p style={{ fontSize: 14.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '7px 0 0' }}>
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
                 </p>
               )}
@@ -801,10 +801,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                 })}
               </div>
             </div>
-          <div className="y2p-list" style={{ marginTop: 20, background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18 }}>
+          <div className="y2p-list" style={{ marginTop: 20, background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18 }}>
             {rows.map((row) => (
               <div key={row.id} className="y2p-tx">
-                <span className="y2p-mono" style={{ fontSize: 13, color: '#9A9DA1' }}>
+                <span className="y2p-mono" style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   {row.date.slice(8, 10) + '/' + row.date.slice(5, 7)}
                 </span>
                 <span style={{ minWidth: 0 }}>
@@ -812,19 +812,19 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                     <span className="y2p-ellipsis">{row.merchant}</span>
                     {row.fixed && <span className="y2p-mono y2p-fixo">fixo</span>}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12, color: '#9A9DA1', marginTop: 2 }}>{row.addedBy.displayName}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>{row.addedBy.displayName}</span>
                 </span>
                 <select
                   aria-label={'Categoria de ' + row.merchant}
                   value={row.category}
                   onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
-                  style={{ background: 'transparent', color: '#C0C2C5', border: '1px solid #2A2D31', borderRadius: 8, padding: '4px 6px', fontFamily: "'Geist Mono', monospace", fontSize: 12 }}
+                  style={{ background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 8, padding: '4px 6px', fontFamily: "'Geist Mono', monospace", fontSize: 12 }}
                 >
                   {(Object.entries(CATEGORY_LABEL) as [ExpenseCategory, string][]).map(([id, label]) => (
                     <option key={id} value={id}>{label}</option>
                   ))}
                 </select>
-                <span className="y2p-mono" style={{ color: '#F2F3F4', textAlign: 'right', minWidth: 92 }}>
+                <span className="y2p-mono" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 92 }}>
                   {brl(reais(row.amountCents))}
                 </span>
                 <button
@@ -839,7 +839,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               </div>
             ))}
             {futureHidden > 0 && (
-              <p style={{ margin: 0, padding: '12px 16px', fontSize: 13, color: '#9A9DA1' }}>
+              <p style={{ margin: 0, padding: '12px 16px', fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                 {futureHidden === 1 ? '1 lançamento com data futura ficou de fora do total de hoje.' : futureHidden + ' lançamentos com data futura ficaram de fora do total de hoje.'}
               </p>
             )}
@@ -854,20 +854,20 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         <div
           id="s-aprender"
           data-screen-label="Aprender"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 20, padding: 26, marginTop: 6 }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>
               {criptoOn ? (profile?.cryptoExperience === 'fund' ? 'Cripto, um passo além' : 'Cripto do zero') : 'Quando fizer sentido'}
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: '#C8CACD', margin: '12px 0 0' }}>
+            <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--fx-text-body, #C8CACD)', margin: '12px 0 0' }}>
               {criptoOn
                 ? 'Aulas curtas para entender como cripto pode, ou não, entrar no plano de liberdade da família.'
                 : 'Preparamos uma trilha curta e sem jargão sobre cripto e liberdade financeira. Fica aqui para quando você quiser.'}
             </p>
             {criptoOn ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#9A9DA1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   <span>{doneN} de {lessons.length} aulas</span>
                   <span>{lessons.length ? Math.round((doneN / lessons.length) * 100) : 0}%</span>
                 </div>
@@ -875,13 +875,13 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
                   <span style={{ width: (lessons.length ? (doneN / lessons.length) * 100 : 0) + '%' }} />
                 </div>
                 {lessons.length > 0 && (
-                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
                     {doneN === lessons.length ? 'Trilha concluída · recomeçar' : doneN === 0 ? 'Começar aula 1' : 'Continuar · aula ' + (nextLesson + 1)}
                   </button>
                 )}
               </>
             ) : (
-              <button type="button" onClick={() => void showInterest()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+              <button type="button" onClick={() => void showInterest()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
                 Tenho interesse
               </button>
             )}
@@ -889,12 +889,12 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           {criptoOn && (
             <div style={{ flex: '1 1 280px', minWidth: 240 }}>
               {lessons.map((lesson, index) => (
-                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid #2A2D31', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
+                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid var(--fx-border, #2A2D31)', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     {lessonDone(lesson.id) ? <span className="y2p-check is-done">✓</span> : <span className="y2p-check y2p-mono">{index + 1}</span>}
-                    <span style={{ fontSize: 14, color: '#F2F3F4' }}>{presented[index]?.title ?? lesson.title}</span>
+                    <span style={{ fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{presented[index]?.title ?? lesson.title}</span>
                   </span>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: '#9A9DA1' }}>{lesson.durationMinutes} min</span>
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>{lesson.durationMinutes} min</span>
                 </button>
               ))}
             </div>
@@ -902,14 +902,14 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid #2A2D31', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>Convidar</span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
             </label>
             <Button variant="secondary" size="sm" type="submit">Enviar convite</Button>
             {inviteError && <span style={{ flexBasis: '100%', fontSize: 14, color: '#E6E8EA' }}>{inviteError}</span>}
-            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: '#C0C2C5' }}>{inviteOk}</span>}
+            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-silver, #C0C2C5)' }}>{inviteOk}</span>}
           </form>
         )}
         </div>
@@ -988,10 +988,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
 const fieldStyle: CSSProperties = {
   width: '100%',
   background: '#0E0F11',
-  border: '1px solid #2A2D31',
+  border: '1px solid var(--fx-border, #2A2D31)',
   borderRadius: 12,
   padding: '12px 14px',
-  color: '#F2F3F4',
+  color: 'var(--fx-text-strong, #F2F3F4)',
   fontFamily: 'inherit',
   fontSize: 14,
   outline: 'none',
