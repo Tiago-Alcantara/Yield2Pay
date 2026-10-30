@@ -174,8 +174,8 @@ describe('PainelGastos', () => {
     const alert = await screen.findByRole('alert', {}, { timeout: 12_000 });
     const elapsed = performance.now() - started;
     expect(alert.textContent).toMatch(/Não foi possível carregar/);
-    expect(elapsed).toBeGreaterThan(8_000);
-    expect(elapsed).toBeLessThan(9_800);
+    expect(elapsed).toBeGreaterThan(7_000);
+    expect(elapsed).toBeLessThan(9_000);
   }, 15_000);
 
   it('reloads another month after a write that can change its fixed flag', async () => {

@@ -19,10 +19,18 @@ import type {
 
 type GetToken = () => Promise<string | null>;
 
-/** Pedidos avulsos estouram neste prazo. A carga do painel usa um prazo só, de 9 s. */
+/** Pedidos avulsos estouram neste prazo. A carga do painel usa o mesmo prazo; o erro cabe em prazo + 1 s. */
 export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
 
-export const DASHBOARD_LOAD_TIMEOUT_MS = 9_000;
+export const DASHBOARD_LOAD_TIMEOUT_MS = 8_000;
+
+/** 20 páginas de 5.000. Acima disso a tela avisa em vez de cortar calada. */
+export const EXPENSE_PAGE_CAP = 20;
+
+export const EXPENSE_PAGE_CAP_NOTE =
+  'Mostramos só as primeiras 100 mil despesas. O restante ficou de fora.';
+
+export type ExpenseRows = ExpenseView[] & { truncated: boolean };
 
 /** Um mês inteiro volta numa página só. A API aceita este teto. */
 export const MONTH_EXPENSE_LIMIT = '5000';
@@ -162,7 +170,8 @@ export function createHouseholdApi(
       let cursor: string | undefined;
       let total = Number.POSITIVE_INFINITY;
       let guard = 0;
-      while (items.length < total && guard < 20) {
+      let truncated = false;
+      while (items.length < total && guard < EXPENSE_PAGE_CAP) {
         guard += 1;
         const page = await request<ExpensePage>(
           `/expenses${queryString({
@@ -183,7 +192,10 @@ export function createHouseholdApi(
         if (!next || next === cursor) break;
         cursor = next;
       }
-      return items;
+      if (items.length < total) truncated = true;
+      const rows = items as ExpenseRows;
+      rows.truncated = truncated;
+      return rows;
     },
     getExpenseMonths: async () => {
       const rows = await request<Array<string | MonthTotal>>('/expenses/months');

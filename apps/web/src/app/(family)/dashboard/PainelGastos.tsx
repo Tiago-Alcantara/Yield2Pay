@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
-import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS } from '../_lib/householdApi';
+import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE } from '../_lib/householdApi';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -190,12 +190,10 @@ export default function PainelGastos() {
 function PrivyPainel() {
   const { getAccessToken, logout } = usePrivy();
   const { identityToken } = useIdentityToken();
-  const identityRef = useRef(identityToken);
-  identityRef.current = identityToken;
   return (
     <PainelScreen
       getToken={getAccessToken}
-      getIdentityToken={async () => identityRef.current}
+      getIdentityToken={async () => identityToken ?? null}
       onLogout={() => void logout()}
     />
   );
@@ -211,9 +209,11 @@ function PainelScreen({
   onLogout?: () => void;
 }) {
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
   const getIdentityRef = useRef(getIdentityToken);
-  getIdentityRef.current = getIdentityToken;
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    getIdentityRef.current = getIdentityToken;
+  });
   const monthRequest = useRef(0);
   const expenseCache = useRef<Record<string, ExpenseView[]>>({});
   const summaryCache = useRef<Record<string, HouseholdSummary>>({});
@@ -246,6 +246,7 @@ function PainelScreen({
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [rangeNote, setRangeNote] = useState('');
+  const [pageNote, setPageNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
 
@@ -324,6 +325,7 @@ function PainelScreen({
         const track = lessonTrack(profileView.cryptoExperience);
         expenseCache.current[selected] = expenseRows;
         summaryCache.current[selected] = summaryView;
+        setPageNote(expenseRows.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
         setAccount({
           ...accountView,
           household: {
@@ -393,6 +395,7 @@ function PainelScreen({
       .then(([expenseRows, summaryView]) => {
         if (monthRequest.current !== request) return;
         rememberMonth(next, expenseRows, summaryView);
+        setPageNote(expenseRows.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
         setExpenses(expenseRows);
         setSummary(summaryView);
         setSummaryState('ready');
@@ -418,6 +421,7 @@ function PainelScreen({
       missing.forEach((item, index) => {
         expenseCache.current[item] = pages[index] ?? [];
       });
+      if (pages.some((page) => page.truncated)) setPageNote(EXPENSE_PAGE_CAP_NOTE);
     }
     return targets.flatMap((item) => expenseCache.current[item] ?? []);
   }
@@ -461,6 +465,7 @@ function PainelScreen({
     targets.forEach((item, index) => {
       expenseCache.current[item] = pages[index] ?? [];
     });
+    setPageNote(pages.some((page) => page.truncated) ? EXPENSE_PAGE_CAP_NOTE : '');
     summaryCache.current[selected] = summaryView;
     const sorted = sortMonths(monthList.map((row) => row.month));
     setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
@@ -1013,6 +1018,7 @@ function PainelScreen({
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
               {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: '#E6E8EA' }}>{rangeNote}</p> : null}
+              {pageNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: '#E6E8EA' }}>{pageNote}</p> : null}
               {summaryState === 'ready' && (
                 <p style={{ fontSize: 14.5, color: '#9A9DA1', margin: '7px 0 0' }}>
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
@@ -1173,7 +1179,7 @@ function PainelScreen({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         getToken={getToken}
-        getIdentityToken={getIdentityRef.current}
+        getIdentityToken={getIdentityToken}
         onLogout={onLogout}
         onAccount={(next) => setAccount((prev) => (
           prev?.household && next.household

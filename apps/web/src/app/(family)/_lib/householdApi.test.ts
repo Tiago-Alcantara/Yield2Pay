@@ -50,7 +50,7 @@ describe('householdApi request', () => {
   });
 
   it('loads a month with one /expenses call', async () => {
-    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       items: [{ id: 'e1', date: '2026-10-02', merchant: 'Netflix', category: 'subscriptions', fixed: true, amountCents: 5590, addedBy: { displayName: 'Ana', initials: 'A' } }],
       total: 1,
     }), { status: 200 }));
@@ -58,6 +58,7 @@ describe('householdApi request', () => {
     const api = createHouseholdApi(async () => 'tok', { timeoutMs: 1000 });
     const rows = await api.getExpenses({ month: '2026-10' });
     expect(rows).toHaveLength(1);
+    expect(rows.truncated).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const url = String(fetchMock.mock.calls[0][0]);
     expect(url).toContain('/expenses?');
@@ -89,5 +90,32 @@ describe('householdApi request', () => {
     expect(rows).toHaveLength(5001);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('cursor=2026-10-02%7Ce4999');
+    expect(rows.truncated).toBe(false);
+  });
+
+  it('avisa quando passa de 20 páginas em vez de cortar calado', async () => {
+    const row = {
+      id: 'e1',
+      date: '2026-10-02',
+      merchant: 'Mercado',
+      category: 'groceries',
+      fixed: false,
+      amountCents: 100,
+      addedBy: { displayName: 'Ana', initials: 'A' },
+    };
+    let pages = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      pages += 1;
+      return new Response(JSON.stringify({
+        items: [{ ...row, id: `e${pages}` }],
+        total: 100_001,
+        nextCursor: `2026-10-02|e${pages}`,
+      }), { status: 200 });
+    }));
+    const api = createHouseholdApi(async () => 'tok', { timeoutMs: 1000 });
+    const rows = await api.getExpenses({ month: '2026-10' });
+    expect(pages).toBe(20);
+    expect(rows).toHaveLength(20);
+    expect(rows.truncated).toBe(true);
   });
 });
