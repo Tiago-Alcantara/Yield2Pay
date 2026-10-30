@@ -26,6 +26,15 @@ describe('parseExpensePage', () => {
     );
   });
 
+  it('recusa cursor com data impossível', () => {
+    expect(() => parseExpensePage({ cursor: '9999-99-99|a' })).toThrow(
+      ExpenseInvalidError,
+    );
+    expect(() => parseExpensePage({ cursor: '2026-02-31|e1' })).toThrow(
+      'cursor is invalid',
+    );
+  });
+
   it('recusa offset acima do teto', () => {
     expect(() => parseExpensePage({ offset: '1000001' })).toThrow(
       'offset is invalid',

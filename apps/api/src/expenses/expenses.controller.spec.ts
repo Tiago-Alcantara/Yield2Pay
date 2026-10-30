@@ -23,4 +23,22 @@ describe('ExpensesController page query', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     },
   );
+
+  it.each(['9999-99-99|a', '2026-02-31|e1'])(
+    'responde 400 para cursor %s',
+    async (cursor) => {
+      await expect(
+        controller.list(
+          req,
+          '2026-10',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          cursor,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    },
+  );
 });

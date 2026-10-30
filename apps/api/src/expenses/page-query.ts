@@ -9,6 +9,22 @@ import { ExpenseInvalidError } from './expense.errors';
 
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const CURSOR = /^(\d{4}-\d{2}-\d{2})\|([^|]+)$/;
+const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Dia de calendário de verdade. 9999-99-99 passa no formato e quebra o banco. */
+export function isCalendarDay(value: string): boolean {
+  const match = DAY.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
 
 export const MAX_EXPENSE_LIMIT = 5000;
 export const MAX_EXPENSE_OFFSET = 1_000_000;
@@ -35,10 +51,12 @@ export function parseExpensePage(input: {
   if (input.cursor == null || input.cursor === '') {
     return { limit, offset };
   }
-  if (typeof input.cursor !== 'string' || !CURSOR.test(input.cursor)) {
+  const cursorMatch =
+    typeof input.cursor === 'string' ? CURSOR.exec(input.cursor) : null;
+  if (!cursorMatch || !isCalendarDay(cursorMatch[1] ?? '')) {
     throw new ExpenseInvalidError('cursor is invalid');
   }
-  return { limit, offset, cursor: input.cursor };
+  return { limit, offset, cursor: cursorMatch[0] };
 }
 
 function readDecimal(value: unknown, label: string): number | null {
