@@ -62,3 +62,36 @@ Fly auto-detect the Dockerfile; point the build context at the repo root.
   DeFindex API key + vault address, and the deferred integration points pinned
   (see the spec §10.1). Until then, money figures on the dashboard are the
   documented placeholders.
+
+---
+
+## 4. Painel de gastos — ordem e rollback
+
+Subida, nesta ordem:
+
+1. Migrations (`prisma migrate deploy` na API). O índice de
+   `shared_merchant_key` é criado com `CREATE INDEX CONCURRENTLY` na migration
+   `20261030150000_expense_shared_key_index_concurrent`.
+2. API.
+3. Conferir `GET /health` (responde `{ "status": "ok" }`, sem consultar o banco)
+   e um `GET /expenses?month=YYYY-MM`.
+4. Web.
+5. Backfill das chaves, só num Postgres local cujo nome contém `test`:
+   `pnpm backfill:expense-keys` simula; `pnpm backfill:expense-keys -- --apply`
+   grava em lotes. O comando recusa host remoto, `?host=`, `?hostaddr=` e socket.
+
+Rollback, na ordem inversa. Os `down.sql` ficam ao lado de cada `migration.sql`
+e são manuais (o Prisma não os executa):
+
+1. Parar o backfill se ainda estiver rodando.
+2. Voltar o web.
+3. Voltar a API.
+4. No banco, fora de uma transação quando o arquivo pedir:
+   `20261030150000_expense_shared_key_index_concurrent/down.sql`,
+   depois `20261030143000_expense_fixed_manual/down.sql`,
+   depois `20261030120000_expense_precomputed_keys/down.sql`.
+
+Quem já aplicou `20261030120000` com o `CREATE INDEX` antigo precisa atualizar o
+checksum dessa migration no `_prisma_migrations` antes do próximo `migrate deploy`.
+O índice em si passa a ser responsabilidade da migration concorrente
+(`IF NOT EXISTS` não recria um índice que já existe).
