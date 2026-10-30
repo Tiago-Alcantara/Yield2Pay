@@ -1,4 +1,4 @@
-SET LOCAL lock_timeout = '4s';
+SET lock_timeout = '4s';
 
 ALTER TABLE "expenses" ADD COLUMN "fixed_manual" BOOLEAN NOT NULL DEFAULT false;
 
