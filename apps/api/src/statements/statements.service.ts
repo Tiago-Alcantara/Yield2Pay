@@ -4,7 +4,8 @@ import { Prisma } from '@prisma/client';
 import { classifyMerchant } from '../expenses/classify';
 import {
   GROUP_SELECT,
-  expenseGroupWhere,
+  loadExpenseGroup,
+  lockExpenseGroups,
   planExpenseWrite,
   writeExpensePlan,
 } from '../expenses/fixed-flags';
@@ -104,13 +105,9 @@ export class StatementsService {
           throw new StatementDuplicateError();
         }
 
-        const where = expenseGroupWhere(
-          householdId,
-          fresh.map((row) => row.merchant),
-        );
-        const existing = where
-          ? await tx.expense.findMany({ where, select: GROUP_SELECT })
-          : [];
+        const merchants = fresh.map((row) => row.merchant);
+        await lockExpenseGroups(tx, householdId, merchants);
+        const existing = await loadExpenseGroup(tx, householdId, merchants);
         const plan = planExpenseWrite(
           existing,
           fresh.map((row) => ({
@@ -135,7 +132,7 @@ export class StatementsService {
             ...(fresh[index]?.fitId ? { fitId: fresh[index].fitId } : {}),
           })),
         });
-        await writeExpensePlan(tx, plan);
+        await writeExpensePlan(tx, householdId, plan);
         return { statementId: statement.id, imported: fresh.length, skipped };
       });
     } catch (error) {
@@ -163,16 +160,17 @@ export class StatementsService {
         where: { statementId, householdId },
         select: GROUP_SELECT,
       });
+      const merchants = [...new Set(doomed.map((row) => row.merchant))];
+      await lockExpenseGroups(tx, householdId, merchants);
       await tx.expense.deleteMany({ where: { statementId, householdId } });
       await tx.statement.delete({ where: { id: statementId } });
-      const merchants = [...new Set(doomed.map((row) => row.merchant))];
-      const where = expenseGroupWhere(householdId, merchants);
-      if (!where) return;
-      const remaining = await tx.expense.findMany({
-        where,
-        select: GROUP_SELECT,
-      });
-      await writeExpensePlan(tx, planExpenseWrite(remaining, [], true));
+      if (merchants.length === 0) return;
+      const remaining = await loadExpenseGroup(tx, householdId, merchants);
+      await writeExpensePlan(
+        tx,
+        householdId,
+        planExpenseWrite(remaining, [], true),
+      );
     });
   }
 

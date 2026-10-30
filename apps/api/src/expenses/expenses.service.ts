@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import type {
   ExpenseCategory,
   ExpensePage,
@@ -10,15 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { saoPauloToday } from '../summary/summary.math';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import {
-  GROUP_SELECT,
-  expenseGroupWhere,
   fixedForRead,
+  loadExpenseGroup,
   loadLegacyFixedIds,
+  lockExpenseGroups,
   planExpenseWrite,
   writeExpensePlan,
-  type ExpenseSnapshot,
 } from './fixed-flags';
-import type { ExpensePageQuery } from './page-query';
+import { isCalendarDay, type ExpensePageQuery } from './page-query';
 
 type PatchExpense = {
   category?: ExpenseCategory;
@@ -139,7 +137,8 @@ export class ExpensesService {
     const category = body.category;
     const spentOn = body.spentOn;
     const created = await this.prisma.$transaction(async (tx) => {
-      const existing = await this.loadGroup(tx, householdId, [merchant]);
+      await lockExpenseGroups(tx, householdId, [merchant]);
+      const existing = await loadExpenseGroup(tx, householdId, [merchant]);
       const plan = planExpenseWrite(existing, [
         { merchant, spentOn, amountCents, category },
       ]);
@@ -158,7 +157,7 @@ export class ExpensesService {
           amountCents,
         },
       });
-      await writeExpensePlan(tx, plan);
+      await writeExpensePlan(tx, householdId, plan);
       return row;
     });
     const names = await this.loadNames([created.addedByCompanyId]);
@@ -172,20 +171,18 @@ export class ExpensesService {
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      await lockExpenseGroups(tx, householdId, [existing.merchant]);
       const nextCategory = body.category ?? existing.category;
-      const group = await this.loadGroup(tx, householdId, [existing.merchant]);
+      const group = await loadExpenseGroup(tx, householdId, [
+        existing.merchant,
+      ]);
       const snapshots = group.map((row) =>
         row.id === existing.id
           ? {
               ...row,
               category: nextCategory,
               fixed: body.fixed ?? row.fixed,
-              fixedManual:
-                body.fixed === true
-                  ? true
-                  : body.fixed === false
-                    ? false
-                    : row.fixedManual,
+              fixedManual: body.fixed === undefined ? row.fixedManual : true,
             }
           : row,
       );
@@ -204,10 +201,10 @@ export class ExpensesService {
       if (body.category !== undefined) data.category = body.category;
       if (body.fixed !== undefined) {
         data.fixed = body.fixed;
-        data.fixedManual = body.fixed === true;
+        data.fixedManual = true;
       }
       const row = await tx.expense.update({ where: { id: existing.id }, data });
-      await writeExpensePlan(tx, plan);
+      await writeExpensePlan(tx, householdId, plan);
       return row;
     });
     const names = await this.loadNames([updated.addedByCompanyId]);
@@ -221,8 +218,9 @@ export class ExpensesService {
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      await lockExpenseGroups(tx, householdId, [existing.merchant]);
       const group = existing.merchant
-        ? await this.loadGroup(tx, householdId, [existing.merchant])
+        ? await loadExpenseGroup(tx, householdId, [existing.merchant])
         : [];
       await tx.expense.delete({ where: { id: existing.id } });
       const plan = planExpenseWrite(
@@ -230,22 +228,8 @@ export class ExpensesService {
         [],
         true,
       );
-      await writeExpensePlan(tx, plan);
+      await writeExpensePlan(tx, householdId, plan);
     });
-  }
-
-  private async loadGroup(
-    tx: Prisma.TransactionClient,
-    householdId: string,
-    merchants: string[],
-  ): Promise<ExpenseSnapshot[]> {
-    const where = expenseGroupWhere(householdId, merchants);
-    if (!where) return [];
-    const rows = await tx.expense.findMany({
-      where,
-      select: GROUP_SELECT,
-    });
-    return rows ?? [];
   }
 
   private async loadNames(companyIds: string[]) {
@@ -283,7 +267,9 @@ function requireMonth(month: string) {
 
 function cursorClause(cursor: string) {
   const match = /^(\d{4}-\d{2}-\d{2})\|([^|]+)$/.exec(cursor);
-  if (!match) throw new ExpenseInvalidError('cursor is invalid');
+  if (!match || !isCalendarDay(match[1] ?? '')) {
+    throw new ExpenseInvalidError('cursor is invalid');
+  }
   const spentOn = new Date(`${match[1]}T00:00:00.000Z`);
   const id = match[2] ?? '';
   return {

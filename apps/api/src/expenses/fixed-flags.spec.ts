@@ -5,7 +5,11 @@
  * Intuito: A flag fixa e a chave compartilhada saem na escrita, só para o grupo afetado.
  * Sequência: marks a second month of rent and leaves an unrelated grocery untouched.
  */
-import { planExpenseWrite } from './fixed-flags';
+import {
+  expenseGroupWhere,
+  planExpenseWrite,
+  rowsInMerchantGroup,
+} from './fixed-flags';
 
 describe('planExpenseWrite', () => {
   it('marks a second month of rent and leaves an unrelated grocery untouched', () => {
@@ -82,5 +86,103 @@ describe('planExpenseWrite', () => {
     expect(plan.unmarkFixed).toEqual(['rent']);
     expect(plan.unmarkFixed).not.toContain('hand');
     expect(plan.markFixed).not.toContain('hand');
+  });
+
+  it('não remarra um fixo que a pessoa desmarcou à mão', () => {
+    const plan = planExpenseWrite(
+      [
+        {
+          id: 'hand',
+          merchant: 'Netflix',
+          spentOn: '2026-09-02',
+          amountCents: 5590,
+          category: 'subscriptions',
+          fixed: false,
+          fixedManual: true,
+          merchantKey: 'netflix',
+          sharedMerchantKey: 'netflix',
+        },
+      ],
+      [
+        {
+          merchant: 'Netflix',
+          spentOn: '2026-10-02',
+          amountCents: 5590,
+          category: 'subscriptions',
+        },
+      ],
+    );
+    expect(plan.inserts[0]?.fixed).toBe(true);
+    expect(plan.markFixed).not.toContain('hand');
+  });
+
+  it('grava a chave da linha antiga e marca a Netflix nova como fixa', () => {
+    const plan = planExpenseWrite(
+      [
+        {
+          id: 'old',
+          merchant: 'Netflix',
+          spentOn: '2026-09-02',
+          amountCents: 5590,
+          category: 'subscriptions',
+          fixed: false,
+          merchantKey: '',
+          sharedMerchantKey: '',
+        },
+      ],
+      [
+        {
+          merchant: 'Netflix',
+          spentOn: '2026-10-02',
+          amountCents: 5590,
+          category: 'subscriptions',
+        },
+      ],
+    );
+    expect(plan.inserts[0]).toMatchObject({
+      merchantKey: 'netflix',
+      sharedMerchantKey: 'netflix',
+      fixed: true,
+    });
+    expect(plan.markFixed).toEqual(['old']);
+    expect(plan.keyUpdates).toEqual([
+      { id: 'old', merchantKey: 'netflix', sharedMerchantKey: 'netflix' },
+    ]);
+  });
+
+  it('junta Netflix nova com o prefixo antigo netflix premium', () => {
+    const old = {
+      id: 'old',
+      merchant: 'Netflix Premium',
+      spentOn: '2026-09-02',
+      amountCents: 5590,
+      category: 'subscriptions',
+      fixed: false,
+      merchantKey: 'netflix premium',
+      sharedMerchantKey: 'netflix premium',
+    };
+    expect(rowsInMerchantGroup([old], ['Netflix'])).toEqual([old]);
+    const plan = planExpenseWrite(
+      [old],
+      [
+        {
+          merchant: 'Netflix',
+          spentOn: '2026-10-02',
+          amountCents: 5590,
+          category: 'subscriptions',
+        },
+      ],
+    );
+    expect(plan.inserts[0]?.fixed).toBe(true);
+    expect(plan.inserts[0]?.sharedMerchantKey).toBe('netflix');
+    expect(plan.markFixed).toEqual(['old']);
+  });
+
+  it('o filtro do grupo inclui chave vazia e prefixo', () => {
+    const where = expenseGroupWhere('h1', ['Netflix']);
+    const encoded = JSON.stringify(where);
+    expect(encoded).toContain('"merchantKey":""');
+    expect(encoded).toContain('netflix');
+    expect(encoded).toContain('netflix ');
   });
 });

@@ -25,7 +25,10 @@ function fakePrisma() {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
-    $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma)),
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) =>
+      work(prisma),
+    ),
   };
   return prisma;
 }
@@ -59,28 +62,43 @@ describe('StatementsService', () => {
       },
     });
     expect(prisma.expense.createMany).toHaveBeenCalledWith({
-      data: [{
-        householdId: 'h1',
-        addedByCompanyId: 'co_1',
-        statementId: 'st1',
-        spentOn: new Date('2026-10-12'),
-        merchant: 'Supermercado Dia',
-        category: 'groceries',
-        fixed: false,
-        amountCents: 1000,
-        merchantKey: 'supermercado dia',
-        sharedMerchantKey: 'supermercado dia',
-      }],
+      data: [
+        {
+          householdId: 'h1',
+          addedByCompanyId: 'co_1',
+          statementId: 'st1',
+          spentOn: new Date('2026-10-12'),
+          merchant: 'Supermercado Dia',
+          category: 'groceries',
+          fixed: false,
+          amountCents: 1000,
+          merchantKey: 'supermercado dia',
+          sharedMerchantKey: 'supermercado dia',
+        },
+      ],
     });
     expect(result).toEqual({ statementId: 'st1', imported: 1, skipped: 0 });
   });
 
   it('marks a merchant fixed when it repeats across months', async () => {
-    const repeating = 'data,descricao,valor\n01/09/2026,Netflix,55.90\n01/10/2026,Netflix,55.90\n';
+    const repeating =
+      'data,descricao,valor\n01/09/2026,Netflix,55.90\n01/10/2026,Netflix,55.90\n';
     const prisma = fakePrisma();
     prisma.expense.findMany.mockResolvedValue([
-      { id: 'a', merchant: 'NETFLIX.COM', spentOn: new Date('2026-09-01T00:00:00.000Z'), amountCents: 5590, category: 'subscriptions' },
-      { id: 'b', merchant: 'Netflix', spentOn: new Date('2026-10-01T00:00:00.000Z'), amountCents: 5590, category: 'subscriptions' },
+      {
+        id: 'a',
+        merchant: 'NETFLIX.COM',
+        spentOn: new Date('2026-09-01T00:00:00.000Z'),
+        amountCents: 5590,
+        category: 'subscriptions',
+      },
+      {
+        id: 'b',
+        merchant: 'Netflix',
+        spentOn: new Date('2026-10-01T00:00:00.000Z'),
+        amountCents: 5590,
+        category: 'subscriptions',
+      },
     ]);
     const household = {
       requireMembership: vi.fn().mockResolvedValue({
@@ -93,35 +111,44 @@ describe('StatementsService', () => {
     await svc.importFile('co_1', 'netflix.csv', Buffer.from(repeating));
 
     expect(prisma.expense.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['a', 'b'] } },
+      where: { id: { in: ['a', 'b'] }, householdId: 'h1', fixedManual: false },
       data: { fixed: true },
     });
   });
 
   it('skips an OFX row whose FITID was already imported', async () => {
-    const ofx = '<STMTTRN><DTPOSTED>20261012</DTPOSTED><TRNAMT>-10.00</TRNAMT><NAME>Uber</NAME><FITID>fit-1</FITID></STMTTRN>';
+    const ofx =
+      '<STMTTRN><DTPOSTED>20261012</DTPOSTED><TRNAMT>-10.00</TRNAMT><NAME>Uber</NAME><FITID>fit-1</FITID></STMTTRN>';
     const prisma = fakePrisma();
     prisma.expense.findMany.mockResolvedValue([{ fitId: 'fit-1' }]);
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    await expect(svc.importFile('co_1', 'banco.ofx', Buffer.from(ofx))).rejects.toThrow(
-      'statement already imported',
-    );
+    await expect(
+      svc.importFile('co_1', 'banco.ofx', Buffer.from(ofx)),
+    ).rejects.toThrow('statement already imported');
     expect(prisma.expense.createMany).not.toHaveBeenCalled();
   });
 
   it('rejects an OFX file with no usable transaction', async () => {
     const prisma = fakePrisma();
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
     await expect(
-      svc.importFile('co_1', 'quebrado.ofx', Buffer.from('<STMTTRN><FOO>x</FOO></STMTTRN>')),
+      svc.importFile(
+        'co_1',
+        'quebrado.ofx',
+        Buffer.from('<STMTTRN><FOO>x</FOO></STMTTRN>'),
+      ),
     ).rejects.toThrow('Invalid statement file');
     expect(prisma.statement.create).not.toHaveBeenCalled();
   });
@@ -149,7 +176,9 @@ describe('StatementsService', () => {
   it('rejects a file larger than 5 MB', async () => {
     const prisma = fakePrisma();
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
@@ -163,45 +192,61 @@ describe('StatementsService', () => {
     const prisma = fakePrisma();
     prisma.statement.findFirst.mockResolvedValue({ id: 'st-old' });
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    await expect(svc.importFile('co_1', 'out.csv', Buffer.from(csv))).rejects.toThrow(
-      'statement already imported',
-    );
+    await expect(
+      svc.importFile('co_1', 'out.csv', Buffer.from(csv)),
+    ).rejects.toThrow('statement already imported');
     expect(prisma.statement.create).not.toHaveBeenCalled();
   });
 
   it('skips income when the file also has debits', async () => {
-    const mixed = 'data,descricao,valor\n01/10/2026,Salario,3500.00\n12/10/2026,Padaria,-18.90\n';
+    const mixed =
+      'data,descricao,valor\n01/10/2026,Salario,3500.00\n12/10/2026,Padaria,-18.90\n';
     const prisma = fakePrisma();
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    const result = await svc.importFile('co_1', 'nubank.csv', Buffer.from(mixed));
+    const result = await svc.importFile(
+      'co_1',
+      'nubank.csv',
+      Buffer.from(mixed),
+    );
 
     expect(result).toEqual({ statementId: 'st1', imported: 1, skipped: 1 });
     expect(prisma.expense.createMany).toHaveBeenCalledTimes(1);
     expect(prisma.expense.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: [expect.objectContaining({
-          merchant: 'Padaria',
-          category: 'groceries',
-          amountCents: 1890,
-          fixed: false,
-        })],
+        data: [
+          expect.objectContaining({
+            merchant: 'Padaria',
+            category: 'groceries',
+            amountCents: 1890,
+            fixed: false,
+          }),
+        ],
       }),
     );
   });
 
   it('deletes a statement and the expenses that came from it', async () => {
     const prisma = fakePrisma();
-    prisma.statement.findFirst.mockResolvedValue({ id: 'st1', householdId: 'h1' });
+    prisma.statement.findFirst.mockResolvedValue({
+      id: 'st1',
+      householdId: 'h1',
+    });
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
@@ -210,18 +255,24 @@ describe('StatementsService', () => {
     expect(prisma.expense.deleteMany).toHaveBeenCalledWith({
       where: { statementId: 'st1', householdId: 'h1' },
     });
-    expect(prisma.statement.delete).toHaveBeenCalledWith({ where: { id: 'st1' } });
+    expect(prisma.statement.delete).toHaveBeenCalledWith({
+      where: { id: 'st1' },
+    });
   });
 
   it('does not delete a statement from another household', async () => {
     const prisma = fakePrisma();
     prisma.statement.findFirst.mockResolvedValue(null);
     const household = {
-      requireMembership: vi.fn().mockResolvedValue({ householdId: 'h1', role: 'owner' }),
+      requireMembership: vi
+        .fn()
+        .mockResolvedValue({ householdId: 'h1', role: 'owner' }),
     };
     const svc = new StatementsService(prisma as never, household as never);
 
-    await expect(svc.remove('co_1', 'st-other')).rejects.toThrow('statement not found');
+    await expect(svc.remove('co_1', 'st-other')).rejects.toThrow(
+      'statement not found',
+    );
     expect(prisma.statement.delete).not.toHaveBeenCalled();
   });
 });

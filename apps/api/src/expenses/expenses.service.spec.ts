@@ -213,8 +213,16 @@ describe('ExpensesService', () => {
       }),
     });
     expect(prisma.expense.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['rent'] } },
+      where: {
+        id: { in: ['rent'] },
+        householdId: 'h1',
+        fixedManual: false,
+      },
       data: { fixed: true },
+    });
+    expect(prisma.expense.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['rent'] }, householdId: 'h1' },
+      data: { merchantKey: 'aluguel', sharedMerchantKey: 'aluguel' },
     });
   });
 
@@ -342,7 +350,7 @@ describe('ExpensesService', () => {
       where: { id: 'rent2' },
     });
     expect(prisma.expense.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['rent'] }, fixedManual: false },
+      where: { id: { in: ['rent'] }, householdId: 'h1', fixedManual: false },
       data: { fixed: false },
     });
   });
