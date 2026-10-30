@@ -3,7 +3,7 @@
 /**
  * Configurações — /configuracoes
  *
- * Sete seções numa nav lateral que vira faixa de chips no mobile. A seção ativa
+ * Oito seções numa nav lateral que vira faixa de chips no mobile. A seção ativa
  * fica no hash da URL (#perfil, #assinaturas…), como no design, para o menu do
  * painel poder linkar direto para uma delas.
  */
@@ -14,6 +14,7 @@ import { C } from '../_lib/familyTheme';
 import { useFamily } from '../_lib/FamilyProvider';
 import { BackHeader } from '../_components/FamilyUI';
 import { ProfileSection } from './ProfileSection';
+import { AppearanceSection } from './AppearanceSection';
 import { SecuritySection } from './SecuritySection';
 import { WalletSection } from './WalletSection';
 import { PixSection } from './PixSection';
@@ -24,6 +25,7 @@ import { isFinancialProductEnabled } from '@/lib/financial-product';
 
 const SECTIONS = [
   'perfil',
+  'aparencia',
   'seguranca',
   'carteira',
   'pix',
@@ -115,6 +117,7 @@ export default function FamilySettingsPage() {
 
           <div style={{ minWidth: 0 }}>
             {section === 'perfil' && <ProfileSection />}
+            {section === 'aparencia' && <AppearanceSection />}
             {section === 'seguranca' && <SecuritySection />}
             {section === 'carteira' && <WalletSection />}
             {section === 'pix' && <PixSection />}
