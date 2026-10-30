@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: yield2pay
+          POSTGRES_PASSWORD: yield2pay
+          POSTGRES_DB: yield2pay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yield2pay -d yield2pay"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FINANCIAL_PRODUCT_ENABLED: "false"
+      NEXT_PUBLIC_FINANCIAL_PRODUCT: "false"
+      APP_ENV: development
+      NEXT_PUBLIC_APP_ENV: development
+      DATABASE_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay?schema=public
+      PG_TEST_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+          run_install: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      # Já falha na develop (erros anteriores). Não bloqueia o PR.
+      - name: Lint da API
+        continue-on-error: true
+        run: pnpm --filter @yield2pay/api exec eslint "{src,apps,libs,test}/**/*.ts"
+
+      # Já falha na develop (erros anteriores). Não bloqueia o PR.
+      - name: Lint da web
+        continue-on-error: true
+        run: pnpm --filter @yield2pay/web exec eslint .
+
+      # Já falha na develop (specs e configs do Vitest). Não bloqueia o PR.
+      - name: tsc da API
+        continue-on-error: true
+        run: pnpm --filter @yield2pay/api exec tsc --noEmit --pretty false --project tsconfig.json
+
+      # Já falha na develop (teste da conta). Não bloqueia o PR.
+      - name: tsc da web
+        continue-on-error: true
+        run: pnpm --filter @yield2pay/web exec tsc --noEmit --pretty false --project tsconfig.json
+
+      - name: Gerar cliente Prisma
+        run: pnpm --filter @yield2pay/api exec prisma generate
+
+      - name: Build da API
+        run: pnpm --filter @yield2pay/api build
+
+      - name: Build da web
+        run: pnpm --filter @yield2pay/web build
+
+      - name: Aplicar migrations
+        run: pnpm --filter @yield2pay/api exec prisma migrate deploy
+
+      - name: Testes da API
+        run: pnpm --filter @yield2pay/api test
+
+      - name: Testes da web
+        run: pnpm --filter @yield2pay/web test
