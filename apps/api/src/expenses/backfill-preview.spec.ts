@@ -8,7 +8,6 @@
 import {
   applyKeyChanges,
   assertLocalDatabaseUrl,
-  assertProductionApply,
   previewHouseholdBackfill,
   type KeyWriter,
 } from './backfill-preview';
@@ -194,23 +193,5 @@ describe('assertLocalDatabaseUrl', () => {
     expect(() =>
       assertLocalDatabaseUrl('postgresql://u:p@127.0.0.1:5433/casa_test'),
     ).not.toThrow();
-  });
-});
-
-describe('assertProductionApply', () => {
-  const remote = 'postgresql://u:p@db.example.com:5432/yield2pay';
-  const stamp = { database: 'yield2pay', host: 'db.example.com', port: '5432' };
-
-  it('exige o nome do banco e uma simulação do mesmo alvo', () => {
-    expect(assertProductionApply(remote, 'yield2pay', stamp)).toEqual(stamp);
-    expect(() => assertProductionApply(remote, 'outro', stamp)).toThrow(
-      'nome confirmado',
-    );
-    expect(() => assertProductionApply(remote, 'yield2pay', null)).toThrow(
-      'simulação',
-    );
-    expect(() =>
-      assertProductionApply(`${remote}?host=evil.example`, 'yield2pay', stamp),
-    ).toThrow('host na query');
   });
 });

@@ -108,7 +108,7 @@ export async function applyKeyChanges(
     const started = Date.now();
     await writer.$transaction(async (tx) => {
       if (tx.$executeRaw) {
-        await tx.$executeRaw`SELECT set_config('lock_timeout', '4s', true)`;
+        await tx.$executeRaw`SELECT set_config('lock_timeout', '4s', false)`;
         await tx.$executeRaw`SELECT set_config('statement_timeout', '60s', true)`;
       }
       for (const change of batch) {
@@ -173,26 +173,6 @@ export function assertLocalDatabaseUrl(databaseUrl: string): DatabaseTarget {
   }
   if (!target.database.endsWith('_test')) {
     throw new Error('recusado: o banco precisa ser de teste');
-  }
-  return target;
-}
-
-export function assertProductionApply(
-  databaseUrl: string,
-  confirmedName: string,
-  stamp: DatabaseTarget | null,
-): DatabaseTarget {
-  const target = describeDatabaseUrl(databaseUrl);
-  if (!confirmedName || confirmedName !== target.database) {
-    throw new Error('recusado: o nome confirmado não é o do banco');
-  }
-  if (
-    !stamp ||
-    stamp.database !== target.database ||
-    stamp.host !== target.host ||
-    stamp.port !== target.port
-  ) {
-    throw new Error('recusado: rode a simulação antes, no mesmo banco');
   }
   return target;
 }

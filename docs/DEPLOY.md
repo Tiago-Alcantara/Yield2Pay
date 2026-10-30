@@ -79,20 +79,15 @@ Subida, nesta ordem:
 3. Conferir `GET /health` (responde `{ "status": "ok" }`, sem consultar o banco)
    e um `GET /expenses?month=YYYY-MM`.
 4. Web.
-5. Backfill das chaves. Simule antes de gravar. No Postgres local o nome do
-   banco termina em `_test`, o host é loopback e a porta é 5432 ou 5433:
-   `pnpm backfill:expense-keys` só lê e grava o carimbo em
-   `/tmp/yield2pay-backfill-preview.json`.
+5. Backfill das chaves no banco local de teste. O comando do repositório só
+   aceita host loopback, porta 5432 ou 5433 e nome terminando em `_test`.
+   `pnpm backfill:expense-keys` só lê e imprime a simulação.
    `pnpm backfill:expense-keys -- --apply` grava em lotes. `--batch-size` muda
-   o tamanho (padrão 100). Cada lote usa `lock_timeout` de 4 s e
-   `statement_timeout` de 60 s. O comando não muda `fixed=true` para false e
-   grava um snapshot da coluna `fixed` em `/tmp/yield2pay-backfill-snapshots/`
-   antes de escrever.
-   Em produção quem roda é o Tiago, na publicação, e só depois da simulação no
-   mesmo banco:
-   `pnpm backfill:expense-keys -- --apply --confirm-production <nome-do-banco>`.
-   O nome tem de ser igual ao da `DATABASE_URL`. Sem o carimbo da simulação o
-   comando recusa.
+   o tamanho (padrão 100). Cada lote usa `lock_timeout` de 4 s (sessão, sem
+   `LOCAL`) e `statement_timeout` de 60 s. O comando não muda `fixed=true`
+   para false. Não grava carimbo nem snapshot.
+   Em produção o backfill é passo manual do Tiago, na hora de publicar. O
+   comando recusa `--confirm-production`.
 
 ### P3009
 
@@ -118,16 +113,23 @@ WHERE migration_name = '20261030120000_expense_precomputed_keys'
   AND checksum = 'dfc2ba02fa0fd94c935c031cb05ba3068781860bb576d5d50b4b701651ea7cfc';
 ```
 
-Quem aplicou `20261030143000` sem o `UPDATE` de `fixed_manual` e sem
-`lock_timeout` alinha o checksum ao arquivo atual antes do próximo deploy, ou
-deixa o Prisma aplicar `20261030160000`, que preenche `fixed_manual=true` onde
-`fixed=true`. Os dois caminhos deixam o fixo antigo marcado à mão.
+Quem aplicou `20261030143000` numa revisão anterior alinha o checksum ao
+arquivo atual (`SET lock_timeout`, sem `LOCAL`) antes do próximo deploy, ou
+deixa o Prisma aplicar `20261030160000`. Os dois caminhos deixam o fixo antigo
+marcado à mão. `20261030160000` grava `fixed_manual=true` em todo `fixed=true`
+que ainda estava automático. Isso permanece. A decisão de produto é do Tiago.
 
 ```sql
 UPDATE _prisma_migrations
-SET checksum = 'dc7572ef947ef790a268040b6f187f943fea5033658ca54f059532a1097db5b1'
+SET checksum = 'bce82c96266070fa2ef3c94bd2042c1d31c0ee8fcf1e18061978db3d438a8055'
 WHERE migration_name = '20261030143000_expense_fixed_manual'
-  AND checksum <> 'dc7572ef947ef790a268040b6f187f943fea5033658ca54f059532a1097db5b1'
+  AND checksum <> 'bce82c96266070fa2ef3c94bd2042c1d31c0ee8fcf1e18061978db3d438a8055'
+  AND finished_at IS NOT NULL;
+
+UPDATE _prisma_migrations
+SET checksum = 'a864e8c48dc122d1cfca576278923881cfdc1ec5f66b4ffbdc4d940e0c20b80b'
+WHERE migration_name = '20261030160000_expense_fixed_manual_fill'
+  AND checksum <> 'a864e8c48dc122d1cfca576278923881cfdc1ec5f66b4ffbdc4d940e0c20b80b'
   AND finished_at IS NOT NULL;
 ```
 
@@ -151,8 +153,8 @@ CREATE INDEX CONCURRENTLY "expenses_household_id_shared_merchant_key_idx"
 
 Na ordem inversa. Os `down.sql` são manuais (o Prisma não os executa):
 
-1. Parar o backfill se ainda estiver rodando. O snapshot em
-   `/tmp/yield2pay-backfill-snapshots/` guarda `id` e `fixed` de antes da gravação.
+1. Se o backfill local ainda estiver rodando, pare o comando. Em produção o
+   Tiago desfaz à mão o que ele aplicou na publicação.
 2. Voltar o web.
 3. Voltar a API.
 4. No banco: `20261030160000_expense_fixed_manual_fill/down.sql`,
