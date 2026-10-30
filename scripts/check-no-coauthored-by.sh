@@ -4,7 +4,10 @@
 #   todos os pais a partir do merge-base.
 # Push: check-no-coauthored-by.sh --push <before> <after>
 #   before..after, todos os pais.
+#   before zerado, ou ausente mesmo depois do fetch: commits fora dos remotes.
 set -eu
+LC_ALL=C.UTF-8
+export LC_ALL
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 pattern_file="$script_dir/co-authored-by.pattern"
@@ -13,12 +16,6 @@ if [ ! -f "$pattern_file" ]; then
   exit 2
 fi
 pattern=$(tr -d '\r\n' < "$pattern_file")
-# GNU grep aceita o hífen unicode. Se o grep local recusar o padrão, fica o ASCII.
-probe=0
-printf 'x\n' | grep -E "$pattern" >/dev/null 2>&1 || probe=$?
-if [ "$probe" -gt 1 ]; then
-  pattern='^[[:space:]]*co-authored-by[[:space:]]*:'
-fi
 
 mode=pr
 if [ "${1:-}" = "--push" ]; then
@@ -33,18 +30,7 @@ fi
 
 left=$1
 right=$2
-
-if [ "$mode" = "push" ]; then
-  if [ "$left" = "0000000000000000000000000000000000000000" ]; then
-    echo "Push sem commit anterior. Nada a verificar."
-    exit 0
-  fi
-fi
-
-if ! git rev-parse --verify "${left}^{commit}" >/dev/null 2>&1; then
-  echo "commit inexistente: ${left}" >&2
-  exit 2
-fi
+zeros=0000000000000000000000000000000000000000
 
 if ! git rev-parse --verify "${right}^{commit}" >/dev/null 2>&1; then
   echo "commit inexistente: ${right}" >&2
@@ -55,8 +41,27 @@ revs=$(mktemp)
 trap 'rm -f "$revs"' EXIT
 
 if [ "$mode" = "push" ]; then
-  git rev-list "${left}..${right}" > "$revs"
+  if [ "$left" = "$zeros" ]; then
+    git rev-list "$right" --not --remotes > "$revs"
+  elif git rev-parse --verify "${left}^{commit}" >/dev/null 2>&1; then
+    git rev-list "${left}..${right}" > "$revs"
+  else
+    fetched=0
+    if git fetch --no-tags origin "$left" >/dev/null 2>&1; then
+      fetched=1
+    fi
+    if [ "$fetched" -eq 1 ] && git rev-parse --verify "${left}^{commit}" >/dev/null 2>&1; then
+      git rev-list "${left}..${right}" > "$revs"
+    else
+      echo "before ausente no clone. Conferindo commits fora dos remotes." >&2
+      git rev-list "$right" --not --remotes > "$revs"
+    fi
+  fi
 else
+  if ! git rev-parse --verify "${left}^{commit}" >/dev/null 2>&1; then
+    echo "commit inexistente: ${left}" >&2
+    exit 2
+  fi
   mb=$(git merge-base "$left" "$right")
   git rev-list "${mb}..${right}" > "$revs"
 fi
