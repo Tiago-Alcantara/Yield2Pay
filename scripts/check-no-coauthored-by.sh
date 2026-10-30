@@ -80,11 +80,11 @@ list_since_main() {
       exit 2
       ;;
   esac
-  if ! git rev-parse --verify "origin/main^{commit}" >/dev/null 2>&1; then
+  if ! git rev-parse --verify "refs/remotes/origin/main^{commit}" >/dev/null 2>&1; then
     echo "origin/main ausente. Não dá para determinar o intervalo do push." >&2
     exit 2
   fi
-  if ! git rev-list "origin/main..${right}" >"$revs"; then
+  if ! git rev-list "refs/remotes/origin/main..${right}" >"$revs"; then
     echo "não dá para determinar o intervalo do push" >&2
     exit 2
   fi

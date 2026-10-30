@@ -337,3 +337,30 @@ if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'origin/main ausente'; th
   exit 1
 fi
 echo "ok: sem origin/main o push sai 2"
+
+git -C "$pushd" tag -f origin/main "$tip"
+if [ "$(git -C "$pushd" rev-parse refs/tags/origin/main)" != "$tip" ]; then
+  echo "a tag refs/tags/origin/main não aponta para o commit com coautor" >&2
+  exit 1
+fi
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$zeros" "$tip")
+rc=$?
+set -e
+printf '%s\n' "$out"
+if [ "$rc" -ne 1 ] || ! printf '%s\n' "$out" | grep -qx "$tip"; then
+  echo "tag refs/tags/origin/main não pode esconder o coautor com before zerado (saiu $rc)" >&2
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$missing" "$tip" 2>/dev/null)
+rc=$?
+set -e
+printf '%s\n' "$out"
+if [ "$rc" -ne 1 ] || ! printf '%s\n' "$out" | grep -qx "$tip"; then
+  echo "tag refs/tags/origin/main não pode esconder o coautor com before ausente (saiu $rc)" >&2
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
+echo "ok: tag refs/tags/origin/main não esconde o commit com coautor"
