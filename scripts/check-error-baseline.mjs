@@ -59,6 +59,18 @@ export function textOf(message, roots = repoRoots) {
   return stripRoots(message, roots).replace(/\s+/g, ' ').trim();
 }
 
+export function messageText(ruleId, message, roots = repoRoots) {
+  let text = textOf(message, roots);
+  if (!String(ruleId ?? '').startsWith('react-hooks/')) return text;
+  text = text.replace(/:\d+:\d+\b/g, '');
+  text = text.replace(/\s>\s*\d+\s+\||\s\d+\s+\|/g, ' ');
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function addCount(found, signature) {
+  found.set(signature, (found.get(signature) ?? 0) + 1);
+}
+
 function relPath(filePath) {
   const stripped = stripRoots(String(filePath ?? '').replaceAll('\\', '/'));
   if (!stripped) return '';
@@ -69,13 +81,14 @@ function relPath(filePath) {
 }
 
 export function lintSignatures(report) {
-  const found = new Set();
+  const found = new Map();
   for (const file of report) {
     const arquivo = relPath(file.filePath || '');
     for (const message of file.messages || []) {
       if (message.severity !== 2) continue;
-      found.add(
-        `${arquivo}|${message.ruleId ?? ''}|${textOf(message.message)}`,
+      addCount(
+        found,
+        `${arquivo}|${message.ruleId ?? ''}|${messageText(message.ruleId, message.message)}`,
       );
     }
   }
@@ -83,18 +96,53 @@ export function lintSignatures(report) {
 }
 
 function tscSignatures(text) {
-  const found = new Set();
+  const found = new Map();
   for (const line of text.split(/\r?\n/)) {
     const withFile = line.match(/^(.*)\(\d+,\d+\): error (TS\d+): (.*)$/);
     if (withFile) {
       const arquivo = relPath(withFile[1]);
-      found.add(`${arquivo}|${withFile[2]}|${textOf(withFile[3])}`);
+      addCount(found, `${arquivo}|${withFile[2]}|${textOf(withFile[3])}`);
       continue;
     }
     const bare = line.match(/(?:^|\s)error (TS\d+): (.*)$/);
-    if (bare) found.add(`|${bare[1]}|${textOf(bare[2])}`);
+    if (bare) addCount(found, `|${bare[1]}|${textOf(bare[2])}`);
   }
   return found;
+}
+
+export function countList(items) {
+  const counts = new Map();
+  for (const item of items) addCount(counts, item);
+  return counts;
+}
+
+export function increases(current, baseline) {
+  const rows = [];
+  for (const [signature, count] of current) {
+    const known = baseline.get(signature) ?? 0;
+    if (count > known) {
+      rows.push({ signature, current: count, baseline: known });
+    }
+  }
+  rows.sort((a, b) =>
+    a.signature < b.signature ? -1 : a.signature > b.signature ? 1 : 0,
+  );
+  return rows;
+}
+
+function total(counts) {
+  let n = 0;
+  for (const count of counts.values()) n += count;
+  return n;
+}
+
+function expand(counts) {
+  const rows = [];
+  for (const signature of [...counts.keys()].sort()) {
+    const n = counts.get(signature);
+    for (let i = 0; i < n; i += 1) rows.push(signature);
+  }
+  return rows;
 }
 
 function collectLint(which) {
@@ -199,7 +247,7 @@ function main() {
 
   if (dump) {
     const payload = {};
-    for (const which of keys) payload[which] = [...collect(which)].sort();
+    for (const which of keys) payload[which] = expand(collect(which));
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     process.exit(0);
   }
@@ -215,19 +263,22 @@ function main() {
 
   const label = labels[key];
   const current = collect(key);
-  const base = new Set(known);
-  const fresh = [...current].filter((item) => !base.has(item)).sort();
+  const base = countList(known);
+  const fresh = increases(current, base);
 
   if (fresh.length > 0) {
     console.error(
-      `${label}: ${fresh.length} assinatura(s) nova(s), fora da baseline.`,
+      `${label}: ${fresh.length} assinatura(s) acima da baseline.`,
     );
-    for (const item of fresh) console.error(item);
+    for (const row of fresh) {
+      console.error(row.signature);
+      console.error(`atual=${row.current} baseline=${row.baseline}`);
+    }
     process.exit(1);
   }
 
   console.log(
-    `${label}: ${current.size} assinatura(s) no código, ${base.size} na baseline.`,
+    `${label}: ${total(current)} ocorrência(s) no código, ${total(base)} na baseline.`,
   );
 }
 

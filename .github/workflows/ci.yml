@@ -59,6 +59,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Testes dos checadores
+        run: |
+          sh scripts/check-no-coauthored-by.test.sh
+          node --test scripts/check-error-baseline.test.mjs
+
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
 
