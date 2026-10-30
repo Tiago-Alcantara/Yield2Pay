@@ -500,7 +500,11 @@ Configure `apps/api/.env` and `apps/web/.env.local` from their respective `*.exa
 
 ### Commit messages
 
-`pnpm install` runs `git config core.hooksPath .githooks`. The `commit-msg` hook removes every `Co-authored-by:` line, case-insensitively, and leaves the rest of the message unchanged. It works on Linux, macOS, and Git Bash on Windows. GitHub Actions fails the pull request if any commit still contains that line.
+`pnpm install` runs `prepare`. That script sets `core.hooksPath` to `.githooks` only when `git rev-parse --show-toplevel` is this package directory. If another `core.hooksPath` is already set, it warns and leaves it. A git failure is printed instead of ignored. In the image build the script is not copied yet, so `prepare` only prints a notice.
+
+The `commit-msg` hook deletes only a `Co-authored-by` trailer line (any case, spaces before the colon, and a unicode hyphen). A subject or a prose line that merely mentions the text stays. It works on Linux, macOS, and Git Bash on Windows.
+
+The hook does not run for `git commit --no-verify`, cherry-pick, or rebase: the original message is kept whole. `commit --fixup` creates `fixup! …` and the hook does run on that new message, but it never sees a trailer left on the old commit; `--no-verify` skips the hook there too. CI (`.github/workflows/commit-messages.yml`) is what rejects the trailer in those cases, on pull requests and on pushes to `develop`.
 
 > [!TIP]
 > The **`/family`** landing opens with just `pnpm dev:web` at `http://localhost:3000/family`. The

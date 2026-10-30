@@ -499,7 +499,11 @@ Configure `apps/api/.env` e `apps/web/.env.local` a partir dos respectivos `*.ex
 
 ### Mensagens de commit
 
-`pnpm install` executa `git config core.hooksPath .githooks`. O hook `commit-msg` remove toda linha `Co-authored-by:`, sem diferenciar maiúsculas e sem alterar o resto da mensagem. Funciona no Linux, no macOS e no Git Bash do Windows. O GitHub Actions recusa o pull request se algum commit ainda tiver essa linha.
+O `pnpm install` roda o `prepare`. Esse script define `core.hooksPath` como `.githooks` só quando `git rev-parse --show-toplevel` é o diretório deste pacote. Se já existir outro `core.hooksPath`, ele avisa e não troca. Falha de git sai com mensagem, em vez de ser ignorada. No build da imagem, o script ainda não foi copiado e o `prepare` só avisa.
+
+O hook `commit-msg` apaga só a linha de trailer `Co-authored-by` (maiúsculas, espaços antes dos dois-pontos e hífen unicode). Assunto e prosa que apenas citam o texto ficam. Vale no Linux, no macOS e no Git Bash do Windows.
+
+O hook não age com `git commit --no-verify`, nem no cherry-pick e nem no rebase: a mensagem original passa inteira. O `commit --fixup` gera `fixup! …` e o hook roda nessa mensagem nova, mas não enxerga um trailer que ficou no commit antigo; com `--no-verify`, o hook também não roda. Nesses casos quem segura é a CI (`.github/workflows/commit-messages.yml`), no pull request e no push da `develop`.
 
 > [!TIP]
 > A landing **`/family`** abre só com `pnpm dev:web` em `http://localhost:3000/family`. O painel,
