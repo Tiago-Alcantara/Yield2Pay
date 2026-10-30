@@ -1,7 +1,7 @@
 #!/bin/sh
 # Falha se algum commit do intervalo tiver trailer Co-authored-by.
 # Pull request: check-no-coauthored-by.sh <base> <head>
-#   só o first-parent a partir do merge-base (o que ainda não está na base).
+#   todos os pais a partir do merge-base.
 # Push: check-no-coauthored-by.sh --push <before> <after>
 #   before..after, todos os pais.
 set -eu
@@ -58,7 +58,7 @@ if [ "$mode" = "push" ]; then
   git rev-list "${left}..${right}" > "$revs"
 else
   mb=$(git merge-base "$left" "$right")
-  git rev-list --first-parent "${mb}..${right}" > "$revs"
+  git rev-list "${mb}..${right}" > "$revs"
 fi
 
 found=0
