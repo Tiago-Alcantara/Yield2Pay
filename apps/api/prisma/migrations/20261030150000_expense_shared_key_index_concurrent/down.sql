@@ -1,2 +1,3 @@
--- Rode fora de uma transação: DROP INDEX CONCURRENTLY não aceita bloco transacional.
-DROP INDEX CONCURRENTLY IF EXISTS "expenses_household_id_shared_merchant_key_idx";
+-- O índice é da migration 20261030120000. O down dela é quem o remove.
+-- Índice INVALID de um CONCURRENTLY interrompido: ver docs/DEPLOY.md.
+SELECT 1;
