@@ -4,9 +4,8 @@
 #   todos os pais a partir do merge-base.
 # Push: check-no-coauthored-by.sh --push <before> <after>
 #   before..after, todos os pais.
-#   before zerado, ou ausente mesmo depois do fetch: commits que o
-#   remoto ainda não tinha, sem contar a ref que está sendo empurrada.
-#   GITHUB_REF_NAME vem do workflow. Sem ele, o intervalo não fecha.
+#   before zerado, ou ausente mesmo depois do fetch: origin/main..after.
+#   Sem origin/main, sai 2. GITHUB_REF_NAME é validado antes disso.
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
@@ -32,6 +31,20 @@ left=$1
 right=$2
 zeros=0000000000000000000000000000000000000000
 
+contains_break() {
+  stripped=$(printf '%s' "$1" | tr -d '\r\n')
+  [ "$stripped" != "$1" ]
+}
+
+if contains_break "$left"; then
+  echo "before inválido: quebra de linha" >&2
+  exit 2
+fi
+if contains_break "$right"; then
+  echo "after inválido: quebra de linha" >&2
+  exit 2
+fi
+
 if ! printf '%s' "$left" | grep -Eq '^[0-9a-f]{40}$'; then
   echo "before inválido: esperado SHA de 40 hex" >&2
   exit 2
@@ -49,12 +62,14 @@ fi
 revs=$(mktemp)
 trap 'rm -f "$revs"' EXIT
 
-# git 2.43 casa o --exclude de --remotes com origin/<branch>, não com o
-# refname inteiro. O caminho completo fica para um git que compare o nome
-# inteiro. A ref local não entra em --remotes; o nome curto dela também é
-# excluído para o caso de o walk usar esse nome.
-list_outside_pushed_ref() {
+# Before zerado ou ausente não olha as outras refs remotas: um coautor
+# que já esteja nelas ainda entra se não estiver em origin/main.
+list_since_main() {
   ref=${GITHUB_REF_NAME:-}
+  if contains_break "$ref"; then
+    echo "GITHUB_REF_NAME inválido: quebra de linha" >&2
+    exit 2
+  fi
   if ! printf '%s' "$ref" | grep -Eq '^[A-Za-z0-9._/-]+$'; then
     echo "não dá para determinar o intervalo do push: GITHUB_REF_NAME ausente ou inválido" >&2
     exit 2
@@ -65,13 +80,11 @@ list_outside_pushed_ref() {
       exit 2
       ;;
   esac
-  if ! git rev-list "$right" --not \
-    --exclude="refs/remotes/origin/${ref}" \
-    --exclude="origin/${ref}" \
-    --exclude="refs/heads/${ref}" \
-    --exclude="${ref}" \
-    --remotes >"$revs"
-  then
+  if ! git rev-parse --verify "origin/main^{commit}" >/dev/null 2>&1; then
+    echo "origin/main ausente. Não dá para determinar o intervalo do push." >&2
+    exit 2
+  fi
+  if ! git rev-list "origin/main..${right}" >"$revs"; then
     echo "não dá para determinar o intervalo do push" >&2
     exit 2
   fi
@@ -79,7 +92,7 @@ list_outside_pushed_ref() {
 
 if [ "$mode" = "push" ]; then
   if [ "$left" = "$zeros" ]; then
-    list_outside_pushed_ref
+    list_since_main
   elif git rev-parse --verify "${left}^{commit}" >/dev/null 2>&1; then
     if ! git rev-list "${left}..${right}" >"$revs"; then
       echo "não dá para determinar o intervalo do push" >&2
@@ -96,8 +109,8 @@ if [ "$mode" = "push" ]; then
         exit 2
       fi
     else
-      echo "before ausente no clone. Conferindo commits fora da ref empurrada." >&2
-      list_outside_pushed_ref
+      echo "before ausente no clone. Conferindo commits desde origin/main." >&2
+      list_since_main
     fi
   fi
 else

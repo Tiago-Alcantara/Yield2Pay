@@ -11,7 +11,8 @@ msg=$(mktemp)
 ci_remote=$(mktemp -d)
 ci_build=$(mktemp -d)
 ci_clone=$(mktemp -d)
-trap 'rm -rf "$td" "$pushd" "$bare" "$msg" "$ci_remote" "$ci_build" "$ci_clone"' EXIT
+lonely=$(mktemp -d)
+trap 'rm -rf "$td" "$pushd" "$bare" "$msg" "$ci_remote" "$ci_build" "$ci_clone" "$lonely"' EXIT
 
 git -C "$td" init -q
 git -C "$td" config user.name "Teste Local"
@@ -232,12 +233,12 @@ out=$(cd "$ci_clone" && GITHUB_REF_NAME='equipe/nova' sh "$script" --push "$zero
 rc=$?
 set -e
 printf '%s\n' "$out"
-if [ "$rc" -ne 0 ]; then
-  echo "commit já presente em origin/antiga deveria passar (saiu $rc)" >&2
+if [ "$rc" -ne 1 ] || ! printf '%s\n' "$out" | grep -qx "$publicado"; then
+  echo "commit com coautor que também está em outra ref remota deveria reprovar (saiu $rc)" >&2
   printf '%s\n' "$out" >&2
   exit 1
 fi
-echo "ok: commit que já está em outra ref remota não reprova"
+echo "ok: commit com coautor em outra ref remota reprova contra origin/main"
 
 git -C "$ci_build" checkout -q -b limpa main
 echo limpo > "$ci_build/f.txt"
@@ -257,3 +258,82 @@ if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -q 'Nenhum commit do interva
   exit 1
 fi
 echo "ok: controle limpo no clone da CI sai 0"
+
+nl_before="${zeros}
+"
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$nl_before" "$tip" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'before inválido: quebra de linha'; then
+  echo "newline no before deveria sair 2 (saiu $rc)" >&2
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
+cr_before=$(printf '%s\r' "$zeros")
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$cr_before" "$tip" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'before inválido: quebra de linha'; then
+  echo "CR no before deveria sair 2 (saiu $rc)" >&2
+  exit 1
+fi
+nl_after="${tip}
+"
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$zeros" "$nl_after" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'after inválido: quebra de linha'; then
+  echo "newline no after deveria sair 2 (saiu $rc)" >&2
+  exit 1
+fi
+cr_after=$(printf '%s\r' "$tip")
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$refname" sh "$script" --push "$zeros" "$cr_after" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'after inválido: quebra de linha'; then
+  echo "CR no after deveria sair 2 (saiu $rc)" >&2
+  exit 1
+fi
+nl_ref="${refname}
+"
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$nl_ref" sh "$script" --push "$zeros" "$tip" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'GITHUB_REF_NAME inválido: quebra de linha'; then
+  echo "newline no GITHUB_REF_NAME deveria sair 2 (saiu $rc)" >&2
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
+cr_ref=$(printf '%s\r' "$refname")
+set +e
+out=$(cd "$pushd" && GITHUB_REF_NAME="$cr_ref" sh "$script" --push "$zeros" "$tip" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'GITHUB_REF_NAME inválido: quebra de linha'; then
+  echo "CR no GITHUB_REF_NAME deveria sair 2 (saiu $rc)" >&2
+  exit 1
+fi
+echo "ok: newline e CR em before, after e GITHUB_REF_NAME saem 2"
+
+git -C "$lonely" init -q -b feature
+git -C "$lonely" config user.name "Teste Local"
+git -C "$lonely" config user.email "teste@example.com"
+echo so > "$lonely/f.txt"
+git -C "$lonely" add f.txt
+git -C "$lonely" commit -q --no-verify -m "sem main"
+lonely_tip=$(git -C "$lonely" rev-parse HEAD)
+set +e
+out=$(cd "$lonely" && GITHUB_REF_NAME=feature sh "$script" --push "$zeros" "$lonely_tip" 2>&1)
+rc=$?
+set -e
+if [ "$rc" -ne 2 ] || ! printf '%s\n' "$out" | grep -q 'origin/main ausente'; then
+  echo "sem origin/main deveria sair 2 (saiu $rc)" >&2
+  printf '%s\n' "$out" >&2
+  exit 1
+fi
+echo "ok: sem origin/main o push sai 2"
