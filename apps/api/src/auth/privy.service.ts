@@ -4,6 +4,7 @@ import { APP_CONFIG } from '../config/config.module';
 import type { Env } from '../config/env';
 import {
   createPrivyTokenCache,
+  fetchPrivyVerificationKey,
   type PrivyTokenCache,
 } from './privy-token-cache';
 
@@ -21,7 +22,10 @@ export class PrivyService {
   constructor(@Inject(APP_CONFIG) config: Env) {
     this.localSession = config.localSession;
     this.client = new PrivyClient(config.privyAppId, config.privyAppSecret);
-    this.tokens = createPrivyTokenCache(this.client);
+    this.tokens = createPrivyTokenCache(this.client, {
+      fetchVerificationKey: () =>
+        fetchPrivyVerificationKey(config.privyAppId, config.privyAppSecret),
+    });
   }
   async verify(
     token: string,

@@ -12,17 +12,23 @@ const signatureError = () =>
     code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
   });
 
+function clientWith(fetchVerificationKey: () => Promise<string>) {
+  return {
+    fetchVerificationKey: vi.fn(fetchVerificationKey),
+    verifyAuthToken: vi.fn(async (token: string, key?: string) => {
+      void key;
+      return { userId: `user-${token}` };
+    }),
+    getUser: vi.fn(),
+  };
+}
+
 describe('privy-token-cache', () => {
   it('busca a chave uma vez e valida cada token com ela', async () => {
-    const client = {
-      getVerificationKey: vi.fn(async () => 'spki-key'),
-      verifyAuthToken: vi.fn(async (token: string, key?: string) => {
-        void key;
-        return { userId: `user-${token}` };
-      }),
-      getUser: vi.fn(),
-    };
-    const cache = createPrivyTokenCache(client);
+    const client = clientWith(async () => 'spki-key');
+    const cache = createPrivyTokenCache(client, {
+      fetchVerificationKey: client.fetchVerificationKey,
+    });
     const results = await Promise.all([
       cache.verify('a'),
       cache.verify('b'),
@@ -33,69 +39,113 @@ describe('privy-token-cache', () => {
       { privyUserId: 'user-b' },
       { privyUserId: 'user-c' },
     ]);
-    expect(client.getVerificationKey).toHaveBeenCalledTimes(1);
+    expect(client.fetchVerificationKey).toHaveBeenCalledTimes(1);
     const keys = client.verifyAuthToken.mock.calls.map((call) => call[1]);
     expect(keys).toEqual(['spki-key', 'spki-key', 'spki-key']);
     expect(client.getUser).not.toHaveBeenCalled();
   });
 
-  it('busca a chave de novo quando a assinatura falha', async () => {
+  it('busca a chave de novo uma vez quando a assinatura falha e para no prazo', async () => {
+    const fetchVerificationKey = vi
+      .fn()
+      .mockResolvedValueOnce('old-key')
+      .mockResolvedValueOnce('new-key');
     const client = {
-      getVerificationKey: vi
-        .fn()
-        .mockResolvedValueOnce('old-key')
-        .mockResolvedValueOnce('new-key'),
-      verifyAuthToken: vi.fn(async (_token: string, key?: string) => {
-        if (key === 'old-key') throw signatureError();
+      verifyAuthToken: vi.fn(async (token: string, key?: string) => {
+        if (token === 'forged' || key === 'old-key') throw signatureError();
         return { userId: 'user-a' };
       }),
       getUser: vi.fn(),
     };
-    const cache = createPrivyTokenCache(client);
+    let clock = 0;
+    const cache = createPrivyTokenCache(client, {
+      fetchVerificationKey,
+      now: () => clock,
+    });
     await expect(cache.verify('a')).resolves.toEqual({ privyUserId: 'user-a' });
-    expect(client.getVerificationKey).toHaveBeenCalledTimes(2);
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
     expect(client.verifyAuthToken).toHaveBeenLastCalledWith('a', 'new-key');
-    await cache.verify('b');
-    expect(client.getVerificationKey).toHaveBeenCalledTimes(2);
-    expect(client.verifyAuthToken).toHaveBeenLastCalledWith('b', 'new-key');
+    await expect(cache.verify('forged')).rejects.toThrow(/signature/i);
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
+    clock = 45_000;
+    fetchVerificationKey.mockResolvedValueOnce('newer-key');
+    await expect(cache.verify('a')).resolves.toEqual({ privyUserId: 'user-a' });
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(3);
+  });
+
+  it('cem tokens forjados no mesmo prazo geram duas buscas, não uma por token', async () => {
+    const fetchVerificationKey = vi.fn(async () => 'spki-key');
+    const client = {
+      verifyAuthToken: vi.fn(async () => {
+        throw signatureError();
+      }),
+      getUser: vi.fn(),
+    };
+    const cache = createPrivyTokenCache(client, { fetchVerificationKey });
+    await Promise.all(
+      Array.from({ length: 100 }, (_, index) =>
+        cache.verify(`forged-${index}`).catch(() => undefined),
+      ),
+    );
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
   });
 
   it('busca a chave de novo quando o prazo acaba', async () => {
     let clock = 0;
+    const fetchVerificationKey = vi.fn(async () => 'spki-key');
     const client = {
-      getVerificationKey: vi.fn(async () => 'spki-key'),
       verifyAuthToken: vi.fn(async () => ({ userId: 'user-a' })),
       getUser: vi.fn(),
     };
     const cache = createPrivyTokenCache(client, {
-      keyTtlMs: 1000,
+      fetchVerificationKey,
       now: () => clock,
     });
     await cache.verify('a');
-    clock = 1001;
+    clock = 45_000;
     await cache.verify('b');
-    expect(client.getVerificationKey).toHaveBeenCalledTimes(2);
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
   });
 
   it('busca a chave de novo se a primeira busca falhar', async () => {
+    const fetchVerificationKey = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce('spki-key');
     const client = {
-      getVerificationKey: vi
-        .fn()
-        .mockRejectedValueOnce(new Error('down'))
-        .mockResolvedValueOnce('spki-key'),
       verifyAuthToken: vi.fn(async () => ({ userId: 'user-a' })),
       getUser: vi.fn(),
     };
-    const cache = createPrivyTokenCache(client);
+    const cache = createPrivyTokenCache(client, { fetchVerificationKey });
     await expect(cache.verify('a')).rejects.toThrow('down');
     await expect(cache.verify('a')).resolves.toEqual({ privyUserId: 'user-a' });
-    expect(client.getVerificationKey).toHaveBeenCalledTimes(2);
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
     expect(client.verifyAuthToken).toHaveBeenCalledWith('a', 'spki-key');
+  });
+
+  it('se o refetch falhar, mantém a chave anterior', async () => {
+    let clock = 0;
+    const fetchVerificationKey = vi
+      .fn()
+      .mockResolvedValueOnce('spki-key')
+      .mockRejectedValueOnce(new Error('down'));
+    const client = {
+      verifyAuthToken: vi.fn(async () => ({ userId: 'user-a' })),
+      getUser: vi.fn(),
+    };
+    const cache = createPrivyTokenCache(client, {
+      fetchVerificationKey,
+      now: () => clock,
+    });
+    await cache.verify('a');
+    clock = 45_000;
+    await expect(cache.verify('b')).resolves.toEqual({ privyUserId: 'user-a' });
+    expect(client.verifyAuthToken).toHaveBeenLastCalledWith('b', 'spki-key');
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
   });
 
   it('não guarda e-mail nulo e esquece o mais antigo quando o teto estoura', async () => {
     const client = {
-      getVerificationKey: vi.fn(),
       verifyAuthToken: vi.fn(),
       getUser: vi.fn(async (userId: string) =>
         userId === 'vazio'
@@ -104,6 +154,7 @@ describe('privy-token-cache', () => {
       ),
     };
     const cache = createPrivyTokenCache(client, {
+      fetchVerificationKey: async () => 'unused',
       emailCap: 2,
       emailTtlMs: 1000,
       now: () => 0,

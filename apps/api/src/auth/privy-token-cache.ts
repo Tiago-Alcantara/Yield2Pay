@@ -12,7 +12,6 @@ import {
 } from './identity-email';
 
 export type PrivyTokenClient = {
-  getVerificationKey: () => Promise<string>;
   verifyAuthToken: (
     token: string,
     verificationKeyOverride?: string,
@@ -33,48 +32,99 @@ export type PrivyTokenCache = {
 };
 
 export type PrivyTokenCacheOptions = {
-  keyTtlMs?: number;
+  fetchVerificationKey: () => Promise<string>;
+  /** No máximo uma busca neste intervalo. O padrão fica entre 30 s e 60 s. */
+  keyIntervalMs?: number;
   emailTtlMs?: number;
   emailCap?: number;
   now?: () => number;
 };
 
-const DEFAULT_KEY_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_KEY_INTERVAL_MS = 45_000;
 const DEFAULT_EMAIL_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_EMAIL_CAP = 200;
 
 type EmailHit = { value: string; expiresAt: number };
+type KeyHit = {
+  key: string;
+  fetchedAt: number;
+  /** Já houve um refetch por assinatura ruim neste prazo. */
+  refreshedAfterFailure: boolean;
+};
+
+/** Busca a chave no HTTP do Privy, fora do cache eterno do SDK. */
+export async function fetchPrivyVerificationKey(
+  appId: string,
+  appSecret: string,
+): Promise<string> {
+  const base = process.env.PRIVY_API_URL || 'https://auth.privy.io';
+  const response = await fetch(
+    `${base}/api/v1/apps/${encodeURIComponent(appId)}`,
+    {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
+        'privy-app-id': appId,
+        'privy-client': 'server-auth:1.32.5',
+      },
+    },
+  );
+  if (!response.ok) throw new Error('falha ao buscar a chave do Privy');
+  const body = (await response.json()) as { verification_key?: unknown };
+  if (typeof body.verification_key !== 'string' || !body.verification_key) {
+    throw new Error('chave do Privy ausente');
+  }
+  return body.verification_key;
+}
 
 export function createPrivyTokenCache(
   client: PrivyTokenClient,
   options: PrivyTokenCacheOptions = {},
 ): PrivyTokenCache {
-  const keyTtlMs = options.keyTtlMs ?? DEFAULT_KEY_TTL_MS;
+  const keyIntervalMs = options.keyIntervalMs ?? DEFAULT_KEY_INTERVAL_MS;
   const emailTtlMs = options.emailTtlMs ?? DEFAULT_EMAIL_TTL_MS;
   const emailCap = options.emailCap ?? DEFAULT_EMAIL_CAP;
   const now = options.now ?? Date.now;
-  let keyValue: { key: string; expiresAt: number } | null = null;
+  const fetchVerificationKey = options.fetchVerificationKey;
+  let keyHit: KeyHit | null = null;
   let keyPromise: Promise<string> | null = null;
   const emails = new Map<string, EmailHit>();
   const inflight = new Map<string, Promise<string | null>>();
 
-  function rememberKey(key: string): string {
-    keyValue = { key, expiresAt: now() + keyTtlMs };
-    keyPromise = null;
-    return key;
+  function keyIsFresh(): boolean {
+    return !!keyHit && now() < keyHit.fetchedAt + keyIntervalMs;
   }
 
   function verificationKey(force = false): Promise<string> {
-    if (!force && keyValue && keyValue.expiresAt > now()) {
-      return Promise.resolve(keyValue.key);
+    if (keyPromise) return keyPromise;
+    if (!force && keyIsFresh()) return Promise.resolve(keyHit!.key);
+    if (
+      force &&
+      keyHit?.refreshedAfterFailure &&
+      now() < keyHit.fetchedAt + keyIntervalMs
+    ) {
+      return Promise.resolve(keyHit.key);
     }
-    if (!force && keyPromise) return keyPromise;
-    keyValue = null;
-    keyPromise = client
-      .getVerificationKey()
-      .then(rememberKey)
+    const previous = keyHit;
+    keyPromise = fetchVerificationKey()
+      .then((key) => {
+        keyHit = {
+          key,
+          fetchedAt: now(),
+          refreshedAfterFailure: force,
+        };
+        keyPromise = null;
+        return key;
+      })
       .catch((error: unknown) => {
         keyPromise = null;
+        if (previous) {
+          keyHit = {
+            key: previous.key,
+            fetchedAt: now(),
+            refreshedAfterFailure: true,
+          };
+          return previous.key;
+        }
         throw error;
       });
     return keyPromise;
@@ -90,6 +140,7 @@ export function createPrivyTokenCache(
     } catch (error) {
       if (!isSignatureFailure(error)) throw error;
       const fresh = await verificationKey(true);
+      if (fresh === key) throw error;
       const claims = await client.verifyAuthToken(token, fresh);
       return { privyUserId: claims.userId };
     }
