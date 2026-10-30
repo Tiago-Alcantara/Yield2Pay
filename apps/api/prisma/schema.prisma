@@ -207,6 +207,7 @@ model Expense {
   merchant         String
   category         String
   fixed            Boolean
+  fixedManual      Boolean  @default(false) @map("fixed_manual")
   amountCents      Int      @map("amount_cents")
   fitId            String?  @map("fit_id")
   merchantKey       String @default("") @map("merchant_key")

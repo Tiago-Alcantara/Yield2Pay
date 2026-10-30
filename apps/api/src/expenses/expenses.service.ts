@@ -1,25 +1,42 @@
 import { Injectable } from '@nestjs/common';
-import type { ExpenseCategory, ExpensePage, ExpenseView } from '@yield2pay/shared';
+import { Prisma } from '@prisma/client';
+import type {
+  ExpenseCategory,
+  ExpensePage,
+  ExpenseView,
+} from '@yield2pay/shared';
 import { HouseholdService, initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { saoPauloToday } from '../summary/summary.math';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
-import { planExpenseWrite } from './fixed-flags';
+import {
+  GROUP_SELECT,
+  expenseGroupWhere,
+  fixedForRead,
+  loadLegacyFixedIds,
+  planExpenseWrite,
+  writeExpensePlan,
+  type ExpenseSnapshot,
+} from './fixed-flags';
+import type { ExpensePageQuery } from './page-query';
 
 type PatchExpense = {
   category?: ExpenseCategory;
   fixed?: boolean;
 };
 
-type ExpensePageQuery = {
-  limit: number;
-  offset: number;
-};
-
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 5000;
+const CATEGORIES: ExpenseCategory[] = [
+  'housing',
+  'health',
+  'education',
+  'subscriptions',
+  'groceries',
+  'restaurant',
+  'transport',
+  'shopping',
+];
 
 @Injectable()
 export class ExpensesService {
@@ -35,35 +52,49 @@ export class ExpensesService {
     page?: ExpensePageQuery,
     range?: { from: string; to: string },
   ): Promise<ExpensePage> {
-    const { limit, offset } = readPage(page);
+    const { limit, offset, cursor } = readPage(page);
     const { householdId } = await this.household.requireMembership(companyId);
-    const { gte, lt } = range ? utcDayRange(range.from, range.to) : utcMonthRange(requireMonth(month));
-    const where = {
+    const { gte, lt } = range
+      ? utcDayRange(range.from, range.to)
+      : utcMonthRange(requireMonth(month));
+    const base = {
       householdId,
       spentOn: { gte, lt },
       ...(category ? { category } : {}),
     };
-    const [total, expenses] = await Promise.all([
-      this.prisma.expense.count({ where }),
+    const where = cursor ? { AND: [base, cursorClause(cursor)] } : base;
+    const [total, expenses, legacy] = await Promise.all([
+      this.prisma.expense.count({ where: base }),
       this.prisma.expense.findMany({
         where,
-        orderBy: { spentOn: 'desc' },
+        orderBy: [{ spentOn: 'desc' }, { id: 'desc' }],
         take: limit,
-        skip: offset,
+        ...(cursor ? {} : { skip: offset }),
       }),
+      loadLegacyFixedIds(this.prisma, householdId),
     ]);
     const names = await this.loadNames(
       expenses.map((row) => row.addedByCompanyId),
     );
+    const last = expenses[expenses.length - 1];
+    const nextCursor =
+      last && expenses.length === limit && offset + expenses.length < total
+        ? `${utcCalendarDay(last.spentOn)}|${last.id}`
+        : null;
     return {
-      items: expenses.map((row) => toExpenseView(row, names)),
+      items: expenses.map((row) =>
+        toExpenseView(row, names, fixedForRead(row, legacy)),
+      ),
       total,
+      nextCursor,
     };
   }
 
   async months(companyId: string) {
     const { householdId } = await this.household.requireMembership(companyId);
-    const rows = await this.prisma.$queryRaw<Array<{ month: string; amountCents: number }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{ month: string; amountCents: number }>
+    >`
       SELECT to_char(spent_on, 'YYYY-MM') AS month,
              COALESCE(SUM(amount_cents), 0)::int AS "amountCents"
       FROM expenses
@@ -79,23 +110,24 @@ export class ExpensesService {
 
   async create(
     companyId: string,
-    body: { merchant?: string; amountCents?: number; spentOn?: string; category?: ExpenseCategory },
+    body: {
+      merchant?: string;
+      amountCents?: number;
+      spentOn?: string;
+      category?: ExpenseCategory;
+    },
   ) {
     const { householdId } = await this.household.requireMembership(companyId);
     const merchant = body.merchant?.trim() ?? '';
-    const categories: ExpenseCategory[] = [
-      'housing', 'health', 'education', 'subscriptions',
-      'groceries', 'restaurant', 'transport', 'shopping',
-    ];
     if (
-      !merchant
-      || !Number.isInteger(body.amountCents)
-      || (body.amountCents ?? 0) <= 0
-      || !body.spentOn
-      || !/^\d{4}-\d{2}-\d{2}$/.test(body.spentOn)
-      || !body.category
-      || !categories.includes(body.category)
-      || body.spentOn > saoPauloToday(new Date())
+      !merchant ||
+      !Number.isInteger(body.amountCents) ||
+      (body.amountCents ?? 0) <= 0 ||
+      !body.spentOn ||
+      !DAY.test(body.spentOn) ||
+      !body.category ||
+      !CATEGORIES.includes(body.category) ||
+      body.spentOn > saoPauloToday(new Date())
     ) {
       throw new ExpenseInvalidError(
         body.spentOn && body.spentOn > saoPauloToday(new Date())
@@ -103,89 +135,127 @@ export class ExpensesService {
           : undefined,
       );
     }
-    const existing = (await this.prisma.expense.findMany({
-      where: { householdId },
-      select: {
-        id: true,
-        merchant: true,
-        spentOn: true,
-        amountCents: true,
-        category: true,
-        fixed: true,
-        sharedMerchantKey: true,
-      },
-    })) ?? [];
-    const plan = planExpenseWrite(existing, [{
-      merchant,
-      spentOn: body.spentOn,
-      amountCents: body.amountCents as number,
-      category: body.category,
-    }]);
-    const drafted = plan.inserts[0];
-    const created = await this.prisma.expense.create({
-      data: {
-        householdId,
-        addedByCompanyId: companyId,
-        spentOn: new Date(`${body.spentOn}T00:00:00.000Z`),
-        merchant,
-        category: body.category,
-        fixed: drafted?.fixed ?? false,
-        merchantKey: drafted?.merchantKey ?? '',
-        sharedMerchantKey: drafted?.sharedMerchantKey ?? '',
-        amountCents: body.amountCents as number,
-      },
+    const amountCents = body.amountCents as number;
+    const category = body.category;
+    const spentOn = body.spentOn;
+    const created = await this.prisma.$transaction(async (tx) => {
+      const existing = await this.loadGroup(tx, householdId, [merchant]);
+      const plan = planExpenseWrite(existing, [
+        { merchant, spentOn, amountCents, category },
+      ]);
+      const drafted = plan.inserts[0];
+      const row = await tx.expense.create({
+        data: {
+          householdId,
+          addedByCompanyId: companyId,
+          spentOn: new Date(`${spentOn}T00:00:00.000Z`),
+          merchant,
+          category,
+          fixed: drafted?.fixed ?? false,
+          fixedManual: false,
+          merchantKey: drafted?.merchantKey ?? '',
+          sharedMerchantKey: drafted?.sharedMerchantKey ?? '',
+          amountCents,
+        },
+      });
+      await writeExpensePlan(tx, plan);
+      return row;
     });
-    if (plan.markFixed.length > 0) {
-      await this.prisma.expense.updateMany({
-        where: { id: { in: plan.markFixed } },
-        data: { fixed: true },
-      });
-    }
-    for (const [sharedKey, ids] of plan.sharedKeyUpdates) {
-      if (ids.length === 0) continue;
-      await this.prisma.expense.updateMany({
-        where: { id: { in: ids } },
-        data: { sharedMerchantKey: sharedKey },
-      });
-    }
     const names = await this.loadNames([created.addedByCompanyId]);
-    return toExpenseView(created, names);
+    return toExpenseView(created, names, created.fixed);
   }
 
   async patch(companyId: string, id: string, body: PatchExpense) {
     const { householdId } = await this.household.requireMembership(companyId);
-    const existing = await this.prisma.expense.findFirst({
-      where: { id, householdId },
-    });
-    if (!existing) {
-      throw new ExpenseNotFoundError();
-    }
-    const data: { category?: ExpenseCategory; fixed?: boolean } = {};
-    if (body.category !== undefined) data.category = body.category;
-    if (body.fixed !== undefined) data.fixed = body.fixed;
-    const updated = await this.prisma.expense.update({
-      where: { id: existing.id },
-      data,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.expense.findFirst({
+        where: { id, householdId },
+      });
+      if (!existing) throw new ExpenseNotFoundError();
+      const nextCategory = body.category ?? existing.category;
+      const group = await this.loadGroup(tx, householdId, [existing.merchant]);
+      const snapshots = group.map((row) =>
+        row.id === existing.id
+          ? {
+              ...row,
+              category: nextCategory,
+              fixed: body.fixed ?? row.fixed,
+              fixedManual:
+                body.fixed === true
+                  ? true
+                  : body.fixed === false
+                    ? false
+                    : row.fixedManual,
+            }
+          : row,
+      );
+      const plan = planExpenseWrite(snapshots, [], true);
+      if (body.fixed !== undefined) {
+        plan.markFixed = plan.markFixed.filter((item) => item !== existing.id);
+        plan.unmarkFixed = plan.unmarkFixed.filter(
+          (item) => item !== existing.id,
+        );
+      }
+      const data: {
+        category?: ExpenseCategory;
+        fixed?: boolean;
+        fixedManual?: boolean;
+      } = {};
+      if (body.category !== undefined) data.category = body.category;
+      if (body.fixed !== undefined) {
+        data.fixed = body.fixed;
+        data.fixedManual = body.fixed === true;
+      }
+      const row = await tx.expense.update({ where: { id: existing.id }, data });
+      await writeExpensePlan(tx, plan);
+      return row;
     });
     const names = await this.loadNames([updated.addedByCompanyId]);
-    return toExpenseView(updated, names);
+    return toExpenseView(updated, names, updated.fixed);
   }
 
   async remove(companyId: string, id: string) {
     const { householdId } = await this.household.requireMembership(companyId);
-    const existing = await this.prisma.expense.findFirst({
-      where: { id, householdId },
-      select: { id: true },
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.expense.findFirst({
+        where: { id, householdId },
+      });
+      if (!existing) throw new ExpenseNotFoundError();
+      const group = existing.merchant
+        ? await this.loadGroup(tx, householdId, [existing.merchant])
+        : [];
+      await tx.expense.delete({ where: { id: existing.id } });
+      const plan = planExpenseWrite(
+        group.filter((row) => row.id !== existing.id),
+        [],
+        true,
+      );
+      await writeExpensePlan(tx, plan);
     });
-    if (!existing) {
-      throw new ExpenseNotFoundError();
-    }
-    await this.prisma.expense.delete({ where: { id: existing.id } });
+  }
+
+  private async loadGroup(
+    tx: Prisma.TransactionClient,
+    householdId: string,
+    merchants: string[],
+  ): Promise<ExpenseSnapshot[]> {
+    const where = expenseGroupWhere(householdId, merchants);
+    if (!where) return [];
+    const rows = await tx.expense.findMany({
+      where,
+      select: GROUP_SELECT,
+    });
+    return rows ?? [];
   }
 
   private async loadNames(companyIds: string[]) {
     const ids = [...new Set(companyIds)];
-    if (ids.length === 0) return [] as { companyId: string; displayName: string | null; fullName: string | null }[];
+    if (ids.length === 0)
+      return [] as {
+        companyId: string;
+        displayName: string | null;
+        fullName: string | null;
+      }[];
     return this.prisma.personName.findMany({
       where: { companyId: { in: ids } },
     });
@@ -193,15 +263,15 @@ export class ExpensesService {
 }
 
 function readPage(page?: ExpensePageQuery) {
-  const limit = page?.limit ?? DEFAULT_LIMIT;
+  const limit = page?.limit ?? 100;
   const offset = page?.offset ?? 0;
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 5000) {
     throw new ExpenseInvalidError('limit is invalid');
   }
-  if (!Number.isInteger(offset) || offset < 0) {
+  if (!Number.isInteger(offset) || offset < 0 || offset > 1_000_000) {
     throw new ExpenseInvalidError('offset is invalid');
   }
-  return { limit, offset };
+  return { limit, offset, cursor: page?.cursor };
 }
 
 function requireMonth(month: string) {
@@ -209,6 +279,19 @@ function requireMonth(month: string) {
     throw new ExpenseInvalidError('month is invalid');
   }
   return month;
+}
+
+function cursorClause(cursor: string) {
+  const match = /^(\d{4}-\d{2}-\d{2})\|([^|]+)$/.exec(cursor);
+  if (!match) throw new ExpenseInvalidError('cursor is invalid');
+  const spentOn = new Date(`${match[1]}T00:00:00.000Z`);
+  const id = match[2] ?? '';
+  return {
+    OR: [
+      { spentOn: { lt: spentOn } },
+      { AND: [{ spentOn }, { id: { lt: id } }] },
+    ],
+  };
 }
 
 function utcDayRange(from: string, to: string) {
@@ -245,7 +328,12 @@ function toExpenseView(
     amountCents: number;
     addedByCompanyId: string;
   },
-  names: { companyId: string; displayName: string | null; fullName: string | null }[],
+  names: {
+    companyId: string;
+    displayName: string | null;
+    fullName: string | null;
+  }[],
+  fixed = row.fixed,
 ): ExpenseView {
   const person = names.find((name) => name.companyId === row.addedByCompanyId);
   return {
@@ -253,13 +341,11 @@ function toExpenseView(
     date: utcCalendarDay(row.spentOn),
     merchant: row.merchant,
     category: row.category as ExpenseCategory,
-    fixed: row.fixed,
+    fixed,
     amountCents: row.amountCents,
     addedBy: {
       displayName: person?.displayName?.trim() || 'Membro',
-      initials: person
-        ? initialsOf(person.fullName, person.displayName)
-        : '?',
+      initials: person ? initialsOf(person.fullName, person.displayName) : '?',
     },
   };
 }

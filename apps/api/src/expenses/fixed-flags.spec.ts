@@ -30,7 +30,14 @@ describe('planExpenseWrite', () => {
           sharedMerchantKey: 'padaria estrela',
         },
       ],
-      [{ merchant: 'Aluguel', spentOn: '2026-10-05', amountCents: 250000, category: 'housing' }],
+      [
+        {
+          merchant: 'Aluguel',
+          spentOn: '2026-10-05',
+          amountCents: 250000,
+          category: 'housing',
+        },
+      ],
     );
     expect(plan.inserts[0]).toMatchObject({
       merchantKey: 'aluguel',
@@ -38,7 +45,42 @@ describe('planExpenseWrite', () => {
       fixed: true,
     });
     expect(plan.markFixed).toEqual(['rent']);
+    expect(plan.unmarkFixed).toEqual([]);
     expect(plan.sharedKeyUpdates.has('padaria estrela')).toBe(false);
-    expect([...(plan.sharedKeyUpdates.get('aluguel') ?? [])]).not.toContain('market');
+    expect([...(plan.sharedKeyUpdates.get('aluguel') ?? [])]).not.toContain(
+      'market',
+    );
+  });
+
+  it('desmarca o grupo que deixou de se repetir e preserva o fixo manual', () => {
+    const plan = planExpenseWrite(
+      [
+        {
+          id: 'rent',
+          merchant: 'Aluguel',
+          spentOn: '2026-10-05',
+          amountCents: 250000,
+          category: 'housing',
+          fixed: true,
+          fixedManual: false,
+          sharedMerchantKey: 'aluguel',
+        },
+        {
+          id: 'hand',
+          merchant: 'Aluguel',
+          spentOn: '2026-10-06',
+          amountCents: 250000,
+          category: 'housing',
+          fixed: true,
+          fixedManual: true,
+          sharedMerchantKey: 'aluguel',
+        },
+      ],
+      [],
+      true,
+    );
+    expect(plan.unmarkFixed).toEqual(['rent']);
+    expect(plan.unmarkFixed).not.toContain('hand');
+    expect(plan.markFixed).not.toContain('hand');
   });
 });

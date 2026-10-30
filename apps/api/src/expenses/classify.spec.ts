@@ -5,7 +5,13 @@
  * Intuito: O texto do extrato cai na categoria certa e o gasto repetido é marcado como fixo.
  * Sequência: maps grocery keywords and falls back to shopping; maps Brazilian merchants that the short keyword list used to miss; maps IPVA, a power bill, and a fee away from shopping; marks rent and a repeating subscription as fixed, and leaves a one-off grocery; treats a repeat within 5 percent as fixed.
  */
-import { classifyMerchant, idsToMarkFixed, isFixedRepeat, merchantKey, sharedMerchantKey } from './classify';
+import {
+  classifyMerchant,
+  idsToMarkFixed,
+  isFixedRepeat,
+  merchantKey,
+  sharedMerchantKey,
+} from './classify';
 
 describe('classify', () => {
   it('maps grocery keywords and falls back to shopping', () => {
@@ -107,7 +113,12 @@ describe('classify', () => {
     expect(sharedMerchantKey('padaria', keys)).toBe('padaria');
     const brute = (key: string) =>
       keys
-        .filter((other) => other.length >= 4 && other.length < key.length && key.startsWith(`${other} `))
+        .filter(
+          (other) =>
+            other.length >= 4 &&
+            other.length < key.length &&
+            key.startsWith(`${other} `),
+        )
         .sort((left, right) => left.length - right.length)[0] ?? key;
     for (const key of [...keys, 'netflix com br', 'ab cd efgh']) {
       expect(sharedMerchantKey(key, keys)).toBe(brute(key));

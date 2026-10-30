@@ -2,7 +2,12 @@ import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { classifyMerchant } from '../expenses/classify';
-import { planExpenseWrite } from '../expenses/fixed-flags';
+import {
+  GROUP_SELECT,
+  expenseGroupWhere,
+  planExpenseWrite,
+  writeExpensePlan,
+} from '../expenses/fixed-flags';
 import { HouseholdService } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseCsv } from './parse-csv';
@@ -46,8 +51,12 @@ export class StatementsService {
     const format = formatFromFilename(filename);
     const rows = await this.parseBytes(format, bytes);
     const hasDebit = rows.some((row) => row.signed === 'debit');
-    const debits = rows.filter((row) => isUsableRow(row) && !isIncome(row, format, hasDebit));
-    const incomes = rows.filter((row) => isUsableRow(row) && isIncome(row, format, hasDebit));
+    const debits = rows.filter(
+      (row) => isUsableRow(row) && !isIncome(row, format, hasDebit),
+    );
+    const incomes = rows.filter(
+      (row) => isUsableRow(row) && isIncome(row, format, hasDebit),
+    );
     if (debits.length === 0 && incomes.length === 0) {
       throw new StatementFormatError();
     }
@@ -67,7 +76,9 @@ export class StatementsService {
           },
         });
 
-        const fitIds = [...new Set(debits.flatMap((row) => (row.fitId ? [row.fitId] : [])))];
+        const fitIds = [
+          ...new Set(debits.flatMap((row) => (row.fitId ? [row.fitId] : []))),
+        ];
         const knownFits = new Set<string>();
         if (fitIds.length > 0) {
           const found = await tx.expense.findMany({
@@ -93,18 +104,13 @@ export class StatementsService {
           throw new StatementDuplicateError();
         }
 
-        const existing = await tx.expense.findMany({
-          where: { householdId },
-          select: {
-            id: true,
-            merchant: true,
-            spentOn: true,
-            amountCents: true,
-            category: true,
-            fixed: true,
-            sharedMerchantKey: true,
-          },
-        });
+        const where = expenseGroupWhere(
+          householdId,
+          fresh.map((row) => row.merchant),
+        );
+        const existing = where
+          ? await tx.expense.findMany({ where, select: GROUP_SELECT })
+          : [];
         const plan = planExpenseWrite(
           existing,
           fresh.map((row) => ({
@@ -129,23 +135,14 @@ export class StatementsService {
             ...(fresh[index]?.fitId ? { fitId: fresh[index].fitId } : {}),
           })),
         });
-        if (plan.markFixed.length > 0) {
-          await tx.expense.updateMany({
-            where: { id: { in: plan.markFixed } },
-            data: { fixed: true },
-          });
-        }
-        for (const [sharedKey, ids] of plan.sharedKeyUpdates) {
-          if (ids.length === 0) continue;
-          await tx.expense.updateMany({
-            where: { id: { in: ids } },
-            data: { sharedMerchantKey: sharedKey },
-          });
-        }
+        await writeExpensePlan(tx, plan);
         return { statementId: statement.id, imported: fresh.length, skipped };
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new StatementDuplicateError();
       }
       throw error;
@@ -162,8 +159,20 @@ export class StatementsService {
       throw new StatementNotFoundError();
     }
     await this.prisma.$transaction(async (tx) => {
+      const doomed = await tx.expense.findMany({
+        where: { statementId, householdId },
+        select: GROUP_SELECT,
+      });
       await tx.expense.deleteMany({ where: { statementId, householdId } });
       await tx.statement.delete({ where: { id: statementId } });
+      const merchants = [...new Set(doomed.map((row) => row.merchant))];
+      const where = expenseGroupWhere(householdId, merchants);
+      if (!where) return;
+      const remaining = await tx.expense.findMany({
+        where,
+        select: GROUP_SELECT,
+      });
+      await writeExpensePlan(tx, planExpenseWrite(remaining, [], true));
     });
   }
 
@@ -219,7 +228,11 @@ function isUsableRow(row: ParsedStatementRow): boolean {
   );
 }
 
-function isIncome(row: ParsedStatementRow, format: string, hasDebit: boolean): boolean {
+function isIncome(
+  row: ParsedStatementRow,
+  format: string,
+  hasDebit: boolean,
+): boolean {
   if (row.signed === 'credit') {
     return true;
   }
