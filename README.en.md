@@ -500,7 +500,7 @@ Configure `apps/api/.env` and `apps/web/.env.local` from their respective `*.exa
 
 ### Commit messages
 
-`pnpm install` runs `prepare`. That script sets `core.hooksPath` to `.githooks` only when `git rev-parse --show-toplevel` is this package directory. If another `core.hooksPath` is already set, it warns and leaves it. A git failure is printed instead of ignored. In the image build the script is not copied yet, so `prepare` only prints a notice.
+`pnpm install` runs `prepare`. That script sets `core.hooksPath` to `.githooks` only when `git rev-parse --show-toplevel` is this package directory. If another `core.hooksPath` is already set, it warns and leaves it. With no git binary or no repository it warns and continues, so a Vercel install still finishes. Any other git failure is printed and exits non-zero. In the image build the script is not copied yet, so `prepare` only prints a notice.
 
 The `commit-msg` hook deletes only a `Co-authored-by` trailer line (any case, spaces before the colon, and a unicode hyphen). A subject or a prose line that merely mentions the text stays. It works on Linux, macOS, and Git Bash on Windows.
 

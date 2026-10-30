@@ -20,10 +20,19 @@ function fail(message, status) {
 
 const top = git(['rev-parse', '--show-toplevel']);
 if (top.error) {
-  fail(`prepare: não foi possível executar o git: ${top.error.message}`);
+  console.warn(
+    `prepare: git indisponível (${top.error.message}). core.hooksPath permanece como está.`,
+  );
+  process.exit(0);
 }
 if (top.status !== 0) {
   const msg = (top.stderr || top.stdout || '').trim();
+  if (/not a git repository/i.test(msg)) {
+    console.warn(
+      'prepare: sem repositório git. core.hooksPath permanece como está.',
+    );
+    process.exit(0);
+  }
   fail(`prepare: git rev-parse falhou: ${msg || 'sem mensagem'}`, top.status);
 }
 

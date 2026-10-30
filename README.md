@@ -499,7 +499,7 @@ Configure `apps/api/.env` e `apps/web/.env.local` a partir dos respectivos `*.ex
 
 ### Mensagens de commit
 
-O `pnpm install` roda o `prepare`. Esse script define `core.hooksPath` como `.githooks` só quando `git rev-parse --show-toplevel` é o diretório deste pacote. Se já existir outro `core.hooksPath`, ele avisa e não troca. Falha de git sai com mensagem, em vez de ser ignorada. No build da imagem, o script ainda não foi copiado e o `prepare` só avisa.
+O `pnpm install` roda o `prepare`. Esse script define `core.hooksPath` como `.githooks` só quando `git rev-parse --show-toplevel` é o diretório deste pacote. Se já existir outro `core.hooksPath`, ele avisa e não troca. Sem o binário do git ou sem repositório, avisa e segue, para o install da Vercel não quebrar. Outra falha do git sai com mensagem e código diferente de zero. No build da imagem, o script ainda não foi copiado e o `prepare` só avisa.
 
 O hook `commit-msg` apaga só a linha de trailer `Co-authored-by` (maiúsculas, espaços antes dos dois-pontos e hífen unicode). Assunto e prosa que apenas citam o texto ficam. Vale no Linux, no macOS e no Git Bash do Windows.
 
