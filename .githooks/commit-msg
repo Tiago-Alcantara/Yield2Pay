@@ -1,6 +1,7 @@
 #!/bin/sh
-# Remove toda linha Co-authored-by da mensagem, sem diferenciar maiúsculas.
-# O restante da mensagem permanece igual. POSIX sh: Linux, macOS e Git Bash.
+# Remove só linhas de trailer Co-authored-by. Prosa e assunto ficam.
+# O padrão é o mesmo de scripts/check-no-coauthored-by.sh.
+# POSIX sh: Linux, macOS e Git Bash.
 set -eu
 
 if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
@@ -8,10 +9,30 @@ if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
   exit 1
 fi
 
+repo=$(git rev-parse --show-toplevel)
+pattern_file="$repo/scripts/co-authored-by.pattern"
+if [ ! -f "$pattern_file" ]; then
+  echo "commit-msg: padrão ausente em $pattern_file" >&2
+  exit 1
+fi
+pattern=$(tr -d '\r\n' < "$pattern_file")
+# GNU grep aceita o hífen unicode. Se o grep local recusar o padrão, fica o ASCII.
+probe=0
+printf 'x\n' | grep -E "$pattern" >/dev/null 2>&1 || probe=$?
+if [ "$probe" -gt 1 ]; then
+  pattern='^[[:space:]]*co-authored-by[[:space:]]*:'
+fi
+
 msg_file=$1
 tmp_file="${msg_file}.tmp.$$"
 trap 'rm -f "$tmp_file"' EXIT
 
-sed '/[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:/d' "$msg_file" > "$tmp_file"
+status=0
+grep -viE "$pattern" "$msg_file" > "$tmp_file" || status=$?
+if [ "$status" -gt 1 ]; then
+  echo "commit-msg: falha ao filtrar a mensagem" >&2
+  exit "$status"
+fi
+
 mv "$tmp_file" "$msg_file"
 trap - EXIT
