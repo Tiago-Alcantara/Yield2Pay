@@ -2,11 +2,11 @@
  * Módulo: GroupMenu
  * Criado em: 2026-10-31
  * Última atualização: 2026-10-31
- * Intuito: O menu de grupos abre, fecha e só persiste um id conhecido.
- * Sequência: abre pelo botão da conta; fecha no clique fora, no Esc e ao escolher; grava y2p-grupo; ignora valor inválido sem mostrá-lo.
+ * Intuito: O menu mostra só a casa real e se opera pelo teclado.
+ * Sequência: abre com foco no primeiro item; setas navegam; Esc devolve o foco; Tab fecha; um y2p-grupo inválido não aparece.
  */
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const push = vi.hoisted(() => vi.fn());
@@ -15,8 +15,9 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
 }));
 
-import { resetFamilyStore, updateFamilyStore } from '../_lib/familyStore';
+import { resetFamilyStore } from '../_lib/familyStore';
 import { FamilyProvider } from '../_lib/FamilyProvider';
+import { GROUP_STORAGE_KEY } from '../_lib/groupStore';
 import { GroupMenu } from './GroupMenu';
 
 const PAYLOAD = '"><img src=x onerror=alert(1)>';
@@ -43,87 +44,77 @@ beforeEach(() => {
 });
 
 describe('menu de grupos', () => {
-  it('abre e fecha ao clicar fora', () => {
-    renderMenu();
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  it('mostra só o grupo real, sem saldo, meta ou grupos de exemplo', () => {
+    renderMenu('Família Alcantara');
+    expect(screen.getByText('Família Alcantara')).toBeInTheDocument();
+    expect(screen.queryByText('Família Souza')).not.toBeInTheDocument();
+    expect(screen.queryByText('Casa da praia')).not.toBeInTheDocument();
+    expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/membros/)).not.toBeInTheDocument();
+
     openMenu();
     expect(screen.getByRole('menu', { name: 'Grupos de finanças' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Trocar grupo de finanças' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('3 grupos')).toBeInTheDocument();
+    expect(screen.getAllByText('Família Alcantara').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
+    expect(screen.queryByText('R$ 8.240')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
 
+  it('abre com foco no menu, navega com setas, fecha no Tab e devolve o foco no Esc', () => {
+    renderMenu('Casa');
+    const trigger = screen.getByRole('button', { name: 'Trocar grupo de finanças' });
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    openMenu();
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveFocus();
+
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' });
+    expect(items[1]).toHaveFocus();
+    fireEvent.keyDown(items[1], { key: 'ArrowUp' });
+    expect(items[0]).toHaveFocus();
+
+    fireEvent.keyDown(items[0], { key: 'Tab' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    openMenu();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('fecha ao clicar fora', () => {
+    renderMenu('Casa');
+    openMenu();
     fireEvent.mouseDown(screen.getByRole('button', { name: 'fora' }));
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Trocar grupo de finanças' })).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('fecha com Esc', () => {
-    renderMenu();
+  it('ignora y2p-grupo inválido já na abertura e não mostra o valor', () => {
+    localStorage.setItem(GROUP_STORAGE_KEY, PAYLOAD);
+    renderMenu('Casa');
     openMenu();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-
-  it('fecha ao escolher, persiste a escolha e avisa', () => {
-    renderMenu();
-    openMenu();
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Casa da praia/ }));
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(localStorage.getItem('y2p-grupo')).toBe('casa');
-    expect(screen.getByRole('status')).toHaveTextContent('Mostrando finanças de “Casa da praia”.');
-    expect(screen.getByText('Casa da praia')).toBeInTheDocument();
-  });
-
-  it('reabre na escolha salva', () => {
-    localStorage.setItem('y2p-grupo', 'eu');
-    renderMenu();
-    expect(screen.getByText('Pessoal')).toBeInTheDocument();
-    openMenu();
-    expect(screen.getByRole('menuitemradio', { name: /Pessoal/ })).toHaveAttribute('aria-checked', 'true');
-  });
-
-  it('ignora valor inválido no localStorage e não o mostra', () => {
-    localStorage.setItem('y2p-grupo', 'eu');
-    renderMenu();
-    expect(screen.getByText('Pessoal')).toBeInTheDocument();
-
-    localStorage.setItem('y2p-grupo', PAYLOAD);
-    act(() => {
-      window.dispatchEvent(new StorageEvent('storage'));
-    });
-
-    expect(screen.queryByText('Pessoal')).not.toBeInTheDocument();
-    expect(screen.getByText('Família Souza')).toBeInTheDocument();
     expect(document.body.innerHTML).not.toContain(PAYLOAD);
     expect(document.body.innerHTML).not.toContain('onerror');
-    expect(document.querySelector('img')).toBeNull();
-  });
-
-  it('troca o exemplo pelo nome da família vindo da conta', () => {
-    renderMenu('Família Alcantara');
-    openMenu();
-    expect(screen.getByRole('menuitemradio', { name: /Família Alcantara/ })).toBeInTheDocument();
+    expect(document.querySelector('img, script')).toBeNull();
     expect(screen.queryByText('Família Souza')).not.toBeInTheDocument();
-    expect(screen.getByText('FA')).toBeInTheDocument();
+    expect(screen.getAllByText('Casa').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('leva a criar grupo e a ver a conta', () => {
-    renderMenu();
+  it('leva a criar grupo e a ver a conta, sem toast', () => {
+    renderMenu('Casa');
     openMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Criar novo grupo' }));
     expect(push).toHaveBeenCalledWith('/dashboard?conta=1');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mostrando finanças/)).not.toBeInTheDocument();
 
     openMenu();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Ver minha conta' }));
     expect(push).toHaveBeenCalledWith('/conta');
-  });
-
-  it('avisa em inglês com a mesma chave salva', () => {
-    updateFamilyStore((prev) => ({ ...prev, lang: 'en' }));
-    renderMenu();
-    fireEvent.click(screen.getByRole('button', { name: 'Switch finance group' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Casa da praia/ }));
-    expect(localStorage.getItem('y2p-grupo')).toBe('casa');
-    expect(screen.getByRole('status')).toHaveTextContent('Showing finances for “Casa da praia”.');
   });
 });

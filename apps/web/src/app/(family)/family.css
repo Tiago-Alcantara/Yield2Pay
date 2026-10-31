@@ -19,6 +19,13 @@
   --fam-panel-pad: 30px;   /* painéis de metal maiores */
 }
 
+/* Os temas claros sobrescrevem isto só dentro da família. */
+.fam-shell {
+  min-height: 100%;
+  --fam-avatar: linear-gradient(160deg, #43464b, #1b1d21);
+  --fam-well-deep: #0f1113;
+}
+
 @media (max-width: 640px) {
   :root {
     --fam-gutter: 16px;

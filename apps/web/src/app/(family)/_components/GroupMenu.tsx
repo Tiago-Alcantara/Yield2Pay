@@ -1,16 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFamily } from '../_lib/FamilyProvider';
-import { GROUPS, onGroupChange, readGroup, readGroupServer, writeGroup, type GroupId } from '../_lib/groupStore';
 import { DockIcon } from './dockIcons';
 
 /**
- * Botão de conta da doca + popover "Grupos de finanças". Fecha em clique
- * fora, Esc ou ao escolher; a escolha persiste em localStorage['y2p-grupo'].
+ * Botão de conta da doca. Mostra só o grupo real da conta, sem saldo,
+ * sem meta e sem aviso de filtro. Fecha fora, com Esc, com Tab ou ao escolher.
  */
-/** Iniciais de um nome de grupo ("Família Alcantara" → "FA"). */
 function groupInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
@@ -23,83 +21,85 @@ export function GroupMenu({
 }: {
   name: string;
   initial: string;
-  /** Nome real da família vindo da API; substitui o exemplo do grupo principal. */
+  /** Nome da casa vindo de /account. */
   householdName?: string;
 }) {
   const router = useRouter();
   const { t } = useFamily();
   const d = t.dock;
   const [open, setOpen] = useState(false);
-  const [toast, setToast] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
-  const group = useSyncExternalStore(onGroupChange, readGroup, readGroupServer);
-  const groups = householdName
-    ? GROUPS.map((g) => (g.id === 'fam' ? { ...g, name: householdName, initials: groupInitials(householdName) } : g))
-    : GROUPS;
-  const current = groups.find((g) => g.id === group) ?? groups[0];
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const label = householdName?.trim() || d.account;
+
+  function close(focusTrigger: boolean) {
+    setOpen(false);
+    if (focusTrigger) triggerRef.current?.focus();
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    items?.[0]?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
       if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const id = window.setTimeout(() => setToast(''), 2600);
-    return () => window.clearTimeout(id);
-  }, [toast]);
-
-  function choose(id: GroupId) {
-    writeGroup(id);
-    setOpen(false);
-    setToast(d.groupShown(groups.find((g) => g.id === id)?.name ?? ''));
+  function onMenuKey(event: React.KeyboardEvent<HTMLDivElement>) {
+    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close(true);
+      return;
+    }
+    if (event.key === 'Tab') {
+      setOpen(false);
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    if (items.length === 0) return;
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    const next = current < 0 ? 0 : (current + step + items.length) % items.length;
+    items[next]?.focus();
   }
 
   return (
     <div ref={wrap} style={{ position: 'relative', display: 'flex' }}>
       {open && (
-        <div className="dk-grp" role="menu" aria-label={d.groupsTitle}>
+        <div
+          ref={menuRef}
+          id="y2p-grupos"
+          className="dk-grp"
+          role="menu"
+          aria-label={d.groupsTitle}
+          onKeyDown={onMenuKey}
+        >
           <div className="dk-gh">
             <b>{d.groupsTitle}</b>
-            <span>{d.groupsCount(groups.length)}</span>
           </div>
-          {groups.map((g) => {
-            const on = g.id === group;
-            return (
-              <button key={g.id} type="button" className="dk-g" role="menuitemradio" aria-checked={on} onClick={() => choose(g.id)}>
-                <span className="dk-gi">{g.initials}</span>
-                <span className="dk-gt">
-                  <b>{g.name}</b>
-                  <em>{g.meta}</em>
-                </span>
-                {on ? (
-                  <span className="dk-ck">
-                    <DockIcon name="check" size={16} />
-                  </span>
-                ) : (
-                  <span className="dk-gm">{g.balance}</span>
-                )}
-              </button>
-            );
-          })}
+          <div className="dk-g" role="presentation">
+            <span className="dk-gi">{groupInitials(label)}</span>
+            <span className="dk-gt">
+              <b>{label}</b>
+            </span>
+          </div>
           <div className="dk-gs" />
           <button
             type="button"
             className="dk-ga"
             role="menuitem"
             onClick={() => {
-              setOpen(false);
+              close(false);
               router.push('/dashboard?conta=1');
             }}
           >
@@ -111,7 +111,7 @@ export function GroupMenu({
             className="dk-ga"
             role="menuitem"
             onClick={() => {
-              setOpen(false);
+              close(false);
               router.push('/conta');
             }}
           >
@@ -121,43 +121,22 @@ export function GroupMenu({
         </div>
       )}
       <button
+        ref={triggerRef}
         type="button"
         className="dk-acct"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls="y2p-grupos"
         aria-label={d.switchGroup}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="dk-av">{initial}</span>
         <span className="dk-us">
           <b>{name}</b>
-          <em>{current.name}</em>
+          <em>{label}</em>
         </span>
         <DockIcon name="down" size={14} />
       </button>
-      <div
-        role="status"
-        aria-live="polite"
-        style={{
-          position: 'fixed',
-          left: '50%',
-          bottom: 110,
-          transform: `translate(-50%, ${toast ? 0 : 16}px)`,
-          opacity: toast ? 1 : 0,
-          pointerEvents: 'none',
-          transition: '.25s',
-          background: 'var(--fam-card, #1b1d21)',
-          border: '1px solid var(--fx-border-strong, #3a3d42)',
-          borderRadius: 12,
-          padding: '11px 16px',
-          fontSize: 13.5,
-          color: 'var(--fx-text-strong, #edeff1)',
-          boxShadow: '0 18px 44px rgba(0,0,0,.35)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {toast}
-      </div>
     </div>
   );
 }

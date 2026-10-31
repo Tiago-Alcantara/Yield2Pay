@@ -162,7 +162,7 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #43464b, #1b1d21);
+  background: var(--fam-avatar, linear-gradient(160deg, #43464b, #1b1d21));
   border: 1px solid var(--fx-border-metal, #4a4d52);
   font-family: 'Geist Mono', monospace;
   font-size: 12px;

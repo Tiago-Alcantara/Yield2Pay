@@ -10,9 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { saoPauloMonth } from './painel-format';
 
 const push = vi.hoisted(() => vi.fn());
+const replace = vi.hoisted(() => vi.fn((url: string) => {
+  window.history.replaceState(null, '', url);
+}));
+const searchBox = vi.hoisted(() => ({ value: new URLSearchParams() }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, replace: vi.fn() }),
+  useRouter: () => ({ push, replace }),
   usePathname: () => '/dashboard',
+  useSearchParams: () => {
+    const next = new URLSearchParams(window.location.search);
+    if (next.toString() !== searchBox.value.toString()) searchBox.value = next;
+    return searchBox.value;
+  },
 }));
 
 import PainelGastos from './PainelGastos';
@@ -90,6 +99,8 @@ async function flushFrames() {
 
 beforeEach(() => {
   push.mockClear();
+  replace.mockClear();
+  searchBox.value = new URLSearchParams('stale');
   scrollTo.mockClear();
   frames.length = 0;
   localStorage.clear();
@@ -166,13 +177,121 @@ describe('ações da doca no painel', () => {
     expect(window.location.href).not.toContain('onerror');
   });
 
-  it('ignora ação com espaço ou maiúsculas', async () => {
+  it('ignora ?acao=NOVO em maiúsculas', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=NOVO');
+    render(<PainelGastos />);
+    await flushFrames();
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await flushFrames();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(new URLSearchParams(window.location.search).get('acao')).toBeNull();
+  });
+
+  it('ignora ação com espaço no fim', async () => {
     window.history.pushState(null, '', '/dashboard?acao=novo%20');
     render(<PainelGastos />);
     await flushFrames();
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
     await flushFrames();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('abre o extrato se ?acao=importar chegar com o painel já montado', async () => {
+    window.history.pushState(null, '', '/dashboard');
+    const view = render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await flushFrames();
+    expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
+
+    act(() => {
+      window.history.pushState(null, '', '/dashboard?acao=importar');
+    });
+    view.rerender(<PainelGastos />);
+    await flushFrames();
+
+    expect(await screen.findByRole('dialog', { name: 'Traga seus gastos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Configurações' })[0]?.getAttribute('style')).toContain('--fam-avatar');
+  });
+
+  it('abre as configurações se ?conta=1 chegar com o painel já montado', async () => {
+    window.history.pushState(null, '', '/dashboard');
+    const view = render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    act(() => {
+      window.history.pushState(null, '', '/dashboard?conta=1');
+    });
+    view.rerender(<PainelGastos />);
+    await flushFrames();
+    expect(await screen.findByRole('dialog', { name: 'Configurações' })).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('conta')).toBeNull();
+  });
+
+  it('avisa quem não administra a casa em vez de ignorar o convite', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=convidar');
+    const month = saoPauloMonth();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const body = url.includes('/account')
+          ? {
+              displayName: 'Marina',
+              fullName: 'Marina Alves',
+              email: 'marina@email.com',
+              initials: 'MA',
+              accountType: 'family',
+              household: { id: 'h1', name: 'Casa', role: 'member', onboardingCompleted: true },
+            }
+          : url.includes('/household/profile')
+            ? {
+                householdSize: 'two',
+                monthlyIncomeCents: 1_200_000,
+                reserveCents: 3_000_000,
+                priorities: [],
+                goalMonths: 12,
+                cryptoExperience: null,
+                onboardingCompleted: true,
+                importMode: 'ofx',
+                showFamily: true,
+                showFreedom: true,
+              }
+            : url.includes('/households/current')
+              ? { id: 'h1', name: 'Casa', role: 'member', onboardingCompleted: true, pendingInvites: [] }
+              : url.includes('/expenses/months')
+                ? [month]
+                : url.includes('/expenses')
+                  ? { items: [], total: 0 }
+                  : url.includes('/household/summary')
+                    ? {
+                        monthTotalCents: 0,
+                        previousComparableCents: 0,
+                        changePercent: null,
+                        projectedCents: 0,
+                        leftoverCents: null,
+                        byCategory: [],
+                        lastSixMonths: [{ month, amountCents: 0 }],
+                        averageCents: 0,
+                        dailyPace: { current: [], previous: [] },
+                        fixedVsVariable: [],
+                        freedom: null,
+                      }
+                    : url.includes('/lesson-progress')
+                      ? []
+                      : url.includes('/lessons')
+                        ? []
+                        : [];
+        const text = JSON.stringify(body);
+        return { status: 200, ok: true, text: async () => text, json: async () => body };
+      }),
+    );
+    render(<PainelGastos />);
+    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    await flushFrames();
+    expect(screen.getByRole('status')).toHaveTextContent('Só quem administra a casa pode convidar.');
+    expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
     expect(scrollTo).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
-import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY, isThemeId, type ThemeDef } from './themes';
+import React, { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
+import { usePathname } from 'next/navigation';
+import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY, isFamilyThemePath, isThemeId, type ThemeDef } from './themes';
 
 interface ThemeContextValue {
   theme: ThemeDef;
@@ -43,15 +44,20 @@ function applyTheme(id: string) {
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const id = useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME);
+  const pathname = usePathname() || '/';
+  const allowed = isFamilyThemePath(pathname);
 
-  // Mantém o atributo em dia (inclusive após navegação cliente).
-  React.useEffect(() => {
+  // useLayoutEffect tira o atributo antes do paint ao sair para /, /b2b ou /login.
+  useLayoutEffect(() => {
+    if (!allowed) {
+      delete document.documentElement.dataset.theme;
+      return;
+    }
     applyTheme(id);
-    // Fora da vertical de famílias (ex.: /b2b) o tema não se aplica.
     return () => {
       delete document.documentElement.dataset.theme;
     };
-  }, [id]);
+  }, [id, allowed]);
 
   const setTheme = useCallback((next: string) => {
     if (!isThemeId(next)) return;

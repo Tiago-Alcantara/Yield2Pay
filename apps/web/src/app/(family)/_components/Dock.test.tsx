@@ -159,7 +159,21 @@ describe('doca', () => {
     writeLiberdade(false);
     renderDock('/dashboard');
     expect(screen.queryByRole('link', { name: 'Liberdade' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Definir meta do mês' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Definir meta do mês' })).not.toBeInTheDocument();
+  });
+
+  it('esconde o convite de quem não administra a casa', () => {
+    setAccountView({
+      displayName: 'Marina',
+      fullName: 'Marina Alves',
+      email: 'marina@email.com',
+      initials: 'MA',
+      accountType: 'family',
+      household: { id: 'h1', name: 'Casa', role: 'member', onboardingCompleted: true },
+    });
+    renderDock('/dashboard');
+    expect(screen.queryByRole('button', { name: 'Convidar família' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Novo gasto' })).toBeInTheDocument();
   });
 
   it('deixa no DOM as classes que o CSS esconde no tablet e no celular', () => {

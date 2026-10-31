@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
 import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { Button } from '@/components/Button';
@@ -152,7 +152,7 @@ const iconBadgeStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(160deg,#43464b,#1b1d21)',
+  background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
   border: '1px solid var(--fx-border-metal, #4a4d52)',
   color: 'var(--fx-silver-bright, #D4D6D9)',
 };
@@ -168,7 +168,7 @@ export default function PainelGastos() {
 
 function PrivyPainel() {
   const { getAccessToken, logout } = usePrivy();
-  return <PainelScreen getToken={getAccessToken} onLogout={() => void logout()} />;
+  return <PainelScreen getToken={getAccessToken} onLogout={() => { setAccountView(null); void logout(); }} />;
 }
 
 function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: () => void }) {
@@ -197,6 +197,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteDenied, setInviteDenied] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importManual, setImportManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -204,8 +205,12 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
   const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
+  const pendingConta = useRef(false);
   const isMobile = useIsMobile();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryKey = searchParams.toString();
 
   const api = () => createHouseholdApi(() => getTokenRef.current());
 
@@ -214,28 +219,42 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     if (account) setAccountView(account);
   }, [account]);
 
-  // Ações rápidas da doca chegam como ?acao=importar|novo|convidar.
-  // O convite só existe depois que a conta carrega, então a ação fica guardada
-  // e o frame seguinte tenta de novo. Qualquer outro valor é descartado.
+  // A doca chega com ?acao= ou ?conta=1. useSearchParams reage com o painel
+  // já montado. A query sai depois; ação desconhecida não abre nada.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(queryKey);
     const acao = params.get('acao');
+    const conta = params.get('conta');
     if (acao === 'importar' || acao === 'novo' || acao === 'convidar') pendingAcao.current = acao;
-    if (!acao) return;
-    params.delete('acao');
+    if (conta === '1') pendingConta.current = true;
+    if (!acao && conta !== '1') return;
+    if (acao) params.delete('acao');
+    if (conta === '1') params.delete('conta');
     const query = params.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, []);
+    router.replace(`${pathname}${query ? `?${query}` : ''}${window.location.hash}`, { scroll: false });
+  }, [queryKey, pathname, router]);
 
   useEffect(() => {
     const acao = pendingAcao.current;
-    if (!acao) return;
+    const openConta = pendingConta.current;
+    if (!acao && !openConta) return;
     const frame = requestAnimationFrame(() => {
-      if (pendingAcao.current !== acao) return;
+      if (pendingConta.current) {
+        pendingConta.current = false;
+        setSettingsOpen(true);
+      }
+      if (!acao || pendingAcao.current !== acao) return;
       if (acao === 'importar' || acao === 'novo') {
         pendingAcao.current = null;
         setImportManual(acao === 'novo');
         setImportOpen(true);
+        return;
+      }
+      if (!account || !profile) return;
+      const canInvite = account.household?.role === 'owner' && profile.showFamily !== false;
+      if (!canInvite) {
+        pendingAcao.current = null;
+        setInviteDenied(true);
         return;
       }
       if (!document.getElementById('s-convidar')) return;
@@ -243,16 +262,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
       scrollToId('s-convidar');
     });
     return () => cancelAnimationFrame(frame);
-  }, [account, profile]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('conta') !== '1') return;
-    setSettingsOpen(true);
-    params.delete('conta');
-    const query = params.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, []);
+  }, [account, profile, queryKey]);
 
   useEffect(() => {
     if (!profile) {
@@ -692,7 +702,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               )}
             </div>
             {isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -711,12 +721,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               />
             </div>
             {!isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
           </div>
         </header>
+        {inviteDenied && (
+          <p role="status" style={{ margin: '16px 32px 0', fontSize: 14.5, color: 'var(--fx-text-strong, #F2F3F4)' }}>
+            Só quem administra a casa pode convidar.
+          </p>
+        )}
 
         <div
           id="s-topo"

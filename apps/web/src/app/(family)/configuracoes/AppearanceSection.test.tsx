@@ -7,7 +7,14 @@
  */
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/configuracoes',
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { AppearanceSection } from './AppearanceSection';
 import { FamilyProvider } from '../_lib/FamilyProvider';
 import { resetFamilyStore, updateFamilyStore } from '../_lib/familyStore';

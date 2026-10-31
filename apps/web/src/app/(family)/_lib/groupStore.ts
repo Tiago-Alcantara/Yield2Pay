@@ -1,50 +1,51 @@
 /**
- * Grupo de finanças escolhido na doca. Persistido em localStorage['y2p-grupo']
- * e lido com useSyncExternalStore, como familyStore.
- *
- * Os grupos ainda são de exemplo: quando a API expuser vários grupos por
- * usuário, GROUPS passa a vir de householdApi e o painel filtra por `id`.
+ * Escolha de grupo na doca. Em produção o seletor de vários grupos fica
+ * desligado: a doca mostra só a casa que veio de /account, sem saldo nem meta
+ * de exemplo. Um valor de localStorage só passa se for um id curto e seguro.
  */
-export type GroupId = 'fam' | 'casa' | 'eu';
-
-export interface FinanceGroup {
-  id: GroupId;
-  name: string;
-  meta: string;
-  balance: string;
-  initials: string;
-}
-
-export const GROUPS: readonly FinanceGroup[] = [
-  { id: 'fam', name: 'Família Souza', meta: '4 membros · você é admin', balance: 'R$ 8.240', initials: 'FS' },
-  { id: 'casa', name: 'Casa da praia', meta: '2 membros · divide 50/50', balance: 'R$ 1.180', initials: 'CP' },
-  { id: 'eu', name: 'Pessoal', meta: 'Gastos individuais', balance: 'R$ 2.065', initials: 'TS' },
-];
-
-const KEY = 'y2p-grupo';
+export const GROUP_STORAGE_KEY = 'y2p-grupo';
 const EVENT = 'y2p-grupo';
-const DEFAULT: GroupId = 'fam';
+const MAX_ID_LENGTH = 64;
 
-function isGroupId(v: string | null): v is GroupId {
-  return GROUPS.some((g) => g.id === v);
+/**
+ * Lista que a API ainda não entrega. Vazia de propósito: nenhum grupo
+ * fictício entra aqui. Com a flag ligada, um id só vale se estiver nesta lista.
+ */
+function knownGroupIds(): readonly string[] {
+  return [];
 }
 
-export function readGroup(): GroupId {
+/** Seletor de vários grupos. Desligado por padrão. */
+export function multiGroupSelectorEnabled(): boolean {
+  return false;
+}
+
+export function isAllowedGroupId(value: string | null): value is string {
+  if (typeof value !== 'string') return false;
+  if (value.length === 0 || value.length > MAX_ID_LENGTH) return false;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) return false;
+  return knownGroupIds().includes(value);
+}
+
+export function readGroup(): string | null {
+  let raw: string | null = null;
   try {
-    const v = localStorage.getItem(KEY);
-    return isGroupId(v) ? v : DEFAULT;
+    raw = localStorage.getItem(GROUP_STORAGE_KEY);
   } catch {
-    return DEFAULT;
+    return null;
   }
+  if (!isAllowedGroupId(raw)) return null;
+  return raw;
 }
 
-export function readGroupServer(): GroupId {
-  return DEFAULT;
+export function readGroupServer(): string | null {
+  return null;
 }
 
-export function writeGroup(id: GroupId): void {
+export function writeGroup(id: string): void {
+  if (!isAllowedGroupId(id) || !multiGroupSelectorEnabled()) return;
   try {
-    localStorage.setItem(KEY, id);
+    localStorage.setItem(GROUP_STORAGE_KEY, id);
   } catch {
     /* armazenamento indisponível */
   }

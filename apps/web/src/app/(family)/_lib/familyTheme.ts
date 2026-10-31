@@ -14,7 +14,7 @@ export const C = {
   bgRadialTall: 'var(--fam-bg-radial-tall, radial-gradient(120% 60% at 50% -10%,#1b1d20 0%,#0c0d0f 60%))',
   card: 'var(--fam-card, #1A1C1F)',                        // card padrão das telas de família
   well: 'var(--fx-surface-2)',            // #16181B
-  wellDeep: '#0f1113',                    // campo dentro de well
+  wellDeep: 'var(--fam-well-deep, #0f1113)',
   metal: 'var(--fx-metal)',
 
   // bordas
@@ -41,7 +41,7 @@ export const C = {
   chromeInk: 'var(--fx-chrome-ink)',      // #0E0F11
   chromeSoft: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)',
   fill: 'linear-gradient(90deg,#A8AAAD,#E6E8EA)',
-  tile: 'linear-gradient(160deg,#43464b,#1b1d21)',
+  tile: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
 
   // estados
   danger: '#D98A8A',

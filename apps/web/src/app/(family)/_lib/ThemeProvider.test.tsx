@@ -15,9 +15,15 @@ function readWebFile(fromWebRoot: string): string {
   const nested = join(process.cwd(), 'apps/web', fromWebRoot);
   return readFileSync(existsSync(direct) ? direct : nested, 'utf8');
 }
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const pathRef = vi.hoisted(() => ({ current: '/dashboard' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathRef.current,
+}));
+
 import { ThemeProvider, useTheme } from './ThemeProvider';
-import { DEFAULT_THEME, THEME_BOOT_SCRIPT, THEME_STORAGE_KEY, THEMES, isThemeId } from './themes';
+import { DEFAULT_THEME, THEME_BOOT_SCRIPT, THEME_STORAGE_KEY, THEMES, isFamilyThemePath, isThemeId } from './themes';
 
 const PAYLOADS = [
   '"><img src=x onerror=alert(1)>',
@@ -58,6 +64,7 @@ function Setter({ id }: { id: string }) {
 
 beforeEach(() => {
   localStorage.clear();
+  pathRef.current = '/dashboard';
   document.documentElement.removeAttribute('data-theme');
   window.history.pushState(null, '', '/');
 });
@@ -71,8 +78,14 @@ afterEach(() => {
 describe('script anti-flash', () => {
   it('está no layout raiz, antes da hidratação', () => {
     const layout = readWebFile('src/app/layout.tsx');
+    const themesCss = readWebFile('src/app/(family)/themes.css');
     expect(layout).toContain('THEME_BOOT_SCRIPT');
-    expect(layout).toContain('strategy="beforeInteractive"');
+    expect(layout).toContain('dangerouslySetInnerHTML');
+    expect(layout).toContain('<head>');
+    expect(layout).toContain('suppressHydrationWarning');
+    expect(layout).not.toContain('beforeInteractive');
+    expect(themesCss).toContain('.fam-shell');
+    expect(themesCss).not.toMatch(/:root\[data-theme="[^"]+"\]\s*\{/);
     expect(THEME_BOOT_SCRIPT).not.toContain('innerHTML');
     expect(THEME_BOOT_SCRIPT).not.toContain('document.write');
     expect(THEME_BOOT_SCRIPT).not.toContain('eval(');
@@ -99,19 +112,21 @@ describe('script anti-flash', () => {
     }
   });
 
-  it('não aplica o tema em /b2b nem em /login', () => {
+  it('não aplica o tema na landing, em /b2b nem em /login', () => {
     localStorage.setItem(THEME_STORAGE_KEY, 'petroleo');
-    for (const pathname of ['/b2b', '/b2b/', '/b2b/painel', '/login', '/login/', '/login/google']) {
+    for (const pathname of ['/', '/b2b', '/b2b/', '/b2b/painel', '/login', '/login/', '/login/google', '/b2bextra', '/login-ajuda']) {
       runThemeBootScript(pathname);
       expect(themeAttr()).toBeNull();
+      expect(isFamilyThemePath(pathname)).toBe(false);
     }
   });
 
-  it('continua valendo nas telas da família e não trata prefixo parecido como bloqueio', () => {
+  it('aplica só nas telas logadas da família', () => {
     localStorage.setItem(THEME_STORAGE_KEY, 'oled');
-    for (const pathname of ['/', '/conta', '/configuracoes', '/conceitos', '/b2bextra', '/login-ajuda']) {
+    for (const pathname of ['/dashboard', '/aprender', '/conta', '/configuracoes', '/conceitos', '/deposito', '/saque', '/onboarding']) {
       runThemeBootScript(pathname);
       expect(themeAttr()).toBe('oled');
+      expect(isFamilyThemePath(pathname)).toBe(true);
     }
   });
 });
@@ -151,6 +166,20 @@ describe('ThemeProvider', () => {
       expect(screen.getByRole('button', { name: /aplicar/ })).toHaveTextContent(DEFAULT_THEME);
       view.unmount();
       document.documentElement.removeAttribute('data-theme');
+    }
+  });
+
+  it('não aplica o tema na landing, em /b2b nem em /login mesmo com valor salvo', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'petroleo');
+    for (const pathname of ['/', '/b2b', '/login']) {
+      pathRef.current = pathname;
+      const view = render(
+        <ThemeProvider>
+          <span>fora</span>
+        </ThemeProvider>,
+      );
+      expect(themeAttr()).toBeNull();
+      view.unmount();
     }
   });
 

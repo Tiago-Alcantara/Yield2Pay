@@ -62,8 +62,11 @@ function useLoadAccount(getToken: GetToken, enabled: boolean) {
 }
 
 function PrivyAccountLoader({ enabled }: { enabled: boolean }) {
-  const { getAccessToken } = usePrivy();
-  useLoadAccount(getAccessToken, enabled);
+  const { getAccessToken, authenticated, ready } = usePrivy();
+  useLoadAccount(getAccessToken, enabled && authenticated);
+  React.useEffect(() => {
+    if (ready && !authenticated) setAccountView(null);
+  }, [ready, authenticated]);
   return null;
 }
 
@@ -98,6 +101,7 @@ export function Dock() {
   if (!visible || !pathname) return loader;
 
   const active = activeDockItem(pathname);
+  const canInvite = account?.household?.role === 'owner';
   const fromApi = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0];
   const firstName = fromApi || state.profile.name.trim().split(/\s+/)[0] || d.account;
   const initial = (account?.initials && account.initials !== '?' ? account.initials : firstName).charAt(0).toUpperCase();
@@ -126,12 +130,16 @@ export function Dock() {
       <button type="button" className="dk-qb" title={d.import} aria-label={d.import} onClick={quick('importar')}>
         <DockIcon name="upload" size={18} />
       </button>
-      <Link className="dk-qb" title={d.goal} aria-label={d.goal} href="/dashboard#s-liberdade">
-        <DockIcon name="target" size={18} />
-      </Link>
-      <button type="button" className="dk-qb" title={d.invite} aria-label={d.invite} onClick={quick('convidar')}>
-        <DockIcon name="users" size={18} />
-      </button>
+      {liberdadeOn && (
+        <Link className="dk-qb" title={d.goal} aria-label={d.goal} href="/dashboard#s-liberdade">
+          <DockIcon name="target" size={18} />
+        </Link>
+      )}
+      {canInvite && (
+        <button type="button" className="dk-qb" title={d.invite} aria-label={d.invite} onClick={quick('convidar')}>
+          <DockIcon name="users" size={18} />
+        </button>
+      )}
       <button type="button" className="dk-cta" aria-label={d.newExpense} onClick={quick('novo')}>
         <DockIcon name="plus" size={16} />
         {d.newExpense}

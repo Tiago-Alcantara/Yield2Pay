@@ -2,7 +2,7 @@
    Cada bloco sobrescreve os tokens --fx-* (mapeamento campo→token do handoff)
    e as variáveis --fam-* usadas por familyTheme.ts. O tema "escuro" é o padrão. */
 
-:root[data-theme="cloud-teal"] {
+:root[data-theme="cloud-teal"] .fam-shell {
   color-scheme: light;
   --fx-bg: #f0eee9;
   --fam-header-bg: #f0eee9d1;
@@ -31,6 +31,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(22,48,48, .45);
   --fx-selection-bg: rgba(22,48,48, .15);
   --fam-chip-on: #c6c1b5;
+  --fam-avatar: linear-gradient(160deg, #fdfcfa, #e6e3dc);
+  --fam-well-deep: #e0dcd3;
   --fam-raised: #fdfcfa;
   --fam-card: #fdfcfa;
   --fam-page: #f0eee9;
@@ -54,7 +56,7 @@
   --fam-shade-7: #D4D6D9;
 }
 
-:root[data-theme="gelo-marinho"] {
+:root[data-theme="gelo-marinho"] .fam-shell {
   color-scheme: light;
   --fx-bg: #e9eef4;
   --fam-header-bg: #e9eef4d1;
@@ -83,6 +85,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(16,30,60, .45);
   --fx-selection-bg: rgba(16,30,60, .15);
   --fam-chip-on: #b0c0d3;
+  --fam-avatar: linear-gradient(160deg, #fbfcfe, #dce4ee);
+  --fam-well-deep: #d3dce8;
   --fam-raised: #fbfcfe;
   --fam-card: #fbfcfe;
   --fam-page: #e9eef4;
@@ -106,7 +110,7 @@
   --fam-shade-7: #D4D6D9;
 }
 
-:root[data-theme="salvia-floresta"] {
+:root[data-theme="salvia-floresta"] .fam-shell {
   color-scheme: light;
   --fx-bg: #e8ece4;
   --fam-header-bg: #e8ece4d1;
@@ -135,6 +139,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(26,44,24, .45);
   --fx-selection-bg: rgba(26,44,24, .15);
   --fam-chip-on: #b5c2aa;
+  --fam-avatar: linear-gradient(160deg, #fbfcf9, #dce3d6);
+  --fam-well-deep: #d3dccb;
   --fam-raised: #fbfcf9;
   --fam-card: #fbfcf9;
   --fam-page: #e8ece4;
@@ -158,7 +164,7 @@
   --fam-shade-7: #D4D6D9;
 }
 
-:root[data-theme="zinco-grafite"] {
+:root[data-theme="zinco-grafite"] .fam-shell {
   color-scheme: light;
   --fx-bg: #eff0f2;
   --fam-header-bg: #eff0f2d1;
@@ -187,6 +193,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(24,28,36, .45);
   --fx-selection-bg: rgba(24,28,36, .15);
   --fam-chip-on: #c2c5cc;
+  --fam-avatar: linear-gradient(160deg, #ffffff, #e4e5e8);
+  --fam-well-deep: #d8dadd;
   --fam-raised: #ffffff;
   --fam-card: #ffffff;
   --fam-page: #eff0f2;
@@ -210,7 +218,7 @@
   --fam-shade-7: #D4D6D9;
 }
 
-:root[data-theme="meia-noite"] {
+:root[data-theme="meia-noite"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0a0d13;
   --fam-header-bg: #0a0d13d1;
@@ -254,7 +262,7 @@
   --fam-chart-track: #242b39;
 }
 
-:root[data-theme="petroleo"] {
+:root[data-theme="petroleo"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #091011;
   --fam-header-bg: #091011d1;
@@ -298,7 +306,7 @@
   --fam-chart-track: #223234;
 }
 
-:root[data-theme="floresta"] {
+:root[data-theme="floresta"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0a0f0b;
   --fam-header-bg: #0a0f0bd1;
@@ -342,7 +350,7 @@
   --fam-chart-track: #233225;
 }
 
-:root[data-theme="espresso"] {
+:root[data-theme="espresso"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #100c0a;
   --fam-header-bg: #100c0ad1;
@@ -386,7 +394,7 @@
   --fam-chart-track: #33281f;
 }
 
-:root[data-theme="ameixa-escuro"] {
+:root[data-theme="ameixa-escuro"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0f0b11;
   --fam-header-bg: #0f0b11d1;
@@ -430,7 +438,7 @@
   --fam-chart-track: #312736;
 }
 
-:root[data-theme="bordo"] {
+:root[data-theme="bordo"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #110a0b;
   --fam-header-bg: #110a0bd1;
@@ -474,7 +482,7 @@
   --fam-chart-track: #362526;
 }
 
-:root[data-theme="oliva-noite"] {
+:root[data-theme="oliva-noite"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0e0e09;
   --fam-header-bg: #0e0e09d1;
@@ -518,7 +526,7 @@
   --fam-chart-track: #2f2f22;
 }
 
-:root[data-theme="grafite-quente"] {
+:root[data-theme="grafite-quente"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0e0d0c;
   --fam-header-bg: #0e0d0cd1;
@@ -562,7 +570,7 @@
   --fam-chart-track: #2e2b28;
 }
 
-:root[data-theme="oled"] {
+:root[data-theme="oled"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #000000;
   --fam-header-bg: #000000d1;
@@ -606,7 +614,7 @@
   --fam-chart-track: #222326;
 }
 
-:root[data-theme="ardosia"] {
+:root[data-theme="ardosia"] .fam-shell {
   color-scheme: dark;
   --fx-bg: #0c0e12;
   --fam-header-bg: #0c0e12d1;
@@ -651,10 +659,10 @@
 }
 
 /* Texto claro dentro do cartão principal (metal escuro) nos temas claros. */
-:root[data-theme="cloud-teal"] .fx-metal-card,
-:root[data-theme="gelo-marinho"] .fx-metal-card,
-:root[data-theme="salvia-floresta"] .fx-metal-card,
-:root[data-theme="zinco-grafite"] .fx-metal-card {
+:root[data-theme="cloud-teal"] .fam-shell .fx-metal-card,
+:root[data-theme="gelo-marinho"] .fam-shell .fx-metal-card,
+:root[data-theme="salvia-floresta"] .fam-shell .fx-metal-card,
+:root[data-theme="zinco-grafite"] .fam-shell .fx-metal-card {
   --fx-text: #edeff1;
   --fx-text-strong: #f2f3f4;
   --fx-text-heading: #edeff1;

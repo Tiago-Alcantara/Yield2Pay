@@ -21,12 +21,14 @@ export const metadata: Metadata = {
 export default function FamilyLayout({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <FamilyProvider>
-        <FamilySessionGate>
-          {children}
-          <Dock />
-        </FamilySessionGate>
-      </FamilyProvider>
+      <div className="fam-shell">
+        <FamilyProvider>
+          <FamilySessionGate>
+            {children}
+            <Dock />
+          </FamilySessionGate>
+        </FamilyProvider>
+      </div>
     </ThemeProvider>
   );
 }
