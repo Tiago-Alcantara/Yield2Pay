@@ -5,7 +5,7 @@
  * Intuito: A trilha mostra as aulas, o teste e o estado de cada uma.
  * Sequência: mostra o vídeo e a leitura da aula, e troca quando muda de aula; abre a aula pedida na URL, não a última salva no navegador; avisa quais aulas faltam e não libera o investimento; mostra a trilha mesmo sem família criada.
  */
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AulaCripto from './AulaCripto';
 import { PLAYBACK_KEY } from './player';
@@ -186,7 +186,9 @@ describe('trilha de aulas', () => {
     expect(await screen.findByText(/Acertou/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Próxima aula' }));
     expect(await screen.findByRole('heading', { level: 2, name: 'Blockchain: o caderno que ninguém apaga' })).toBeInTheDocument();
-    expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=2', { scroll: false });
+    // A troca vem depois do await do salvamento, fora do act: o efeito que grava
+    // ?aula pode rodar um tick depois do commit que já mostra o título.
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=2', { scroll: false }));
     expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 2 de');
   });
 
