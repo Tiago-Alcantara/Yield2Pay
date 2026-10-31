@@ -175,7 +175,6 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
   const monthRequest = useRef(0);
-  const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
 
   const [phase, setPhase] = useState<'panel' | 'name' | 'onboarding'>('panel');
   const [account, setAccount] = useState<AccountView | null>(null);
@@ -204,6 +203,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
   const isMobile = useIsMobile();
   const router = useRouter();
 
