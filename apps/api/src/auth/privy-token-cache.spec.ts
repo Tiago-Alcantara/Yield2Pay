@@ -304,10 +304,11 @@ describe('privy-token-cache', () => {
   });
 
   it('reusa a chave já gravada pelo refetch e não busca uma terceira vez', async () => {
-    const { pending, fetchVerificationKey, verifyAuthToken } = await verifyAfterStoredRefresh({
-      token: 'girado',
-      onNewKey: async () => ({ userId: 'user-girado' }),
-    });
+    const { pending, fetchVerificationKey, verifyAuthToken } =
+      await verifyAfterStoredRefresh({
+        token: 'girado',
+        onNewKey: async () => ({ userId: 'user-girado' }),
+      });
     await expect(pending).resolves.toEqual({ privyUserId: 'user-girado' });
     expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
     expect(verifyAuthToken).toHaveBeenCalledWith('girado', KEY_A);
@@ -316,12 +317,13 @@ describe('privy-token-cache', () => {
   });
 
   it('recusa o token forjado na tentativa com a chave nova e propaga o erro', async () => {
-    const { pending, fetchVerificationKey, verifyAuthToken } = await verifyAfterStoredRefresh({
-      token: 'forjado',
-      onNewKey: async () => {
-        throw forgedError();
-      },
-    });
+    const { pending, fetchVerificationKey, verifyAuthToken } =
+      await verifyAfterStoredRefresh({
+        token: 'forjado',
+        onNewKey: async () => {
+          throw forgedError();
+        },
+      });
     await expect(pending).rejects.toThrow('token forjado');
     expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
     expect(verifyAuthToken).toHaveBeenCalledWith('forjado', KEY_B);
