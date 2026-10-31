@@ -7,7 +7,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cap, mesNome, saoPauloMonth, shiftMonth } from './painel-format';
@@ -531,6 +531,16 @@ describe('PainelGastos', () => {
     vi.unstubAllGlobals();
   });
 
+  function stubExpenseMonths(months: string[]) {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const target = String(url);
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify(months.map((month) => ({ month, amountCents: 1000 }))), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+  }
+
   it('opens in two waves with one expenses call and switches month without reloading the house', async () => {
     const calls: { url: string; at: number }[] = [];
     let releaseAccount: () => void = () => undefined;
@@ -697,5 +707,33 @@ describe('PainelGastos', () => {
     await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
     expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(older)}` })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+  });
+
+  it('D-06: o menu de mês lista só os meses com gasto, sem o vazio nem o seguinte', async () => {
+    stubExpenseMonths(['2026-08', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    const options = within(screen.getByRole('listbox', { name: 'Escolher mês' })).getAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringMatching(/^Outubro/),
+      expect.stringMatching(/^Agosto/),
+    ]);
+  });
+
+  it('D-06: um gasto depois do mês seguinte é alcançável pela seta', async () => {
+    stubExpenseMonths(['2026-10', '2027-01']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    const next = screen.getByRole('button', { name: 'Próximo mês' });
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de novembro' })).toBeTruthy();
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de dezembro' })).toBeTruthy();
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de janeiro' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
   });
 });

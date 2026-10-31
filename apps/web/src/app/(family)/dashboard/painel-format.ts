@@ -175,24 +175,37 @@ export function shiftMonth(month: string, delta: number): string {
   const index = year * 12 + (monthNumber - 1) + delta;
   const nextYear = Math.floor(index / 12);
   const nextMonth = (index % 12) + 1;
-  return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  // Ano com quatro dígitos: os meses são comparados como texto ('0999-12' < '2026-10').
+  return `${String(nextYear).padStart(4, '0')}-${String(nextMonth).padStart(2, '0')}`;
 }
 
-/** Meses que as setas percorrem: do primeiro com gasto até o mês atual + 1. */
-export function visibleMonthSpan(expenseMonths: string[], today = saoPauloMonth()): string[] {
-  const sorted = sortMonths(expenseMonths.filter((item) => /^\d{4}-\d{2}$/.test(item)));
-  const earliest = sorted[0];
-  const first = earliest && earliest < today ? earliest : today;
-  const last = shiftMonth(today, 1);
-  const months: string[] = [];
-  let cursor = first;
-  while (cursor <= last) {
-    months.push(cursor);
-    const next = shiftMonth(cursor, 1);
-    if (next <= cursor) break;
-    cursor = next;
-  }
-  return months;
+export function isValidMonth(month: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+}
+
+export type MonthArrowRange = { first: string; last: string };
+
+/**
+ * Faixa contínua que só as setas de mês percorrem: do primeiro mês com gasto
+ * até o maior entre o mês atual + 1 e o último mês com gasto. O extrato aceita
+ * data futura, então o último gasto pode passar do mês seguinte. Os filtros
+ * continuam com a lista de meses com gasto; aqui só entram os limites.
+ * Uma data absurda (1000-01, 9999-12) não pode esticar a faixa sem fim: cada
+ * ponta para em MONTH_RANGE_CAP meses do mês atual.
+ */
+export function monthArrowRange(expenseMonths: string[], today = saoPauloMonth()): MonthArrowRange {
+  const sorted = sortMonths(expenseMonths.filter(isValidMonth));
+  const earliestExpense = sorted[0];
+  const latestExpense = sorted[sorted.length - 1];
+  const nextMonth = shiftMonth(today, 1);
+  const oldestAllowed = shiftMonth(today, -MONTH_RANGE_CAP);
+  const newestAllowed = shiftMonth(today, MONTH_RANGE_CAP);
+
+  let first = earliestExpense && earliestExpense < today ? earliestExpense : today;
+  if (first < oldestAllowed) first = oldestAllowed;
+  let last = latestExpense && latestExpense > nextMonth ? latestExpense : nextMonth;
+  if (last > newestAllowed) last = newestAllowed;
+  return { first, last };
 }
 
 export function sortMonths(months: string[]): string[] {

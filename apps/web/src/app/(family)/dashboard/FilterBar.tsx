@@ -16,7 +16,7 @@ import {
   saoPauloMonth,
   saoPauloToday,
   shiftMonth,
-  visibleMonthSpan,
+  type MonthArrowRange,
 } from './painel-format';
 
 export type ExpenseFilters = {
@@ -156,6 +156,7 @@ const chromeOff: CSSProperties = {
 export function FilterBar({
   month,
   months,
+  arrowRange,
   totals,
   expenses,
   filters,
@@ -164,7 +165,10 @@ export function FilterBar({
   onApply,
 }: {
   month: string;
+  /** Meses com gasto: alimentam o menu, a grade do modal e as datas do período. */
   months: string[];
+  /** Limites das setas, calculados pelo painel junto com a lista de meses. */
+  arrowRange: MonthArrowRange;
   totals: Record<string, number>;
   expenses: ExpenseView[];
   filters: ExpenseFilters;
@@ -180,13 +184,12 @@ export function FilterBar({
   const [draft, setDraft] = useState<Draft | null>(null);
   const today = saoPauloToday();
   const chips = filterChips(filters);
-  const span = visibleMonthSpan(months);
-  const rangeStart = span[0] ?? month;
-  const rangeEnd = span[span.length - 1] ?? month;
-  const previousMonth = shiftMonth(month, -1);
-  const nextMonth = shiftMonth(month, 1);
-  const previousOff = previousMonth < rangeStart;
-  const nextOff = nextMonth > rangeEnd;
+  // Um mês aberto pelo menu pode estar fora da faixa (gasto além do limite).
+  // Daí a seta volta para a ponta mais próxima em vez de andar fora dela.
+  const previousMonth = month > arrowRange.last ? arrowRange.last : shiftMonth(month, -1);
+  const nextMonth = month < arrowRange.first ? arrowRange.first : shiftMonth(month, 1);
+  const previousOff = previousMonth < arrowRange.first;
+  const nextOff = nextMonth > arrowRange.last;
   const label = filters.mode === 'custom' ? rangeLabel(filters) : `${cap(mesNome(month))} ${month.slice(0, 4)}`;
   const controlHeight = isMobile ? 44 : 52;
 

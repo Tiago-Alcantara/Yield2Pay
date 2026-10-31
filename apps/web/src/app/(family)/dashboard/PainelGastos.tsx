@@ -31,10 +31,10 @@ import {
   mesNome,
   metaLabel,
   MONTH_RANGE_CAP_NOTE,
+  monthArrowRange,
   monthsCovering,
   nf,
   shiftMonth,
-  visibleMonthSpan,
   openingMonth,
   reais,
   saoPauloDay,
@@ -196,6 +196,7 @@ function PainelScreen({
   const [summary, setSummary] = useState<HouseholdSummary>(EMPTY_SUMMARY);
   const [expenses, setExpenses] = useState<ExpenseView[]>([]);
   const [months, setMonths] = useState<string[]>([]);
+  const [arrowRange, setArrowRange] = useState(() => monthArrowRange([]));
   const [monthTotals, setMonthTotals] = useState<MonthTotal[]>([]);
   const [month, setMonth] = useState(() => saoPauloMonth());
   const [filters, setFilters] = useState<ExpenseFilters>(EMPTY_FILTERS);
@@ -378,7 +379,8 @@ function PainelScreen({
         });
         setProfile(profileView);
         setMonthTotals(monthList);
-        setMonths(visibleMonthSpan(sorted));
+        setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
+        setArrowRange(monthArrowRange(sorted));
         setMonth(selected);
         setExpenses(expenseRows);
         setSummary(summaryView);
@@ -514,7 +516,8 @@ function PainelScreen({
     setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
     setSummary(summaryView);
     setMonthTotals(monthList);
-    setMonths(visibleMonthSpan(sorted));
+    setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
+    setArrowRange(monthArrowRange(sorted));
   }
 
   async function importFile(file: File) {
@@ -580,7 +583,8 @@ function PainelScreen({
       setAccount(accountView);
       setProfile(profileView);
       setMonth(selected);
-      setMonths(visibleMonthSpan([]));
+      setMonths([selected]);
+      setArrowRange(monthArrowRange([]));
       setExpenses([]);
       setSummary(EMPTY_SUMMARY);
       setLessons([]);
@@ -838,6 +842,7 @@ function PainelScreen({
               <FilterBar
                 month={month}
                 months={pills}
+                arrowRange={arrowRange}
                 totals={totals}
                 expenses={expenses}
                 filters={filters}
