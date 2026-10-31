@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "scripts": {
+    "prepare": "node -e \"const fs=require('fs'); if(!fs.existsSync('scripts/setup-git-hooks.cjs')){ console.log('prepare: scripts/setup-git-hooks.cjs ausente, hooks locais não configurados'); process.exit(0);} require('./scripts/setup-git-hooks.cjs');\"",
     "dev:web": "pnpm --filter @yield2pay/web dev",
     "dev:api": "pnpm --filter @yield2pay/api dev",
     "dev:app": "pnpm --parallel --filter @yield2pay/web --filter @yield2pay/api dev",

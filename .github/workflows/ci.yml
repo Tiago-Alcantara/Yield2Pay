@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # postgres:18
+        env:
+          POSTGRES_USER: yield2pay
+          POSTGRES_PASSWORD: yield2pay
+          POSTGRES_DB: yield2pay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yield2pay -d yield2pay_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FINANCIAL_PRODUCT_ENABLED: "false"
+      NEXT_PUBLIC_FINANCIAL_PRODUCT: "false"
+      APP_ENV: development
+      NEXT_PUBLIC_APP_ENV: development
+      PRIVY_APP_ID: ci-privy-app
+      PRIVY_APP_SECRET: ci-privy-secret
+      DATABASE_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay_test?schema=public
+      PG_TEST_URL: postgresql://yield2pay:yield2pay@localhost:5432/yield2pay_test?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          run_install: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Testes dos checadores
+        run: |
+          sh scripts/check-no-coauthored-by.test.sh
+          node --test scripts/check-error-baseline.test.mjs
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      # O lint com typecheck e o tsc leem o client gerado. Sem este passo
+      # o tsc acusa o schema inteiro como ausente.
+      - name: Gerar cliente Prisma
+        run: pnpm --filter @yield2pay/api exec prisma generate
+
+      - name: Lint da API
+        run: node scripts/check-error-baseline.mjs api-lint
+
+      - name: Lint da web
+        run: node scripts/check-error-baseline.mjs web-lint
+
+      - name: tsc da API
+        run: node scripts/check-error-baseline.mjs api-tsc
+
+      - name: tsc da web
+        run: node scripts/check-error-baseline.mjs web-tsc
+
+      - name: tsc da API (build)
+        run: pnpm --filter @yield2pay/api exec tsc --noEmit --pretty false --project tsconfig.build.json
+
+      - name: Build da API
+        run: pnpm --filter @yield2pay/api build
+
+      - name: Build da web
+        run: pnpm --filter @yield2pay/web build
+
+      - name: Aplicar migrations
+        run: pnpm --filter @yield2pay/api exec prisma migrate deploy
+
+      - name: Testes da API
+        run: pnpm --filter @yield2pay/api test
+
+      - name: Testes e2e da API
+        env:
+          RUN_DB_TESTS: "1"
+        run: pnpm --filter @yield2pay/api test:e2e
+
+      - name: Testes da web
+        run: pnpm --filter @yield2pay/web test

@@ -1,0 +1,32 @@
+#!/bin/sh
+# Remove só linhas de trailer Co-authored-by. Prosa e assunto ficam.
+# O padrão é o mesmo de scripts/check-no-coauthored-by.sh.
+# POSIX sh: Linux, macOS e Git Bash.
+set -eu
+
+if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
+  echo "commit-msg: arquivo da mensagem ausente" >&2
+  exit 1
+fi
+
+repo=$(git rev-parse --show-toplevel)
+pattern_file="$repo/scripts/co-authored-by.pattern"
+if [ ! -f "$pattern_file" ]; then
+  echo "commit-msg: padrão ausente em $pattern_file" >&2
+  exit 1
+fi
+pattern=$(tr -d '\r\n' < "$pattern_file")
+
+msg_file=$1
+tmp_file="${msg_file}.tmp.$$"
+trap 'rm -f "$tmp_file"' EXIT
+
+status=0
+grep -viE "$pattern" "$msg_file" > "$tmp_file" || status=$?
+if [ "$status" -gt 1 ]; then
+  echo "commit-msg: falha ao filtrar a mensagem" >&2
+  exit "$status"
+fi
+
+mv "$tmp_file" "$msg_file"
+trap - EXIT
