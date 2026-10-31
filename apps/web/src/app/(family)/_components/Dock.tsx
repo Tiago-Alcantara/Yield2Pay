@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useFamily } from '../_lib/FamilyProvider';
 import { onLiberdadeChange, readLiberdade } from '../_lib/liberdadePref';
 import { DockIcon, type DockIconName } from './dockIcons';
+import { GroupMenu } from './GroupMenu';
 
 /** Telas logadas da família que mostram a doca. */
 const DOCK_PREFIXES = ['/dashboard', '/aprender', '/conceitos', '/configuracoes', '/conta'];
@@ -62,12 +63,7 @@ export function Dock() {
 
   return (
     <nav id="y2p-dock" aria-label={d.aria}>
-      <Link href="/conta" className="dk-acct" aria-label={d.account}>
-        <span className="dk-av">{initial}</span>
-        <span className="dk-us">
-          <b>{firstName}</b>
-        </span>
-      </Link>
+      <GroupMenu name={firstName} initial={initial} />
       <span className="dk-sep" />
       {NAV.filter((i) => i.id !== 'liberdade' || liberdadeOn).map((item) => (
         <Link
