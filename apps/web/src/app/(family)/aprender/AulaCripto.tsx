@@ -290,13 +290,6 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
   }
 
   function openLesson(index: number, play: boolean) {
-    if (phase.kind === 'ready' && index >= 0 && index < phase.lessons.length) {
-      const next = aprenderPath(index + 1);
-      lastPath.current = next;
-      if (searchParams.get('aula') !== String(index + 1)) {
-        replaceRef.current(next, { scroll: false });
-      }
-    }
     setSaveError('');
     setConfirmUnmark(false);
     patchPlayback((playback, lessons) => {
