@@ -192,13 +192,26 @@ export function isThemeId(value: string | null | undefined): value is string {
 }
 
 /** Telas logadas da família. A landing /, /b2b e /login ficam de fora. */
+export const FAMILY_THEME_ROUTES = [
+  'dashboard',
+  'aprender',
+  'conceitos',
+  'configuracoes',
+  'conta',
+  'deposito',
+  'saque',
+  'onboarding',
+] as const;
+
+const FAMILY_THEME_PATH_SOURCE = `\\/(${FAMILY_THEME_ROUTES.join('|')})(\\/|$)`;
+
 export function isFamilyThemePath(pathname: string): boolean {
-  return /^\/(dashboard|aprender|conceitos|configuracoes|conta|deposito|saque|onboarding)(\/|$)/.test(pathname);
+  return new RegExp(`^${FAMILY_THEME_PATH_SOURCE}`).test(pathname);
 }
 
 /**
  * Script inline no <head>. Aplica o tema salvo antes do primeiro paint.
  * Só um id da lista, e só numa tela logada da família. O valor do
- * localStorage não vira código nem HTML.
+ * localStorage não vira código nem HTML. A allowlist é FAMILY_THEME_ROUTES.
  */
-export const THEME_BOOT_SCRIPT = `try{var p=location.pathname;if(!/^\\/(dashboard|aprender|conceitos|configuracoes|conta|deposito|saque|onboarding)(\\/|$)/.test(p)){delete document.documentElement.dataset.theme;}else{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var a=${JSON.stringify(THEMES.map((theme) => theme.id))};if(t&&a.indexOf(t)!==-1)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;}}catch(e){}`;
+export const THEME_BOOT_SCRIPT = `try{var p=location.pathname;if(!/^${FAMILY_THEME_PATH_SOURCE}/.test(p)){delete document.documentElement.dataset.theme;}else{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var a=${JSON.stringify(THEMES.map((theme) => theme.id))};if(t&&a.indexOf(t)!==-1)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;}}catch(e){}`;

@@ -23,7 +23,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { ThemeProvider, useTheme } from './ThemeProvider';
-import { DEFAULT_THEME, THEME_BOOT_SCRIPT, THEME_STORAGE_KEY, THEMES, isFamilyThemePath, isThemeId } from './themes';
+import { DEFAULT_THEME, FAMILY_THEME_ROUTES, THEME_BOOT_SCRIPT, THEME_STORAGE_KEY, THEMES, isFamilyThemePath, isThemeId } from './themes';
 
 const PAYLOADS = [
   '"><img src=x onerror=alert(1)>',
@@ -119,6 +119,17 @@ describe('script anti-flash', () => {
       expect(themeAttr()).toBeNull();
       expect(isFamilyThemePath(pathname)).toBe(false);
     }
+  });
+
+  it('gera o script e o predicado a partir da mesma lista', () => {
+    expect(THEME_BOOT_SCRIPT).toContain(FAMILY_THEME_ROUTES.join('|'));
+    for (const route of FAMILY_THEME_ROUTES) {
+      expect(isFamilyThemePath(`/${route}`)).toBe(true);
+      expect(isFamilyThemePath(`/${route}/filho`)).toBe(true);
+    }
+    expect(isFamilyThemePath('/')).toBe(false);
+    expect(isFamilyThemePath('/b2b')).toBe(false);
+    expect(isFamilyThemePath('/login')).toBe(false);
   });
 
   it('aplica só nas telas logadas da família', () => {
