@@ -290,6 +290,13 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
   }
 
   function openLesson(index: number, play: boolean) {
+    if (phase.kind === 'ready' && index >= 0 && index < phase.lessons.length) {
+      const next = aprenderPath(index + 1);
+      lastPath.current = next;
+      if (searchParams.get('aula') !== String(index + 1)) {
+        replaceRef.current(next, { scroll: false });
+      }
+    }
     setSaveError('');
     setConfirmUnmark(false);
     patchPlayback((playback, lessons) => {
@@ -499,6 +506,10 @@ function AulaScreen({ getToken }: { getToken: GetToken }) {
               rememberQuiz(lesson.id, picks);
               void enqueueSave(lesson.id, false, picks);
             }}
+            onPrevious={() => {
+              if (phase.kind !== 'ready' || phase.playback.li <= 0) return;
+              openLesson(phase.playback.li - 1, false);
+            }}
             onNext={() => void finishAndAdvance()}
             onProgress={(seconds) => patchPlayback((playback) => ({ ...playback, t: seconds }))}
             onSelect={(index) => openLesson(index, false)}
@@ -563,6 +574,7 @@ function Trail({
   quizAnswers,
   onQuiz,
   onAnswers,
+  onPrevious,
   onNext,
   onProgress,
   onSelect,
@@ -588,6 +600,7 @@ function Trail({
   quizAnswers: Record<string, number[]>;
   onQuiz: (gate: QuizGate) => void;
   onAnswers: (picks: number[]) => void;
+  onPrevious: () => void;
   onNext: () => void;
   onProgress: (seconds: number) => void;
   onSelect: (index: number) => void;
@@ -636,6 +649,7 @@ function Trail({
           onUnmark={onUnmark}
           onQuiz={onQuiz}
           onAnswers={onAnswers}
+          onPrevious={onPrevious}
           onNext={onNext}
           onOpenRead={(file) => {
             const index = lessons.findIndex((item) => item.readUrl?.endsWith(file));
@@ -662,6 +676,7 @@ function LessonPage({
   onUnmark,
   onQuiz,
   onAnswers,
+  onPrevious,
   onNext,
   onOpenRead,
 }: {
@@ -679,12 +694,13 @@ function LessonPage({
   onUnmark: () => void;
   onQuiz: (gate: QuizGate) => void;
   onAnswers: (picks: number[]) => void;
+  onPrevious: () => void;
   onNext: () => void;
   onOpenRead: (file: string) => void;
 }) {
   return (
     <article className="aula-lesson">
-      <div className="aula-kicker">Aula {index + 1} de {totalLessons}</div>
+      <div className="aula-kicker" aria-label="Aula atual">Aula {index + 1} de {totalLessons}</div>
       <h2>{lesson.title}</h2>
       <p className="aula-lede">{lesson.desc}</p>
       <LessonVideo lesson={lesson} startAt={startAt} onProgress={onProgress} />
@@ -702,6 +718,9 @@ function LessonPage({
       <div className="aula-foot">
         <span />
         <div className="aula-foot-actions">
+          <button type="button" className="aula-next" onClick={onPrevious} disabled={index === 0}>
+            Aula anterior
+          </button>
           {done && confirmUnmark ? (
             <div className="aula-confirm">
               <p>Desmarcar esta aula? Ela sai da trilha e o investimento fica bloqueado até você concluir tudo de novo.</p>

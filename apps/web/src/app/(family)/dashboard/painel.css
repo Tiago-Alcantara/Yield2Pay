@@ -17,6 +17,8 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
 .y2p *,
 .y2p *::before,
 .y2p *::after { box-sizing: border-box; }
+/* O cabeçalho fixo mede 93px. Sem esta folga, #s-gastos e #s-liberdade abrem por baixo dele. */
+.y2p [id^="s-"] { scroll-margin-top: 93px; }
 .y2p a { color: var(--fx-text-2, #9A9DA1); text-decoration: none; }
 .y2p a:hover { color: var(--fx-text-strong, #F2F3F4); }
 .y2p button { font-family: inherit; color: inherit; cursor: pointer; }

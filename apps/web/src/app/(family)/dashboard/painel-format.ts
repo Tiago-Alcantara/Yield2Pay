@@ -178,6 +178,23 @@ export function shiftMonth(month: string, delta: number): string {
   return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 }
 
+/** Meses que as setas percorrem: do primeiro com gasto até o mês atual + 1. */
+export function visibleMonthSpan(expenseMonths: string[], today = saoPauloMonth()): string[] {
+  const sorted = sortMonths(expenseMonths.filter((item) => /^\d{4}-\d{2}$/.test(item)));
+  const earliest = sorted[0];
+  const first = earliest && earliest < today ? earliest : today;
+  const last = shiftMonth(today, 1);
+  const months: string[] = [];
+  let cursor = first;
+  while (cursor <= last) {
+    months.push(cursor);
+    const next = shiftMonth(cursor, 1);
+    if (next <= cursor) break;
+    cursor = next;
+  }
+  return months;
+}
+
 export function sortMonths(months: string[]): string[] {
   return [...months].sort();
 }

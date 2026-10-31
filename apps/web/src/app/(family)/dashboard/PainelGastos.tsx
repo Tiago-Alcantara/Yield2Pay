@@ -34,6 +34,7 @@ import {
   monthsCovering,
   nf,
   shiftMonth,
+  visibleMonthSpan,
   openingMonth,
   reais,
   saoPauloDay,
@@ -210,7 +211,7 @@ function PainelScreen({
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteDenied, setInviteDenied] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importManual, setImportManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -250,7 +251,16 @@ function PainelScreen({
     const query = params.toString();
     const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
     // router.replace devolve a query: o HistoryUpdater do Next grava ?acao e ?conta de novo.
-    window.history.replaceState(window.history.state, '', next);
+    // O state atual traz __NA. Com essa marca, o replaceState do Next não avisa o
+    // router, a URL canônica continua com a query e o próximo push da doca para
+    // o mesmo endereço não dispara estes efeitos. A cópia sem __NA faz o router
+    // acompanhar a URL limpa. O patch do Next recoloca a marca antes de gravar,
+    // então o voltar não recarrega a página. Continua replace, não push: o
+    // reload não empilha histórico nem reabre o diálogo.
+    const carried = window.history.state as Record<string, unknown> | null;
+    const nextState: Record<string, unknown> = carried && typeof carried === 'object' ? { ...carried } : {};
+    delete nextState.__NA;
+    window.history.replaceState(nextState, '', next);
   }, [queryKey, pathname]);
 
   useEffect(() => {
@@ -270,15 +280,22 @@ function PainelScreen({
         return;
       }
       if (!account || !profile) return;
-      const canInvite = account.household?.role === 'owner' && profile.showFamily !== false;
-      if (!canInvite) {
+      if (account.household?.role !== 'owner') {
         pendingAcao.current = null;
-        setInviteDenied(true);
+        setInviteNotice('Só quem administra a casa pode convidar.');
         return;
       }
-      if (!document.getElementById('s-convidar')) return;
+      if (profile.showFamily === false) {
+        pendingAcao.current = null;
+        setInviteNotice('A família está oculta nas configurações. Ative para convidar.');
+        return;
+      }
+      const field = document.getElementById('y2p-invite');
+      if (!(field instanceof HTMLElement)) return;
       pendingAcao.current = null;
+      setInviteNotice('');
       scrollToId('s-convidar');
+      field.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [account, profile, queryKey]);
@@ -297,8 +314,13 @@ function PainelScreen({
 
   useEffect(() => {
     if (phase !== 'panel') return;
-    const id = window.location.hash.replace('#', '');
-    if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+    const scrollFromHash = () => {
+      const id = window.location.hash.replace('#', '');
+      if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+    };
+    scrollFromHash();
+    window.addEventListener('hashchange', scrollFromHash);
+    return () => window.removeEventListener('hashchange', scrollFromHash);
   }, [phase]);
 
   useEffect(() => {
@@ -356,7 +378,7 @@ function PainelScreen({
         });
         setProfile(profileView);
         setMonthTotals(monthList);
-        setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
+        setMonths(visibleMonthSpan(sorted));
         setMonth(selected);
         setExpenses(expenseRows);
         setSummary(summaryView);
@@ -492,7 +514,7 @@ function PainelScreen({
     setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
     setSummary(summaryView);
     setMonthTotals(monthList);
-    setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
+    setMonths(visibleMonthSpan(sorted));
   }
 
   async function importFile(file: File) {
@@ -558,7 +580,7 @@ function PainelScreen({
       setAccount(accountView);
       setProfile(profileView);
       setMonth(selected);
-      setMonths([selected]);
+      setMonths(visibleMonthSpan([]));
       setExpenses([]);
       setSummary(EMPTY_SUMMARY);
       setLessons([]);
@@ -831,9 +853,9 @@ function PainelScreen({
             )}
           </div>
         </header>
-        {inviteDenied && (
+        {inviteNotice && (
           <p role="status" style={{ margin: '16px 32px 0', fontSize: 14.5, color: 'var(--fx-text-strong, #F2F3F4)' }}>
-            Só quem administra a casa pode convidar.
+            {inviteNotice}
           </p>
         )}
 

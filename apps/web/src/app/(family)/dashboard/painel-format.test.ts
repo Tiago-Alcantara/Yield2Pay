@@ -1,4 +1,4 @@
-import { MONTH_RANGE_CAP_NOTE, monthsCovering } from './painel-format';
+import { MONTH_RANGE_CAP_NOTE, monthsCovering, visibleMonthSpan } from './painel-format';
 
 describe('monthsCovering', () => {
   it('avisa quando o período passa de 36 meses', () => {
@@ -14,5 +14,20 @@ describe('monthsCovering', () => {
     const covered = monthsCovering('2024-01-15', '2026-10-01');
     expect(covered.truncated).toBe(false);
     expect(covered.months).toHaveLength(34);
+  });
+});
+
+describe('visibleMonthSpan', () => {
+  it('D-06: inclui o mês vazio e o mês seguinte ao atual', () => {
+    expect(visibleMonthSpan(['2026-10', '2026-08'], '2026-10')).toEqual([
+      '2026-08',
+      '2026-09',
+      '2026-10',
+      '2026-11',
+    ]);
+  });
+
+  it('D-06: sem gasto começa no mês atual e inclui o seguinte', () => {
+    expect(visibleMonthSpan([], '2026-10')).toEqual(['2026-10', '2026-11']);
   });
 });
