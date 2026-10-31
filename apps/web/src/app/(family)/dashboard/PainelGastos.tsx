@@ -232,10 +232,9 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     if (conta === '1') params.delete('conta');
     const query = params.toString();
     const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
-    // O router do Next pode manter a query. O histórico tira da barra para o reload não reabrir.
+    // router.replace devolve a query: o HistoryUpdater do Next grava ?acao e ?conta de novo.
     window.history.replaceState(window.history.state, '', next);
-    router.replace(next, { scroll: false });
-  }, [queryKey, pathname, router]);
+  }, [queryKey, pathname]);
 
   useEffect(() => {
     const acao = pendingAcao.current;

@@ -179,23 +179,28 @@ describe('ações da doca no painel', () => {
 
   it('tira a query no acesso direto para o reload não reabrir o diálogo', async () => {
     replace.mockImplementation(() => undefined);
-    const cases = [
-      ['/dashboard?acao=novo', 'Traga seus gastos'],
-      ['/dashboard?acao=importar', 'Traga seus gastos'],
-      ['/dashboard?conta=1', 'Configurações'],
-    ] as const;
-    for (const [url, name] of cases) {
-      window.history.pushState(null, '', url);
-      const view = render(<PainelGastos />);
-      await flushFrames();
-      expect(await screen.findByRole('dialog', { name })).toBeInTheDocument();
-      expect(new URLSearchParams(window.location.search).get('acao')).toBeNull();
-      expect(new URLSearchParams(window.location.search).get('conta')).toBeNull();
-      view.unmount();
+    try {
+      const cases = [
+        ['/dashboard?acao=novo', 'Traga seus gastos'],
+        ['/dashboard?acao=importar', 'Traga seus gastos'],
+        ['/dashboard?conta=1', 'Configurações'],
+      ] as const;
+      for (const [url, name] of cases) {
+        window.history.pushState(null, '', url);
+        const view = render(<PainelGastos />);
+        await flushFrames();
+        expect(await screen.findByRole('dialog', { name })).toBeInTheDocument();
+        expect(new URLSearchParams(window.location.search).get('acao')).toBeNull();
+        expect(new URLSearchParams(window.location.search).get('conta')).toBeNull();
+        expect(replace).not.toHaveBeenCalled();
+        view.unmount();
+        replace.mockClear();
+      }
+    } finally {
+      replace.mockImplementation((next: string) => {
+        window.history.replaceState(null, '', next);
+      });
     }
-    replace.mockImplementation((next: string) => {
-      window.history.replaceState(null, '', next);
-    });
   });
 
   it('ignora ?acao=NOVO em maiúsculas', async () => {
