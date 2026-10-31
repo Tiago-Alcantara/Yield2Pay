@@ -10,16 +10,16 @@ import type { CSSProperties } from 'react';
 export const C = {
   // superfícies
   bg: 'var(--fx-bg)',                     // #0c0d0f
-  bgRadial: 'radial-gradient(120% 50% at 50% -10%,#1b1d20 0%,#0c0d0f 55%)',
-  bgRadialTall: 'radial-gradient(120% 60% at 50% -10%,#1b1d20 0%,#0c0d0f 60%)',
-  card: '#1A1C1F',                        // card padrão das telas de família
+  bgRadial: 'var(--fam-bg-radial, radial-gradient(120% 50% at 50% -10%,#1b1d20 0%,#0c0d0f 55%))',
+  bgRadialTall: 'var(--fam-bg-radial-tall, radial-gradient(120% 60% at 50% -10%,#1b1d20 0%,#0c0d0f 60%))',
+  card: 'var(--fam-card, #1A1C1F)',                        // card padrão das telas de família
   well: 'var(--fx-surface-2)',            // #16181B
-  wellDeep: '#0f1113',                    // campo dentro de well
+  wellDeep: 'var(--fam-well-deep, #0f1113)',
   metal: 'var(--fx-metal)',
 
   // bordas
   border: 'var(--fx-border)',             // #2A2D31
-  borderStrong: '#3A3D41',
+  borderStrong: 'var(--fx-border-strong)',
   borderMetal: 'var(--fx-border-metal)',  // #4a4d52
   borderFaint: 'rgba(255,255,255,.07)',
   borderFainter: 'rgba(255,255,255,.06)',
@@ -41,7 +41,7 @@ export const C = {
   chromeInk: 'var(--fx-chrome-ink)',      // #0E0F11
   chromeSoft: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)',
   fill: 'linear-gradient(90deg,#A8AAAD,#E6E8EA)',
-  tile: 'linear-gradient(160deg,#43464b,#1b1d21)',
+  tile: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
 
   // estados
   danger: '#D98A8A',

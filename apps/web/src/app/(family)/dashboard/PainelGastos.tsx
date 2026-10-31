@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
 import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { Button } from '@/components/Button';
@@ -10,6 +10,7 @@ import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
+import { setAccountView } from '../_lib/accountStore';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -51,16 +52,6 @@ function categoriesOf(rows: ExpenseView[]) {
     .sort((left, right) => right.amountCents - left.amountCents);
 }
 
-function IconPainel() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
-    </svg>
-  );
-}
 function IconGastos() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -77,23 +68,6 @@ function IconLiberdade() {
     </svg>
   );
 }
-function IconAprender() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 6.5 12 3l8 3.5V18l-8 3.5L4 18V6.5z" />
-      <path d="M12 6.5V21" />
-    </svg>
-  );
-}
-function IconLogout() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3" />
-      <path d="M10 16l4-4-4-4" />
-      <path d="M14 12H4" />
-    </svg>
-  );
-}
 function IconTrash() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -105,13 +79,6 @@ function IconTrash() {
     </svg>
   );
 }
-
-const NAV = [
-  { href: '#s-topo', label: 'Painel', icon: <IconPainel /> },
-  { href: '#s-gastos', label: 'Gastos', icon: <IconGastos /> },
-  { href: '#s-liberdade', label: 'Liberdade', icon: <IconLiberdade /> },
-  { href: '/aprender', label: 'Aprender', icon: <IconAprender /> },
-] as const;
 
 const EMPTY_SUMMARY: HouseholdSummary = {
   monthTotalCents: 0,
@@ -152,15 +119,15 @@ function StatCard({
   compact?: boolean;
 }) {
   return (
-    <div style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 24 }}>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>
+    <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 24 }}>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>
         {title}
       </div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: compact ? 26 : 32, fontWeight: 600, color: silver ? '#C0C2C5' : '#F2F3F4', marginTop: 14, letterSpacing: '.01em', lineHeight: 1.15 }}>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: compact ? 26 : 32, fontWeight: 600, color: silver ? 'var(--fx-silver, #C0C2C5)' : 'var(--fx-text-strong, #F2F3F4)', marginTop: 14, letterSpacing: '.01em', lineHeight: 1.15 }}>
         {value}
       </div>
-      <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 8 }}>{label}</div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#C0C2C5', marginTop: 6 }}>{sub}</div>
+      <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 8 }}>{label}</div>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver, #C0C2C5)', marginTop: 6 }}>{sub}</div>
     </div>
   );
 }
@@ -173,9 +140,9 @@ const iconBadgeStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(160deg,#43464b,#1b1d21)',
-  border: '1px solid #4a4d52',
-  color: '#D4D6D9',
+  background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
+  border: '1px solid var(--fx-border-metal, #4a4d52)',
+  color: 'var(--fam-on-avatar, #d4d6d9)',
 };
 
 type GetToken = () => Promise<string | null>;
@@ -198,7 +165,7 @@ function PrivyPainel() {
     <PainelScreen
       getToken={getAccessToken}
       getIdentityToken={async () => identityToken ?? null}
-      onLogout={() => void logout()}
+      onLogout={() => { setAccountView(null); void logout(); }}
     />
   );
 }
@@ -238,34 +205,83 @@ function PainelScreen({
   const [progress, setProgress] = useState<LessonProgressView[]>([]);
   const [chart, setChart] = useState<ChartId>('cat');
   const [showAll, setShowAll] = useState(false);
-  const [nav, setNav] = useState('#s-topo');
   const [onbOpen, setOnbOpen] = useState(false);
   const [onbKey, setOnbKey] = useState(0);
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteDenied, setInviteDenied] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importManual, setImportManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
+  const pendingConta = useRef(false);
   const [rangeNote, setRangeNote] = useState('');
   const [pageNote, setPageNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryKey = searchParams.toString();
 
   const api = () => createHouseholdApi(() => getTokenRef.current(), {
     getIdentityToken: getIdentityRef.current,
   });
 
+  // A doca mostra o nome e a família da conta carregada aqui.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('conta') !== '1') return;
-    setSettingsOpen(true);
-    params.delete('conta');
+    if (account) setAccountView(account);
+  }, [account]);
+
+  // A doca chega com ?acao= ou ?conta=1. useSearchParams reage com o painel
+  // já montado. A query sai depois; ação desconhecida não abre nada.
+  useEffect(() => {
+    const params = new URLSearchParams(queryKey);
+    const acao = params.get('acao');
+    const conta = params.get('conta');
+    if (acao === 'importar' || acao === 'novo' || acao === 'convidar') pendingAcao.current = acao;
+    if (conta === '1') pendingConta.current = true;
+    if (!acao && conta !== '1') return;
+    if (acao) params.delete('acao');
+    if (conta === '1') params.delete('conta');
     const query = params.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, []);
+    const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    // router.replace devolve a query: o HistoryUpdater do Next grava ?acao e ?conta de novo.
+    window.history.replaceState(window.history.state, '', next);
+  }, [queryKey, pathname]);
+
+  useEffect(() => {
+    const acao = pendingAcao.current;
+    const openConta = pendingConta.current;
+    if (!acao && !openConta) return;
+    const frame = requestAnimationFrame(() => {
+      if (pendingConta.current) {
+        pendingConta.current = false;
+        setSettingsOpen(true);
+      }
+      if (!acao || pendingAcao.current !== acao) return;
+      if (acao === 'importar' || acao === 'novo') {
+        pendingAcao.current = null;
+        setImportManual(acao === 'novo');
+        setImportOpen(true);
+        return;
+      }
+      if (!account || !profile) return;
+      const canInvite = account.household?.role === 'owner' && profile.showFamily !== false;
+      if (!canInvite) {
+        pendingAcao.current = null;
+        setInviteDenied(true);
+        return;
+      }
+      if (!document.getElementById('s-convidar')) return;
+      pendingAcao.current = null;
+      scrollToId('s-convidar');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [account, profile, queryKey]);
 
   useEffect(() => {
     if (!profile) {
@@ -630,7 +646,7 @@ function PainelScreen({
           <form className="y2p-card" onSubmit={(event) => void createGroup(event)} style={{ flex: '1 1 auto' }}>
             <div className="y2p-eyebrow">Sua casa</div>
             <h1 className="y2p-h2">Como se chama este grupo?</h1>
-            <p className="y2p-p" style={{ color: '#9A9DA1' }}>
+            <p className="y2p-p" style={{ color: 'var(--fx-text-2, #9A9DA1)' }}>
               O painel de gastos é da casa inteira. Você pode convidar o resto da família depois.
             </p>
             <input
@@ -665,7 +681,6 @@ function PainelScreen({
   const statusLabel = pctReal == null ? 'Meta em aberto' : pctReal >= 100 ? 'Meta alcançada' : 'Em andamento';
   const sentence = libertySentence(freedom, reserveCents, goal);
   const userName = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0] || '';
-  const userFull = account?.displayName?.trim() || account?.fullName?.trim() || 'Conta família';
   const initials = account?.initials || '?';
   const isOwner = account?.household?.role === 'owner';
   const pills = months.length ? months : [month];
@@ -752,142 +767,13 @@ function PainelScreen({
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         minHeight: '100vh',
-        background: '#0E0F11',
-        color: '#F2F3F4',
+        background: 'var(--fam-page, #0E0F11)',
+        color: 'var(--fx-text-strong, #F2F3F4)',
         fontFamily: "'Hanken Grotesk', system-ui, -apple-system, sans-serif",
         WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <aside
-        data-screen-label="Menu"
-        style={isMobile ? {
-          flex: '0 0 auto',
-          background: '#16181B',
-          borderBottom: '1px solid #2A2D31',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '12px 14px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
-        } : {
-          flex: '0 0 240px',
-          background: '#16181B',
-          borderRight: '1px solid #2A2D31',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '22px 14px',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-        }}
-      >
-        <a
-          href="/dashboard"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            textDecoration: 'none',
-            padding: isMobile ? '4px 10px' : '6px 10px 22px',
-          }}
-        >
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)',
-              transform: 'rotate(45deg)',
-              borderRadius: 2,
-              boxShadow: '0 0 12px rgba(192,194,197,.35)',
-            }}
-          />
-          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: '#F2F3F4' }}>Yield2Pay</span>
-        </a>
-        <nav style={isMobile ? {
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 2,
-          overflowX: 'auto',
-          paddingBottom: 4,
-        } : { display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {NAV.filter((item) => (item.href !== '/aprender' || profile?.cryptoExperience !== 'declined') && (item.href !== '#s-liberdade' || liberdadeOn)).map((item) => {
-            const on = nav === item.href;
-            return (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => {
-                  if (item.href.startsWith('/')) {
-                    router.push(item.href);
-                    return;
-                  }
-                  setNav(item.href);
-                  scrollToId(item.href.slice(1));
-                }}
-                style={isMobile ? {
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 4,
-                  flexShrink: 0,
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 8,
-                  padding: '6px 10px',
-                  fontFamily: 'inherit',
-                  fontSize: 10,
-                  fontWeight: on ? 600 : 500,
-                  color: on ? '#F2F3F4' : '#9A9DA1',
-                  background: on ? '#1f2226' : 'transparent',
-                  whiteSpace: 'nowrap',
-                } : {
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 10,
-                  padding: '11px 12px',
-                  fontFamily: 'inherit',
-                  fontSize: 14.5,
-                  fontWeight: on ? 600 : 500,
-                  color: on ? '#F2F3F4' : '#9A9DA1',
-                  background: on ? '#1f2226' : 'transparent',
-                }}
-              >
-                {!isMobile && (
-                  <span style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 3, borderRadius: '0 3px 3px 0', background: on ? '#C0C2C5' : 'transparent' }} />
-                )}
-                <span style={{ display: 'flex', color: on ? '#F2F3F4' : '#9A9DA1' }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-        {!isMobile && (
-          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 10px', borderTop: '1px solid #2A2D31' }}>
-            <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9' }}>
-              {initials}
-            </span>
-            <button type="button" onClick={() => setSettingsOpen(true)} style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: '#F2F3F4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userFull}</span>
-              <span style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 10.5, color: '#9A9DA1' }}>Conta família</span>
-            </button>
-            {onLogout && (
-              <button type="button" aria-label="Sair" onClick={onLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9A9DA1', display: 'flex', padding: 4 }}>
-                <IconLogout />
-              </button>
-            )}
-          </div>
-        )}
-      </aside>
-
-      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 130 }}>
         <header
           id="painel-header"
           className="y2p-header"
@@ -899,10 +785,10 @@ function PainelScreen({
             flexWrap: isMobile ? 'nowrap' : 'wrap',
             gap: isMobile ? 10 : 16,
             padding: isMobile ? '12px 16px' : '20px 32px',
-            borderBottom: '1px solid #2A2D31',
+            borderBottom: '1px solid var(--fx-border, #2A2D31)',
             position: 'sticky',
             top: 0,
-            background: 'rgba(14,15,17,.82)',
+            background: 'var(--fam-header-bg, rgba(14,15,17,.82))',
             backdropFilter: 'blur(14px)',
             WebkitBackdropFilter: 'blur(14px)',
             zIndex: 10,
@@ -910,17 +796,17 @@ function PainelScreen({
         >
           <div className="y2p-header-greet" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4' }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)' }}>
                 {userName ? 'Olá, ' + userName : 'Painel da família'}
               </div>
               {!isMobile && (
-                <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 2 }}>
+                <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>
                   {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
                 </div>
               )}
             </div>
             {isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -939,12 +825,17 @@ function PainelScreen({
               />
             </div>
             {!isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(160deg,#43464b,#1b1d21)', border: '1px solid #4a4d52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#D4D6D9', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
           </div>
         </header>
+        {inviteDenied && (
+          <p role="status" style={{ margin: '16px 32px 0', fontSize: 14.5, color: 'var(--fx-text-strong, #F2F3F4)' }}>
+            Só quem administra a casa pode convidar.
+          </p>
+        )}
 
         <div
           id="s-topo"
@@ -968,7 +859,7 @@ function PainelScreen({
               <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 34, fontWeight: 600, marginTop: 18, letterSpacing: 'var(--fx-tracking-data)', lineHeight: 1.05, color: 'var(--fx-text-strong)' }}>{kpis[0].value}</div>
               <div role={summaryState === 'error' ? 'alert' : undefined} style={{ marginTop: 8, fontSize: 13.5, color: 'var(--fx-text-3)' }}>{kpis[0].sub}</div>
               <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button variant="primary" size="sm" onClick={() => setImportOpen(true)}>Importar extrato</Button>
+                <Button variant="primary" size="sm" onClick={() => { setImportManual(false); setImportOpen(true); }}>Importar extrato</Button>
                 {summaryState === 'error' && (
                   <Button variant="secondary" size="sm" onClick={() => { setSummaryState('loading'); setLoadAttempt((attempt) => attempt + 1); }}>Tentar de novo</Button>
                 )}
@@ -1013,7 +904,7 @@ function PainelScreen({
         )}
 
         {summaryState === 'ready' && (
-        <div style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26 }}>
+        <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26 }}>
           <Charts month={month} chart={chart} summary={viewSummary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
         )}
@@ -1021,11 +912,11 @@ function PainelScreen({
         <div id="s-gastos" data-screen-label="Gastos" style={{ marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: '#F2F3F4', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
-              {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: '#E6E8EA' }}>{rangeNote}</p> : null}
-              {pageNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: '#E6E8EA' }}>{pageNote}</p> : null}
+              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{rangeNote}</p> : null}
+              {pageNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{pageNote}</p> : null}
               {summaryState === 'ready' && (
-                <p style={{ fontSize: 14.5, color: '#9A9DA1', margin: '7px 0 0' }}>
+                <p style={{ fontSize: 14.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '7px 0 0' }}>
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
                 </p>
               )}
@@ -1051,10 +942,10 @@ function PainelScreen({
                 })}
               </div>
             </div>
-          <div className="y2p-list" style={{ marginTop: 20, background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18 }}>
+          <div className="y2p-list" style={{ marginTop: 20, background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18 }}>
             {rows.map((row) => (
               <div key={row.id} className="y2p-tx">
-                <span className="y2p-mono" style={{ fontSize: 13, color: '#9A9DA1' }}>
+                <span className="y2p-mono" style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   {row.date.slice(8, 10) + '/' + row.date.slice(5, 7)}
                 </span>
                 <span style={{ minWidth: 0 }}>
@@ -1062,19 +953,19 @@ function PainelScreen({
                     <span className="y2p-ellipsis">{row.merchant}</span>
                     {row.fixed && <span className="y2p-mono y2p-fixo">fixo</span>}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12, color: '#9A9DA1', marginTop: 2 }}>{row.addedBy.displayName}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>{row.addedBy.displayName}</span>
                 </span>
                 <select
                   aria-label={'Categoria de ' + row.merchant}
                   value={row.category}
                   onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
-                  style={{ background: 'transparent', color: '#C0C2C5', border: '1px solid #2A2D31', borderRadius: 8, padding: '4px 6px', fontFamily: "'Geist Mono', monospace", fontSize: 12 }}
+                  style={{ background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 8, padding: '4px 6px', fontFamily: "'Geist Mono', monospace", fontSize: 12 }}
                 >
                   {(Object.entries(CATEGORY_LABEL) as [ExpenseCategory, string][]).map(([id, label]) => (
                     <option key={id} value={id}>{label}</option>
                   ))}
                 </select>
-                <span className="y2p-mono" style={{ color: '#F2F3F4', textAlign: 'right', minWidth: 92 }}>
+                <span className="y2p-mono" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 92 }}>
                   {brl(reais(row.amountCents))}
                 </span>
                 <button
@@ -1089,7 +980,7 @@ function PainelScreen({
               </div>
             ))}
             {futureHidden > 0 && (
-              <p style={{ margin: 0, padding: '12px 16px', fontSize: 13, color: '#9A9DA1' }}>
+              <p style={{ margin: 0, padding: '12px 16px', fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                 {futureHidden === 1 ? '1 lançamento com data futura ficou de fora do total de hoje.' : futureHidden + ' lançamentos com data futura ficaram de fora do total de hoje.'}
               </p>
             )}
@@ -1104,20 +995,20 @@ function PainelScreen({
         <div
           id="s-aprender"
           data-screen-label="Aprender"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 20, padding: 26, marginTop: 6 }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>
               {criptoOn ? (profile?.cryptoExperience === 'fund' ? 'Cripto, um passo além' : 'Cripto do zero') : 'Quando fizer sentido'}
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: '#C8CACD', margin: '12px 0 0' }}>
+            <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--fx-text-body, #C8CACD)', margin: '12px 0 0' }}>
               {criptoOn
                 ? 'Aulas curtas para entender como cripto pode, ou não, entrar no plano de liberdade da família.'
                 : 'Preparamos uma trilha curta e sem jargão sobre cripto e liberdade financeira. Fica aqui para quando você quiser.'}
             </p>
             {criptoOn ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#9A9DA1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   <span>{doneN} de {lessons.length} aulas</span>
                   <span>{lessons.length ? Math.round((doneN / lessons.length) * 100) : 0}%</span>
                 </div>
@@ -1125,13 +1016,13 @@ function PainelScreen({
                   <span style={{ width: (lessons.length ? (doneN / lessons.length) * 100 : 0) + '%' }} />
                 </div>
                 {lessons.length > 0 && (
-                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
                     {doneN === lessons.length ? 'Trilha concluída · recomeçar' : doneN === 0 ? 'Começar aula 1' : 'Continuar · aula ' + (nextLesson + 1)}
                   </button>
                 )}
               </>
             ) : (
-              <button type="button" onClick={() => void showInterest()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#F2F3F4', background: 'rgba(255,255,255,.03)', border: '1px solid #3A3D41', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+              <button type="button" onClick={() => void showInterest()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
                 Tenho interesse
               </button>
             )}
@@ -1139,12 +1030,12 @@ function PainelScreen({
           {criptoOn && (
             <div style={{ flex: '1 1 280px', minWidth: 240 }}>
               {lessons.map((lesson, index) => (
-                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid #2A2D31', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
+                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid var(--fx-border, #2A2D31)', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     {lessonDone(lesson.id) ? <span className="y2p-check is-done">✓</span> : <span className="y2p-check y2p-mono">{index + 1}</span>}
-                    <span style={{ fontSize: 14, color: '#F2F3F4' }}>{presented[index]?.title ?? lesson.title}</span>
+                    <span style={{ fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{presented[index]?.title ?? lesson.title}</span>
                   </span>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: '#9A9DA1' }}>{lesson.durationMinutes} min</span>
+                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>{lesson.durationMinutes} min</span>
                 </button>
               ))}
             </div>
@@ -1152,14 +1043,14 @@ function PainelScreen({
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form onSubmit={(event) => void onInvite(event)} style={{ background: '#1A1C1F', border: '1px solid #2A2D31', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9A9DA1' }}>Convidar</span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
             </label>
             <Button variant="secondary" size="sm" type="submit">Enviar convite</Button>
             {inviteError && <span style={{ flexBasis: '100%', fontSize: 14, color: '#E6E8EA' }}>{inviteError}</span>}
-            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: '#C0C2C5' }}>{inviteOk}</span>}
+            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-silver, #C0C2C5)' }}>{inviteOk}</span>}
           </form>
         )}
         </div>
@@ -1167,7 +1058,7 @@ function PainelScreen({
 
       {importOpen && (
         <ImportModal
-          initialMode={profile?.importMode ?? 'ofx'}
+          initialMode={importManual ? 'manual' : (profile?.importMode ?? 'ofx')}
           onClose={() => setImportOpen(false)}
           onImportFile={importFile}
           onUndoImport={undoImport}
@@ -1238,11 +1129,11 @@ function PainelScreen({
 
 const fieldStyle: CSSProperties = {
   width: '100%',
-  background: '#0E0F11',
-  border: '1px solid #2A2D31',
+  background: 'var(--fx-surface-1, #131417)',
+  border: '1px solid var(--fx-border, #2A2D31)',
   borderRadius: 12,
   padding: '12px 14px',
-  color: '#F2F3F4',
+  color: 'var(--fx-text-strong, #F2F3F4)',
   fontFamily: 'inherit',
   fontSize: 14,
   outline: 'none',

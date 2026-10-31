@@ -19,6 +19,26 @@
   --fam-panel-pad: 30px;   /* painéis de metal maiores */
 }
 
+/* Os temas claros sobrescrevem isto só dentro da família.
+   O fundo cobre a página para o body escuro não aparecer no tema claro. */
+.fam-shell {
+  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--fam-page, #0e0f11);
+  color: var(--fx-text, #edeff1);
+  --fam-avatar: linear-gradient(160deg, #43464b, #1b1d21);
+  --fam-on-avatar: #d4d6d9;
+  --fam-chip-on: #2e3136;
+  --fam-on-chip: #f2f3f4;
+  --fam-well-deep: #0f1113;
+}
+
+/* Portal do filtro: herda os tokens, sem pintar outra página. */
+.fam-shell.fam-portal {
+  min-height: 0;
+  background: transparent;
+}
+
 @media (max-width: 640px) {
   :root {
     --fam-gutter: 16px;
@@ -255,5 +275,322 @@
 @media (prefers-reduced-motion: reduce) {
   .fam-card-hover:hover {
     transform: none;
+  }
+}
+
+/* ── Doca (menu flutuante) ────────────────────────────────────────────────── */
+
+/* Espaço para o conteúdo não ficar sob a doca. */
+body.fam-has-dock main {
+  padding-bottom: 130px !important;
+}
+
+#y2p-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 22px;
+  white-space: nowrap;
+  max-width: calc(100vw - 16px);
+  font-family: var(--fx-font-display, 'Hanken Grotesk', system-ui);
+  background: var(--fam-dock-bg, rgba(27, 29, 33, 0.85));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--fx-border-strong, #3a3d42);
+  box-shadow: var(--fam-dock-shadow, 0 24px 50px -10px #000), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+/* Com modal aberto a doca fica por baixo dele. */
+body:has([role='dialog'][aria-modal='true']) #y2p-dock {
+  z-index: 1;
+}
+#y2p-dock a,
+#y2p-dock button {
+  text-decoration: none;
+  font-family: inherit;
+}
+#y2p-dock .dk-acct {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 10px 0 6px;
+  border-radius: 15px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--fx-text-2, #9a9da1);
+}
+#y2p-dock .dk-acct:hover {
+  background: var(--fam-hover, rgba(255, 255, 255, 0.04));
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-acct[aria-expanded='true'] {
+  background: var(--fam-hover, rgba(255, 255, 255, 0.07));
+  color: var(--fx-text-strong, #f2f3f4);
+  box-shadow: inset 0 0 0 1px var(--fx-border-metal, #4a4d52);
+}
+#y2p-dock .dk-acct svg {
+  transition: transform 0.2s;
+}
+#y2p-dock .dk-acct[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+#y2p-dock .dk-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #e6e8ea, #a8aaad);
+  color: #0e0f11;
+  font-weight: 700;
+  font-size: 14px;
+}
+#y2p-dock .dk-us {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  text-align: left;
+}
+#y2p-dock .dk-us b {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-us em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--fx-text-4, #7e8186);
+}
+#y2p-dock .dk-sep {
+  width: 1px;
+  height: 34px;
+  margin: 0 6px;
+  flex: 0 0 auto;
+  background: var(--fx-border-strong, #3a3d42);
+}
+#y2p-dock .dk-it {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 78px;
+  height: 58px;
+  border-radius: 16px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fx-text-2, #9a9da1);
+}
+#y2p-dock .dk-it:hover {
+  color: var(--fx-text-strong, #f2f3f4);
+  background: var(--fam-hover, rgba(255, 255, 255, 0.04));
+}
+#y2p-dock .dk-it[aria-current='page'] {
+  color: var(--fx-text-strong, #f2f3f4);
+  background: var(--fam-card, rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 0 0 1px var(--fx-border-metal, #4a4d52);
+}
+#y2p-dock .dk-qb {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: none;
+  color: var(--fx-text-2, #9a9da1);
+  border: 1px solid transparent;
+}
+#y2p-dock .dk-qb:hover {
+  color: var(--fx-text-strong, #f2f3f4);
+  background: var(--fam-hover, rgba(255, 255, 255, 0.05));
+  border-color: var(--fx-border-strong, #3a3d42);
+}
+#y2p-dock .dk-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 18px;
+  margin-left: 4px;
+  border-radius: 15px;
+  border: 0;
+  cursor: pointer;
+  background: linear-gradient(180deg, #e6e8ea, #a8aaad);
+  color: #0e0f11;
+  font-weight: 700;
+  font-size: 14.5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+#y2p-dock .dk-cta:hover {
+  filter: brightness(1.06);
+}
+#y2p-dock a:focus-visible,
+#y2p-dock button:focus-visible {
+  outline: 2px solid var(--fx-focus, #c0c2c5);
+  outline-offset: 2px;
+}
+
+/* Popover "Grupos de finanças" */
+#y2p-dock .dk-grp {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 14px);
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+  background: var(--fam-card, rgba(22, 24, 27, 0.97));
+  border: 1px solid var(--fx-border-strong, #3a3d42);
+  box-shadow: 0 24px 50px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+#y2p-dock .dk-gh {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 10px;
+}
+#y2p-dock .dk-gh b {
+  font-size: 14px;
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-gh span {
+  font-family: var(--fx-font-mono, 'Geist Mono', monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fx-text-4, #7e8186);
+}
+#y2p-dock .dk-g {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--fx-text-2, #c0c2c5);
+}
+#y2p-dock .dk-g:hover {
+  background: var(--fam-hover, rgba(255, 255, 255, 0.05));
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-g[aria-checked='true'] {
+  background: var(--fam-hover, rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 0 0 1px var(--fx-border-strong, #3a3d42);
+}
+#y2p-dock .dk-gi {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--fx-surface-2, #0e0f11);
+  border: 1px solid var(--fx-border, #2a2d31);
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-g[aria-checked='true'] .dk-gi {
+  background: linear-gradient(180deg, #e6e8ea, #a8aaad);
+  color: #0e0f11;
+  border-color: transparent;
+}
+#y2p-dock .dk-gt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#y2p-dock .dk-gt b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-gt em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--fx-text-4, #7e8186);
+}
+#y2p-dock .dk-gm {
+  font-family: var(--fx-font-mono, 'Geist Mono', monospace);
+  font-size: 12.5px;
+  color: var(--fx-text-2, #c0c2c5);
+}
+#y2p-dock .dk-ck {
+  display: flex;
+  color: var(--fx-text-strong, #f2f3f4);
+}
+#y2p-dock .dk-gs {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--fx-border, #2a2d31);
+}
+#y2p-dock .dk-ga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--fx-text-2, #9a9da1);
+}
+#y2p-dock .dk-ga:hover {
+  background: var(--fam-hover, rgba(255, 255, 255, 0.05));
+  color: var(--fx-text-strong, #f2f3f4);
+}
+
+@media (max-width: 1100px) {
+  #y2p-dock .dk-us {
+    display: none;
+  }
+  #y2p-dock .dk-it {
+    width: 64px;
+  }
+}
+/* Mobile: doca compacta — some o bloco de ações rápidas e os rótulos. */
+@media (max-width: 640px) {
+  #y2p-dock {
+    bottom: 12px;
+    gap: 2px;
+  }
+  #y2p-dock .dk-qb,
+  #y2p-dock .dk-sep.dk-sep-q {
+    display: none;
+  }
+  #y2p-dock .dk-it {
+    width: 52px;
+    height: 52px;
+    font-size: 10px;
+  }
+  #y2p-dock .dk-cta {
+    padding: 0 12px;
+    font-size: 0;
+    gap: 0;
   }
 }

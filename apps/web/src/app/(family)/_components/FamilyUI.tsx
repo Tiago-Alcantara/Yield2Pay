@@ -308,8 +308,8 @@ export function PillGroup({
               whiteSpace: 'nowrap',
               cursor: 'pointer',
               fontFamily: mono ? C.mono : 'inherit',
-              background: on ? '#2E3136' : 'transparent',
-              color: on ? C.textStrong : C.text2,
+              background: on ? 'var(--fam-chip-on, #2E3136)' : 'transparent',
+              color: on ? 'var(--fam-on-chip, var(--fx-text-strong))' : C.text2,
               transition: 'all .2s ease',
             }}
           >
@@ -468,7 +468,7 @@ export function BackHeader({ label, maxWidth = 720 }: { label: string; maxWidth?
         position: 'sticky',
         top: 0,
         zIndex: 20,
-        background: 'rgba(12,13,15,.82)',
+        background: 'var(--fam-header-bg, rgba(12,13,15,.82))',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderBottom: `1px solid ${C.border}`,

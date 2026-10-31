@@ -1,9 +1,9 @@
 /**
  * Módulo: privy-token-cache
  * Criado em: 2026-10-30
- * Última atualização: 2026-10-30
+ * Última atualização: 2026-10-31
  * Intuito: A chave de verificação tem prazo e é buscada de novo se a assinatura falhar.
- * Sequência: quem já tem chave válida não espera o refetch; chave inválida não substitui a anterior.
+ * Sequência: quem já tem chave válida não espera o refetch; se o refetch já trocou a chave, a assinatura ruim usa essa chave sem outra busca; chave inválida não substitui a anterior.
  */
 import { createRequire } from 'node:module';
 import {
@@ -174,19 +174,33 @@ export function createPrivyTokenCache(
     return pending;
   }
 
+  async function verifyToken(
+    token: string,
+    key: string,
+  ): Promise<{ privyUserId: string }> {
+    const claims = await client.verifyAuthToken(token, key);
+    return { privyUserId: claims.userId };
+  }
+
   async function verifyWithKey(
     token: string,
   ): Promise<{ privyUserId: string }> {
     const key = await verificationKey();
     try {
-      const claims = await client.verifyAuthToken(token, key);
-      return { privyUserId: claims.userId };
+      return await verifyToken(token, key);
     } catch (error) {
       if (!isSignatureFailure(error)) throw error;
+      // O refetch do prazo pode ter terminado enquanto a assinatura da chave velha falhava.
+      if (keyHit && keyHit.key !== key) {
+        try {
+          return await verifyToken(token, keyHit.key);
+        } catch (retryError) {
+          if (!isSignatureFailure(retryError)) throw retryError;
+        }
+      }
       const fresh = await verificationKey(true);
       if (fresh === key) throw error;
-      const claims = await client.verifyAuthToken(token, fresh);
-      return { privyUserId: claims.userId };
+      return verifyToken(token, fresh);
     }
   }
 

@@ -19,6 +19,7 @@ const ensureWallet = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 vi.mock('@/lib/useWallet', () => ({
   useWallet: () => {

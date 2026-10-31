@@ -32,7 +32,10 @@ export const mesNome = (m: string) => MES[Number(m.slice(5, 7)) - 1] ?? m;
 
 export const reais = (cents: number) => cents / 100;
 
-export const SHADES = ['#E6E8EA', '#C0C2C5', '#A8AAAD', '#8A8D91', '#6A6D72', '#4A4D52', '#3A3D42', '#2A2D31'];
+/** Tons das categorias; os temas claros invertem a escala (ver themes.css). */
+export const SHADES = ['#E6E8EA', '#C0C2C5', '#A8AAAD', '#8A8D91', '#6A6D72', '#4A4D52', '#3A3D42', '#2A2D31'].map(
+  (hex, i) => `var(--fam-shade-${i}, ${hex})`,
+);
 export const PESSOAS = ['Só eu', '2 pessoas', '3 a 4 pessoas', '5 ou mais'] as const;
 export const SENTIDOS = [
   'Não depender do salário',

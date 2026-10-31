@@ -118,8 +118,8 @@ export function WalletSection() {
                   fontSize: 12,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  background: on ? '#2E3136' : 'transparent',
-                  color: on ? C.textStrong : C.text2,
+                  background: on ? 'var(--fam-chip-on, #2E3136)' : 'transparent',
+                  color: on ? 'var(--fam-on-chip, var(--fx-text-strong))' : C.text2,
                   transition: 'all .2s ease',
                 }}
               >
