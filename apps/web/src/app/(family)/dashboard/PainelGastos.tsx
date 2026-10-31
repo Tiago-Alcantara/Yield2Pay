@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
 import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
-import { createHouseholdApi } from '../_lib/householdApi';
+import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
 import { setAccountView } from '../_lib/accountStore';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
@@ -28,32 +28,20 @@ import {
   cap,
   libertySentence,
   lessonTrack,
-  daysInMonth,
   mesNome,
   metaLabel,
+  MONTH_RANGE_CAP_NOTE,
+  monthsCovering,
   nf,
+  shiftMonth,
   openingMonth,
   reais,
   saoPauloDay,
   saoPauloMonth,
   saoPauloToday,
-  shiftMonth,
   sortMonths,
   type ChartId,
 } from './painel-format';
-
-function spanEnd(months: string[]) {
-  const today = saoPauloToday();
-  if (months.length === 0) return today;
-  const last = months[months.length - 1];
-  const end = `${last}-${String(daysInMonth(last)).padStart(2, '0')}`;
-  return end > today ? end : today;
-}
-
-async function loadSpan(client: ReturnType<typeof createHouseholdApi>, months: string[]) {
-  if (months.length === 0) return [] as ExpenseView[];
-  return client.getExpenses({ from: `${months[0]}-01`, to: spanEnd(months) });
-}
 
 function categoriesOf(rows: ExpenseView[]) {
   const totals = new Map<ExpenseCategory, number>();
@@ -159,6 +147,10 @@ const iconBadgeStyle: CSSProperties = {
 
 type GetToken = () => Promise<string | null>;
 
+function emptyExpenseRows(): ExpenseRows {
+  return Object.assign([] as ExpenseView[], { truncated: false });
+}
+
 export default function PainelGastos() {
   if (!isPrivyConfigured) {
     return <PainelScreen getToken={async () => LOCAL_DEV_TOKEN} />;
@@ -168,13 +160,34 @@ export default function PainelGastos() {
 
 function PrivyPainel() {
   const { getAccessToken, logout } = usePrivy();
-  return <PainelScreen getToken={getAccessToken} onLogout={() => { setAccountView(null); void logout(); }} />;
+  const { identityToken } = useIdentityToken();
+  return (
+    <PainelScreen
+      getToken={getAccessToken}
+      getIdentityToken={async () => identityToken ?? null}
+      onLogout={() => { setAccountView(null); void logout(); }}
+    />
+  );
 }
 
-function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: () => void }) {
+function PainelScreen({
+  getToken,
+  getIdentityToken,
+  onLogout,
+}: {
+  getToken: GetToken;
+  getIdentityToken?: () => Promise<string | null>;
+  onLogout?: () => void;
+}) {
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
+  const getIdentityRef = useRef(getIdentityToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    getIdentityRef.current = getIdentityToken;
+  });
   const monthRequest = useRef(0);
+  const expenseCache = useRef<Record<string, ExpenseRows>>({});
+  const summaryCache = useRef<Record<string, HouseholdSummary>>({});
 
   const [phase, setPhase] = useState<'panel' | 'name' | 'onboarding'>('panel');
   const [account, setAccount] = useState<AccountView | null>(null);
@@ -206,13 +219,17 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const [loadAttempt, setLoadAttempt] = useState(0);
   const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
   const pendingConta = useRef(false);
+  const [rangeNote, setRangeNote] = useState('');
+  const [pageNote, setPageNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryKey = searchParams.toString();
 
-  const api = () => createHouseholdApi(() => getTokenRef.current());
+  const api = () => createHouseholdApi(() => getTokenRef.current(), {
+    getIdentityToken: getIdentityRef.current,
+  });
 
   // A doca mostra o nome e a família da conta carregada aqui.
   useEffect(() => {
@@ -292,7 +309,16 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }, [onbOpen]);
 
   useEffect(() => {
-    const client = api();
+    const cancel = new AbortController();
+    const deadline = new AbortController();
+    const timer = setTimeout(() => {
+      deadline.abort(new DOMException('The operation timed out', 'TimeoutError'));
+    }, DASHBOARD_LOAD_TIMEOUT_MS);
+    const client = createHouseholdApi(() => getTokenRef.current(), {
+      timeoutMs: 0,
+      signal: AbortSignal.any([deadline.signal, cancel.signal]),
+      getIdentityToken: getIdentityRef.current,
+    });
     let cancelled = false;
     (async () => {
       try {
@@ -303,21 +329,23 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           setPhase('onboarding');
           return;
         }
-        const [profileView, current, monthList] = await Promise.all([
+        const selected = openingMonth([]);
+        const [profileView, current, monthList, expenseRows, summaryView, progressRows, beginnerLessons, fundLessons] = await Promise.all([
           client.getProfile(),
           client.getCurrentHousehold(),
           client.getExpenseMonths(),
-        ]);
-        const sorted = sortMonths(monthList.map((row) => row.month));
-        const selected = openingMonth(sorted);
-        const track = lessonTrack(profileView.cryptoExperience);
-        const [expenseRows, summaryView, progressRows, lessonRows] = await Promise.all([
-          loadSpan(client, sorted),
+          client.getExpenses({ month: selected }),
           client.getHouseholdSummary({ month: selected }),
           client.getLessonProgress().catch(() => [] as LessonProgressView[]),
-          track ? client.getLessons(track).catch(() => [] as LessonView[]) : Promise.resolve([] as LessonView[]),
+          client.getLessons('beginner').catch(() => [] as LessonView[]),
+          client.getLessons('fund').catch(() => [] as LessonView[]),
         ]);
         if (cancelled) return;
+        const sorted = sortMonths(monthList.map((row) => row.month));
+        const track = lessonTrack(profileView.cryptoExperience);
+        expenseCache.current[selected] = expenseRows;
+        summaryCache.current[selected] = summaryView;
+        setPageNote(expenseRows.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
         setAccount({
           ...accountView,
           household: {
@@ -333,7 +361,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         setExpenses(expenseRows);
         setSummary(summaryView);
         setProgress(progressRows);
-        setLessons(lessonRows);
+        setLessons(track === 'fund' ? fundLessons : track ? beginnerLessons : []);
         setSummaryState('ready');
         setPhase('panel');
         if (!current.onboardingCompleted) setOnbOpen(true);
@@ -346,23 +374,57 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      cancel.abort();
     };
   }, [loadAttempt]);
 
+  function forgetCachedMonths() {
+    expenseCache.current = {};
+    summaryCache.current = {};
+  }
+
+  function rememberMonth(next: string, expenseRows: ExpenseRows, summaryView: HouseholdSummary) {
+    expenseCache.current[next] = expenseRows;
+    summaryCache.current[next] = summaryView;
+  }
+
   function pickMonth(next: string) {
+    setRangeNote('');
     setFilters((current) => (current.mode === 'mes' ? current : { ...current, mode: 'mes' }));
     setShowAll(false);
-    if (next === month) return;
+    const cachedExpenses = expenseCache.current[next];
+    const cachedSummary = summaryCache.current[next];
+    if (next === month && filters.mode === 'mes' && cachedExpenses && cachedSummary) return;
     monthRequest.current += 1;
     const request = monthRequest.current;
     setMonth(next);
     setConfirmId(null);
-    api().getHouseholdSummary({ month: next })
-      .then((summaryView) => {
+    if (cachedExpenses && cachedSummary) {
+      setExpenses(cachedExpenses);
+      setSummary(cachedSummary);
+      setSummaryState('ready');
+      setPageNote(cachedExpenses.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
+      return;
+    }
+    setSummaryState('loading');
+    const client = api();
+    Promise.all([
+      cachedExpenses ? Promise.resolve(cachedExpenses) : client.getExpenses({ month: next }),
+      cachedSummary ? Promise.resolve(cachedSummary) : client.getHouseholdSummary({ month: next }),
+    ])
+      .then(([expenseRows, summaryView]) => {
         if (monthRequest.current !== request) return;
+        rememberMonth(next, expenseRows, summaryView);
+        setPageNote(expenseRows.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
+        setExpenses(expenseRows);
         setSummary(summaryView);
+        setSummaryState('ready');
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (monthRequest.current !== request) return;
+        setSummaryState('error');
+      });
   }
 
   function pickCat(label: string) {
@@ -372,21 +434,62 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     scrollToId('s-gastos');
   }
 
+  async function loadMonths(targets: string[]) {
+    const client = api();
+    const missing = targets.filter((item) => !expenseCache.current[item]);
+    if (missing.length > 0) {
+      const pages = await Promise.all(missing.map((item) => client.getExpenses({ month: item })));
+      missing.forEach((item, index) => {
+        expenseCache.current[item] = pages[index] ?? emptyExpenseRows();
+      });
+      if (pages.some((page) => page.truncated)) setPageNote(EXPENSE_PAGE_CAP_NOTE);
+    }
+    return targets.flatMap((item) => expenseCache.current[item] ?? []);
+  }
+
   function applyFilters(next: ExpenseFilters, nextMonth: string) {
     setFilters(next);
     setShowAll(false);
-    if (next.mode === 'mes' && nextMonth !== month) pickMonth(nextMonth);
+    if (next.mode === 'custom') {
+      const covered = monthsCovering(next.from, next.to);
+      setRangeNote(covered.truncated ? MONTH_RANGE_CAP_NOTE : '');
+      const request = ++monthRequest.current;
+      setSummaryState('loading');
+      void loadMonths(covered.months)
+        .then((rows) => {
+          if (monthRequest.current !== request) return;
+          setExpenses(rows);
+          setSummaryState('ready');
+        })
+        .catch(() => {
+          if (monthRequest.current !== request) return;
+          setSummaryState('error');
+        });
+      return;
+    }
+    setRangeNote('');
+    if (nextMonth !== month) pickMonth(nextMonth);
+    else if (expenseCache.current[nextMonth]) setExpenses(expenseCache.current[nextMonth]);
   }
 
   async function refresh(selected: string) {
     const client = api();
-    const monthList = await client.getExpenseMonths();
-    const sorted = sortMonths(monthList.map((row) => row.month));
-    const [expenseRows, summaryView] = await Promise.all([
-      loadSpan(client, sorted.length ? sorted : [selected]),
+    forgetCachedMonths();
+    const covered = filters.mode === 'custom' ? monthsCovering(filters.from, filters.to) : { months: [selected], truncated: false };
+    const targets = covered.months;
+    setRangeNote(covered.truncated ? MONTH_RANGE_CAP_NOTE : '');
+    const [monthList, pages, summaryView] = await Promise.all([
+      client.getExpenseMonths(),
+      Promise.all(targets.map((item) => client.getExpenses({ month: item }))),
       client.getHouseholdSummary({ month: selected }),
     ]);
-    setExpenses(expenseRows);
+    targets.forEach((item, index) => {
+      expenseCache.current[item] = pages[index] ?? emptyExpenseRows();
+    });
+    setPageNote(pages.some((page) => page.truncated) ? EXPENSE_PAGE_CAP_NOTE : '');
+    summaryCache.current[selected] = summaryView;
+    const sorted = sortMonths(monthList.map((row) => row.month));
+    setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
     setSummary(summaryView);
     setMonthTotals(monthList);
     setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
@@ -414,9 +517,8 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }
 
   async function changeCategory(id: string, category: ExpenseCategory) {
-    const updated = await api().patchExpense(id, { category });
-    setExpenses((rows) => rows.map((row) => (row.id === id ? { ...row, category: updated.category } : row)));
-    setSummary(await api().getHouseholdSummary({ month }));
+    await api().patchExpense(id, { category });
+    await refresh(month);
   }
 
   async function createExpense(body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) {
@@ -811,6 +913,8 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{rangeNote}</p> : null}
+              {pageNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{pageNote}</p> : null}
               {summaryState === 'ready' && (
                 <p style={{ fontSize: 14.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '7px 0 0' }}>
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
@@ -971,6 +1075,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         getToken={getToken}
+        getIdentityToken={getIdentityToken}
         onLogout={onLogout}
         onAccount={(next) => setAccount((prev) => (
           prev?.household && next.household

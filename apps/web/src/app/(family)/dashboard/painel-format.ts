@@ -154,6 +154,22 @@ export function daysInMonth(month: string): number {
   return new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
 }
 
+export const MONTH_RANGE_CAP = 36;
+
+export const MONTH_RANGE_CAP_NOTE = 'Mostramos só os primeiros 36 meses deste período.';
+
+export function monthsCovering(from: string, to: string): { months: string[]; truncated: boolean } {
+  if (!from || !to) return { months: [], truncated: false };
+  const [start, end] = from <= to ? [from.slice(0, 7), to.slice(0, 7)] : [to.slice(0, 7), from.slice(0, 7)];
+  const months: string[] = [];
+  let cursor = start;
+  while (cursor <= end && months.length < MONTH_RANGE_CAP) {
+    months.push(cursor);
+    cursor = shiftMonth(cursor, 1);
+  }
+  return { months, truncated: cursor <= end };
+}
+
 export function shiftMonth(month: string, delta: number): string {
   const [year, monthNumber] = month.split('-').map(Number);
   const index = year * 12 + (monthNumber - 1) + delta;

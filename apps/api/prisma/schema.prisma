@@ -207,12 +207,16 @@ model Expense {
   merchant         String
   category         String
   fixed            Boolean
+  fixedManual      Boolean  @default(false) @map("fixed_manual")
   amountCents      Int      @map("amount_cents")
   fitId            String?  @map("fit_id")
+  merchantKey       String @default("") @map("merchant_key")
+  sharedMerchantKey String @default("") @map("shared_merchant_key")
   household        Household @relation(fields: [householdId], references: [id])
   statement        Statement? @relation(fields: [statementId], references: [id])
   @@unique([householdId, fitId])
   @@index([householdId, spentOn])
+  @@index([householdId, sharedMerchantKey])
   @@map("expenses")
 }
 

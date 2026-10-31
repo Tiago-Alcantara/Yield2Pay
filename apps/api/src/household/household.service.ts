@@ -46,7 +46,10 @@ export function readDisplayNamePatch(body: unknown): string {
   if ('role' in record) {
     throw new HouseholdInvalidError('O papel no grupo não pode ser alterado');
   }
-  if (typeof record.displayName !== 'string' || record.displayName.trim() === '') {
+  if (
+    typeof record.displayName !== 'string' ||
+    record.displayName.trim() === ''
+  ) {
     throw new HouseholdInvalidError('Informe um nome');
   }
   const name = record.displayName.trim();
@@ -149,7 +152,8 @@ export class HouseholdService {
       throw new HouseholdNotFoundError();
     }
     return {
-      householdSize: household.householdSize as HouseholdProfile['householdSize'],
+      householdSize:
+        household.householdSize as HouseholdProfile['householdSize'],
       monthlyIncomeCents: household.monthlyIncomeCents,
       reserveCents: household.reserveCents,
       priorities: household.priorities,
@@ -159,7 +163,8 @@ export class HouseholdService {
       onboardingCompleted: household.onboardingCompleted,
       goals: household.goals as OnboardingGoal[],
       importMode: household.importMode as ImportMode | null,
-      cryptoFamiliarity: household.cryptoFamiliarity as CryptoFamiliarity | null,
+      cryptoFamiliarity:
+        household.cryptoFamiliarity as CryptoFamiliarity | null,
       cryptoActions: household.cryptoActions as CryptoAction[],
       showFreedom: household.showFreedom,
       showFamily: household.showFamily,
@@ -195,11 +200,18 @@ export class HouseholdService {
         update: {
           displayName,
           ...(parsed.fullName ? { fullName: parsed.fullName } : {}),
+          ...(email?.trim() ? { email: email.trim().toLowerCase() } : {}),
         },
       });
     }
-    const actions = isMature(parsed.cryptoFamiliarity) ? parsed.cryptoActions : [];
-    const level = onboardingLevel(parsed.goals, parsed.cryptoFamiliarity, actions);
+    const actions = isMature(parsed.cryptoFamiliarity)
+      ? parsed.cryptoActions
+      : [];
+    const level = onboardingLevel(
+      parsed.goals,
+      parsed.cryptoFamiliarity,
+      actions,
+    );
     await this.prisma.household.update({
       where: { id: householdId },
       data: {
@@ -349,17 +361,27 @@ export class HouseholdService {
     });
   }
 
-  async updateDisplayName(companyId: string, displayName: string, email?: string | null): Promise<AccountView> {
+  async updateDisplayName(
+    companyId: string,
+    displayName: string,
+    email?: string | null,
+  ): Promise<AccountView> {
     const name = displayName.trim();
     if (!name) {
       throw new HouseholdInvalidError('Informe um nome');
     }
     if (name.length > DISPLAY_NAME_MAX) {
-      throw new HouseholdInvalidError('O nome pode ter no máximo 32 caracteres');
+      throw new HouseholdInvalidError(
+        'O nome pode ter no máximo 32 caracteres',
+      );
     }
     await this.prisma.personName.upsert({
       where: { companyId },
-      create: { companyId, displayName: name, email: email?.trim().toLowerCase() || null },
+      create: {
+        companyId,
+        displayName: name,
+        email: email?.trim().toLowerCase() || null,
+      },
       update: { displayName: name },
     });
     return this.getAccount(companyId, email);
@@ -382,17 +404,22 @@ export class HouseholdService {
 
   async listPeople(companyId: string): Promise<HouseholdPersonView[]> {
     const { householdId } = await this.requireMembership(companyId);
-    const members = await this.prisma.householdMember.findMany({ where: { householdId } });
+    const members = await this.prisma.householdMember.findMany({
+      where: { householdId },
+    });
     const names = await this.prisma.personName.findMany({
       where: { companyId: { in: members.map((member) => member.companyId) } },
     });
-    const byCompany = new Map(names.map((person) => [person.companyId, person]));
+    const byCompany = new Map(
+      names.map((person) => [person.companyId, person]),
+    );
     const people: HouseholdPersonView[] = members.map((member) => {
       const person = byCompany.get(member.companyId);
       return {
         id: member.companyId,
         email: person?.email ?? '',
-        displayName: person?.displayName?.trim() || person?.fullName?.trim() || 'Membro',
+        displayName:
+          person?.displayName?.trim() || person?.fullName?.trim() || 'Membro',
         role: member.role === 'owner' ? 'owner' : 'member',
         you: member.companyId === companyId,
       };
@@ -420,10 +447,16 @@ export class HouseholdService {
     const target = await this.prisma.householdMember.findUnique({
       where: { companyId: memberCompanyId },
     });
-    if (!target || target.householdId !== householdId || target.role === 'owner') {
+    if (
+      !target ||
+      target.householdId !== householdId ||
+      target.role === 'owner'
+    ) {
       throw new HouseholdConflictError();
     }
-    await this.prisma.householdMember.delete({ where: { companyId: memberCompanyId } });
+    await this.prisma.householdMember.delete({
+      where: { companyId: memberCompanyId },
+    });
   }
 
   async leave(companyId: string) {
@@ -433,9 +466,13 @@ export class HouseholdService {
         where: { householdId, companyId: { not: companyId } },
       });
       if (others > 0) {
-        throw new HouseholdForbiddenError('O admin não sai enquanto houver outras pessoas no grupo');
+        throw new HouseholdForbiddenError(
+          'O admin não sai enquanto houver outras pessoas no grupo',
+        );
       }
-      throw new HouseholdForbiddenError('O último admin não pode sair. O grupo ficaria sem ninguém.');
+      throw new HouseholdForbiddenError(
+        'O último admin não pode sair. O grupo ficaria sem ninguém.',
+      );
     }
     await this.prisma.householdMember.delete({ where: { companyId } });
   }
@@ -451,7 +488,12 @@ export class HouseholdService {
   }
 }
 
-const HOUSEHOLD_SIZES = new Set(['solo', 'two', 'three_to_four', 'five_or_more']);
+const HOUSEHOLD_SIZES = new Set([
+  'solo',
+  'two',
+  'three_to_four',
+  'five_or_more',
+]);
 const GOAL_MONTHS = new Set<GoalMonths>([6, 12, 24, 60]);
 const CRYPTO_EXPERIENCE = new Set(['beginner', 'fund', 'declined']);
 
@@ -467,13 +509,19 @@ function readProfile(
     data.householdSize = body.householdSize;
   }
   if (requireAll || body.monthlyIncomeCents !== undefined) {
-    data.monthlyIncomeCents = readCents(body.monthlyIncomeCents, 'monthlyIncomeCents');
+    data.monthlyIncomeCents = readCents(
+      body.monthlyIncomeCents,
+      'monthlyIncomeCents',
+    );
   }
   if (requireAll || body.reserveCents !== undefined) {
     data.reserveCents = readCents(body.reserveCents, 'reserveCents');
   }
   if (requireAll || body.priorities !== undefined) {
-    if (!Array.isArray(body.priorities) || body.priorities.some((item) => typeof item !== 'string')) {
+    if (
+      !Array.isArray(body.priorities) ||
+      body.priorities.some((item) => typeof item !== 'string')
+    ) {
       throw new HouseholdInvalidError('priorities is invalid');
     }
     data.priorities = body.priorities;
@@ -493,10 +541,27 @@ function readProfile(
   return data;
 }
 
-const GOAL_IDS = new Set<string>(['gastos', 'reserva', 'familia', 'aprender', 'investir']);
+const GOAL_IDS = new Set<string>([
+  'gastos',
+  'reserva',
+  'familia',
+  'aprender',
+  'investir',
+]);
 const IMPORT_IDS = new Set<string>(['ofx', 'nfe', 'manual']);
-const FAMILIARITY_IDS = new Set<string>(['nunca', 'ouvi', 'comprei', 'frequente']);
-const ACTION_IDS = new Set<string>(['corretora', 'transferi', 'stable', 'rendimento', 'autocustodia']);
+const FAMILIARITY_IDS = new Set<string>([
+  'nunca',
+  'ouvi',
+  'comprei',
+  'frequente',
+]);
+const ACTION_IDS = new Set<string>([
+  'corretora',
+  'transferi',
+  'stable',
+  'rendimento',
+  'autocustodia',
+]);
 
 function readComplete(body: CompleteOnboarding) {
   if (!body || typeof body !== 'object') {
@@ -506,27 +571,44 @@ function readComplete(body: CompleteOnboarding) {
     fullName: readOptionalName(body.fullName, 'fullName', 32),
     displayName: readOptionalName(body.displayName, 'displayName', 32),
     goals: readIdList(body.goals, GOAL_IDS, 'goals') as OnboardingGoal[],
-    importMode: readOptionalId(body.importMode, IMPORT_IDS, 'importMode') as ImportMode | null,
+    importMode: readOptionalId(
+      body.importMode,
+      IMPORT_IDS,
+      'importMode',
+    ) as ImportMode | null,
     cryptoFamiliarity: readOptionalId(
       body.cryptoFamiliarity,
       FAMILIARITY_IDS,
       'cryptoFamiliarity',
     ) as CryptoFamiliarity | null,
-    cryptoActions: readIdList(body.cryptoActions, ACTION_IDS, 'cryptoActions') as CryptoAction[],
+    cryptoActions: readIdList(
+      body.cryptoActions,
+      ACTION_IDS,
+      'cryptoActions',
+    ) as CryptoAction[],
     showFreedom: readFlag(body.showFreedom, 'showFreedom'),
     showFamily: readFlag(body.showFamily, 'showFamily'),
     learnCrypto: readFlag(body.learnCrypto, 'learnCrypto'),
   };
 }
 
-function readOptionalName(value: unknown, field: string, max: number): string | null {
+function readOptionalName(
+  value: unknown,
+  field: string,
+  max: number,
+): string | null {
   if (value == null) return null;
-  if (typeof value !== 'string') throw new HouseholdInvalidError(`${field} is invalid`);
+  if (typeof value !== 'string')
+    throw new HouseholdInvalidError(`${field} is invalid`);
   const trimmed = value.trim().slice(0, max);
   return trimmed || null;
 }
 
-function readOptionalId(value: unknown, allowed: Set<string>, field: string): string | null {
+function readOptionalId(
+  value: unknown,
+  allowed: Set<string>,
+  field: string,
+): string | null {
   if (value == null) return null;
   if (typeof value !== 'string' || !allowed.has(value)) {
     throw new HouseholdInvalidError(`${field} is invalid`);
@@ -534,22 +616,39 @@ function readOptionalId(value: unknown, allowed: Set<string>, field: string): st
   return value;
 }
 
-function readIdList(value: unknown, allowed: Set<string>, field: string): string[] {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !allowed.has(item))) {
+function readIdList(
+  value: unknown,
+  allowed: Set<string>,
+  field: string,
+): string[] {
+  if (!Array.isArray(value)) {
     throw new HouseholdInvalidError(`${field} is invalid`);
   }
-  return [...new Set(value)];
+  const items: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !allowed.has(item)) {
+      throw new HouseholdInvalidError(`${field} is invalid`);
+    }
+    items.push(item);
+  }
+  return [...new Set(items)];
 }
 
 function readFlag(value: unknown, field: string): boolean {
-  if (typeof value !== 'boolean') throw new HouseholdInvalidError(`${field} is invalid`);
+  if (typeof value !== 'boolean')
+    throw new HouseholdInvalidError(`${field} is invalid`);
   return value;
 }
 
-function readFlags(body: PatchHouseholdProfile): { showFreedom?: boolean; showFamily?: boolean } {
+function readFlags(body: PatchHouseholdProfile): {
+  showFreedom?: boolean;
+  showFamily?: boolean;
+} {
   const data: { showFreedom?: boolean; showFamily?: boolean } = {};
-  if (body.showFreedom !== undefined) data.showFreedom = readFlag(body.showFreedom, 'showFreedom');
-  if (body.showFamily !== undefined) data.showFamily = readFlag(body.showFamily, 'showFamily');
+  if (body.showFreedom !== undefined)
+    data.showFreedom = readFlag(body.showFreedom, 'showFreedom');
+  if (body.showFamily !== undefined)
+    data.showFamily = readFlag(body.showFamily, 'showFamily');
   return data;
 }
 

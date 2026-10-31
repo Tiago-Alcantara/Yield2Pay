@@ -6,7 +6,7 @@
  * Sequência: a conta carregada entra na memória; confirmar Sair zera essa vista e chama o logout do Privy.
  */
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { saoPauloMonth } from './painel-format';
 
@@ -26,6 +26,7 @@ vi.mock('@privy-io/react-auth', () => ({
     getAccessToken: async () => 'tok',
     logout,
   }),
+  useIdentityToken: () => ({ identityToken: 'id-tok' }),
 }));
 
 import { getAccountView, setAccountView } from '../_lib/accountStore';
@@ -106,7 +107,7 @@ describe('logout no painel', () => {
   it('zera a conta vista pela doca ao confirmar Sair', async () => {
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
-    expect(getAccountView()?.displayName).toBe('Marina');
+    await waitFor(() => expect(getAccountView()?.displayName).toBe('Marina'));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Configurações' })[0]);
     const settings = await screen.findByRole('dialog', { name: 'Configurações' });

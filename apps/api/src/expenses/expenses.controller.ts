@@ -19,6 +19,7 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
+import { parseExpensePage } from './page-query';
 
 @Controller('expenses')
 @UseGuards(AuthGuard)
@@ -28,7 +29,13 @@ export class ExpensesController {
   @Post()
   async create(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: { merchant?: string; amountCents?: number; spentOn?: string; category?: ExpenseCategory },
+    @Body()
+    dto: {
+      merchant?: string;
+      amountCents?: number;
+      spentOn?: string;
+      category?: ExpenseCategory;
+    },
   ) {
     try {
       return await this.expensesService.create(req.companyId, dto);
@@ -45,17 +52,18 @@ export class ExpensesController {
     @Req() req: AuthenticatedRequest,
     @Query('month') month: string,
     @Query('category') category?: ExpenseCategory,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query('limit') limit?: string | string[],
+    @Query('offset') offset?: string | string[],
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('cursor') cursor?: string | string[],
   ) {
     try {
       return await this.expensesService.list(
         req.companyId,
         month,
         category,
-        readPage(limit, offset),
+        parseExpensePage({ limit, offset, cursor }),
         from || to ? { from: from ?? '', to: to ?? '' } : undefined,
       );
     } catch (error) {
@@ -107,11 +115,4 @@ export class ExpensesController {
     }
     throw error;
   }
-}
-
-function readPage(limit?: string, offset?: string) {
-  return {
-    limit: limit == null || limit === '' ? 100 : Number(limit),
-    offset: offset == null || offset === '' ? 0 : Number(offset),
-  };
 }

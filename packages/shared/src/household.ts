@@ -91,6 +91,7 @@ export interface ExpenseView {
 export interface ExpensePage {
   items: ExpenseView[];
   total: number;
+  nextCursor?: string | null;
 }
 
 export interface StatementImportResult {

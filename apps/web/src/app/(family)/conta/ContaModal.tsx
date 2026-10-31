@@ -33,6 +33,7 @@ export function ContaModal({
   open,
   onClose,
   getToken,
+  getIdentityToken,
   onLogout,
   onAccount,
   onProfile,
@@ -42,6 +43,7 @@ export function ContaModal({
   open: boolean;
   onClose: () => void;
   getToken: GetToken;
+  getIdentityToken?: () => Promise<string | null>;
   onLogout?: () => void;
   onAccount?: (account: AccountView) => void;
   onProfile?: (profile: HouseholdProfile) => void;
@@ -50,29 +52,35 @@ export function ContaModal({
 }) {
   const router = useRouter();
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
+  const getIdentityRef = useRef(getIdentityToken);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const confirmRef = useRef<Confirm | null>(null);
-  const api = () => createHouseholdApi(() => getTokenRef.current());
+  const api = () => createHouseholdApi(() => getTokenRef.current(), {
+    getIdentityToken: getIdentityRef.current,
+  });
 
   const [account, setAccount] = useState<AccountView | null>(null);
   const [profile, setProfile] = useState<HouseholdProfile | null>(null);
   const accountRef = useRef(account);
-  accountRef.current = account;
   const profileRef = useRef(profile);
-  profileRef.current = profile;
   const onAccountRef = useRef(onAccount);
-  onAccountRef.current = onAccount;
   const onProfileRef = useRef(onProfile);
-  onProfileRef.current = onProfile;
   const [people, setPeople] = useState<HouseholdPersonView[]>([]);
   const [nameDraft, setNameDraft] = useState('');
   const [groupDraft, setGroupDraft] = useState('');
   const [invite, setInvite] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  confirmRef.current = confirm;
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    getIdentityRef.current = getIdentityToken;
+    onCloseRef.current = onClose;
+    onAccountRef.current = onAccount;
+    onProfileRef.current = onProfile;
+    accountRef.current = account;
+    profileRef.current = profile;
+    confirmRef.current = confirm;
+  });
   const [delTxt, setDelTxt] = useState('');
   const [toast, setToast] = useState('');
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');

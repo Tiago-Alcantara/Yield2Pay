@@ -4,16 +4,41 @@ const CATEGORY_KEYWORDS: { category: ExpenseCategory; keywords: string[] }[] = [
   {
     category: 'housing',
     keywords: [
-      'aluguel', 'condominio', 'iptu', 'financiamento', 'quintoandar',
-      'enel', 'cemig', 'copel', 'eletropaulo', 'sabesp', 'comgas', 'sanepar',
-      'conta de luz', 'energia', 'cpfl', 'celesc', 'neoenergia', 'tarifa',
+      'aluguel',
+      'condominio',
+      'iptu',
+      'financiamento',
+      'quintoandar',
+      'enel',
+      'cemig',
+      'copel',
+      'eletropaulo',
+      'sabesp',
+      'comgas',
+      'sanepar',
+      'conta de luz',
+      'energia',
+      'cpfl',
+      'celesc',
+      'neoenergia',
+      'tarifa',
     ],
   },
   {
     category: 'health',
     keywords: [
-      'farmacia', 'hospital', 'clinica', 'laboratorio', 'drogaria', 'drogasil',
-      'raia', 'pacheco', 'unimed', 'amil', 'hapvida', 'odonto',
+      'farmacia',
+      'hospital',
+      'clinica',
+      'laboratorio',
+      'drogaria',
+      'drogasil',
+      'raia',
+      'pacheco',
+      'unimed',
+      'amil',
+      'hapvida',
+      'odonto',
     ],
   },
   {
@@ -23,31 +48,71 @@ const CATEGORY_KEYWORDS: { category: ExpenseCategory; keywords: string[] }[] = [
   {
     category: 'subscriptions',
     keywords: [
-      'netflix', 'spotify', 'disney', 'globoplay', 'deezer', 'youtube',
-      'icloud', 'adobe', 'vivo', 'claro', 'hbo', 'prime video',
+      'netflix',
+      'spotify',
+      'disney',
+      'globoplay',
+      'deezer',
+      'youtube',
+      'icloud',
+      'adobe',
+      'vivo',
+      'claro',
+      'hbo',
+      'prime video',
     ],
   },
   {
     category: 'groceries',
     keywords: [
-      'mercado', 'supermercado', 'hortifruti', 'padaria', 'acougue',
-      'carrefour', 'assai', 'atacadao', 'oxxo', 'pao de acucar',
+      'mercado',
+      'supermercado',
+      'hortifruti',
+      'padaria',
+      'acougue',
+      'carrefour',
+      'assai',
+      'atacadao',
+      'oxxo',
+      'pao de acucar',
     ],
   },
   {
     category: 'restaurant',
     keywords: [
-      'restaurante', 'ifood', 'rappi', 'uber eats', 'ubereats',
-      'pizzaria', 'mcdonald', 'habib', 'outback', 'cafeteria',
+      'restaurante',
+      'ifood',
+      'rappi',
+      'uber eats',
+      'ubereats',
+      'pizzaria',
+      'mcdonald',
+      'habib',
+      'outback',
+      'cafeteria',
     ],
   },
   {
     category: 'transport',
     keywords: [
-      'uber', '99 pop', '99pop', '99app', 'posto', 'ipiranga', 'shell',
-      'combustivel', 'estacionamento', 'pedagio', 'sem parar', 'cabify',
-      'ipva', 'dpvat', 'licenciamento',
-      'metro', 'onibus', 'cptm',
+      'uber',
+      '99 pop',
+      '99pop',
+      '99app',
+      'posto',
+      'ipiranga',
+      'shell',
+      'combustivel',
+      'estacionamento',
+      'pedagio',
+      'sem parar',
+      'cabify',
+      'ipva',
+      'dpvat',
+      'licenciamento',
+      'metro',
+      'onibus',
+      'cptm',
     ],
   },
 ];
@@ -91,17 +156,18 @@ export function merchantKey(name: string): string {
   return folded || name.trim().toLowerCase();
 }
 
-function sharedMerchantKey(key: string, keys: readonly string[]): string {
-  return (
-    keys
-      .filter(
-        (other) =>
-          other.length >= 4 &&
-          other.length < key.length &&
-          key.startsWith(`${other} `),
-      )
-      .sort((left, right) => left.length - right.length)[0] ?? key
-  );
+export function sharedMerchantKey(
+  key: string,
+  keys: readonly string[] | ReadonlySet<string>,
+): string {
+  const keySet = keys instanceof Set ? keys : new Set(keys);
+  const parts = key.split(' ');
+  let prefix = '';
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    prefix = index === 0 ? (parts[0] ?? '') : `${prefix} ${parts[index] ?? ''}`;
+    if (prefix.length >= 4 && keySet.has(prefix)) return prefix;
+  }
+  return key;
 }
 
 export function idsToMarkFixed(
@@ -114,9 +180,10 @@ export function idsToMarkFixed(
   }>,
 ): string[] {
   const keys = rows.map((row) => merchantKey(row.merchant));
+  const keySet = new Set(keys);
   const groups = new Map<string, typeof rows>();
   rows.forEach((row, index) => {
-    const key = sharedMerchantKey(keys[index] ?? '', keys);
+    const key = sharedMerchantKey(keys[index] ?? '', keySet);
     const list = groups.get(key) ?? [];
     list.push(row);
     groups.set(key, list);
@@ -127,7 +194,9 @@ export function idsToMarkFixed(
     if (months.size < 2) continue;
     const anchor = group[0]?.amountCents ?? 0;
     const stable = group.every(
-      (row) => isFixedRepeat(anchor, row.amountCents) || isFixedRepeat(row.amountCents, anchor),
+      (row) =>
+        isFixedRepeat(anchor, row.amountCents) ||
+        isFixedRepeat(row.amountCents, anchor),
     );
     const bill = group.every(
       (row) => row.category === 'housing' || row.category === 'subscriptions',
@@ -138,7 +207,10 @@ export function idsToMarkFixed(
   return ids;
 }
 
-export function isFixedRepeat(previousCents: number, nextCents: number): boolean {
+export function isFixedRepeat(
+  previousCents: number,
+  nextCents: number,
+): boolean {
   if (previousCents === 0) {
     return false;
   }
@@ -146,7 +218,10 @@ export function isFixedRepeat(previousCents: number, nextCents: number): boolean
 }
 
 function fold(text: string): string {
-  return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
 }
 
 function hasKeyword(text: string, keyword: string): boolean {
