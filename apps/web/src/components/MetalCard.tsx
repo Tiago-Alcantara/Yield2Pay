@@ -31,6 +31,7 @@ export function MetalCard({
 
   return (
     <div
+      className="fx-metal-card"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
