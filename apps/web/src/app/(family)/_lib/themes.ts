@@ -194,5 +194,6 @@ export function isThemeId(value: string | null | undefined): value is string {
 /**
  * Script inline que aplica o tema salvo antes do primeiro paint (evita flash).
  * Roda no layout raiz; fora da vertical de famílias (/b2b, /login) não aplica.
+ * Só um id da lista vira data-theme: o valor do localStorage não é código nem HTML.
  */
-export const THEME_BOOT_SCRIPT = `try{var p=location.pathname;if(!/^\\/(b2b|login)(\\/|$)/.test(p)){var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t)document.documentElement.dataset.theme=t}}catch(e){}`;
+export const THEME_BOOT_SCRIPT = `try{var p=location.pathname;if(!/^\\/(b2b|login)(\\/|$)/.test(p)){var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var a=${JSON.stringify(THEMES.map((theme) => theme.id))};if(t&&a.indexOf(t)!==-1)document.documentElement.dataset.theme=t}}catch(e){}`;

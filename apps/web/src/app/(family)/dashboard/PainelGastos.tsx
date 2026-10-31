@@ -175,6 +175,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
   const monthRequest = useRef(0);
+  const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
 
   const [phase, setPhase] = useState<'panel' | 'name' | 'onboarding'>('panel');
   const [account, setAccount] = useState<AccountView | null>(null);
@@ -214,22 +215,35 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   }, [account]);
 
   // Ações rápidas da doca chegam como ?acao=importar|novo|convidar.
+  // O convite só existe depois que a conta carrega, então a ação fica guardada
+  // e o frame seguinte tenta de novo. Qualquer outro valor é descartado.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const acao = params.get('acao');
+    if (acao === 'importar' || acao === 'novo' || acao === 'convidar') pendingAcao.current = acao;
     if (!acao) return;
-    requestAnimationFrame(() => {
-      if (acao === 'importar' || acao === 'novo') {
-        setImportManual(acao === 'novo');
-        setImportOpen(true);
-      } else if (acao === 'convidar') {
-        scrollToId('s-convidar');
-      }
-    });
     params.delete('acao');
     const query = params.toString();
     window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
   }, []);
+
+  useEffect(() => {
+    const acao = pendingAcao.current;
+    if (!acao) return;
+    const frame = requestAnimationFrame(() => {
+      if (pendingAcao.current !== acao) return;
+      if (acao === 'importar' || acao === 'novo') {
+        pendingAcao.current = null;
+        setImportManual(acao === 'novo');
+        setImportOpen(true);
+        return;
+      }
+      if (!document.getElementById('s-convidar')) return;
+      pendingAcao.current = null;
+      scrollToId('s-convidar');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [account, profile]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
