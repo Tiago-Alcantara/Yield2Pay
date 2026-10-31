@@ -38,8 +38,8 @@ function applyTheme(id: string) {
 
 /**
  * Tema de aparência da família. Persistido em localStorage['y2p-tema'] e
- * aplicado em <html data-theme>. O script inline em ThemeScript aplica antes
- * do primeiro paint para evitar flash.
+ * aplicado em <html data-theme>. THEME_BOOT_SCRIPT (no layout raiz) aplica
+ * antes do primeiro paint para evitar flash.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const id = useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME);
@@ -76,10 +76,4 @@ export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme precisa estar dentro de <ThemeProvider>');
   return ctx;
-}
-
-/** Script inline: aplica o tema salvo antes do primeiro paint. */
-export function ThemeScript() {
-  const code = `try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t)document.documentElement.dataset.theme=t}catch(e){}`;
-  return <script dangerouslySetInnerHTML={{ __html: code }} />;
 }

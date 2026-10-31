@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import { THEME_BOOT_SCRIPT } from "./(family)/_lib/themes";
 import { Providers } from "@/providers/Providers";
 
 const hankenGrotesk = Hanken_Grotesk({
@@ -28,6 +30,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${hankenGrotesk.variable} ${geistMono.variable}`}>
       <body>
+        <Script id="y2p-theme" strategy="beforeInteractive">
+          {THEME_BOOT_SCRIPT}
+        </Script>
         <Providers>{children}</Providers>
       </body>
     </html>

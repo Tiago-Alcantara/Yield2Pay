@@ -468,7 +468,7 @@ export function BackHeader({ label, maxWidth = 720 }: { label: string; maxWidth?
         position: 'sticky',
         top: 0,
         zIndex: 20,
-        background: 'rgba(12,13,15,.82)',
+        background: 'var(--fam-header-bg, rgba(12,13,15,.82))',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderBottom: `1px solid ${C.border}`,
