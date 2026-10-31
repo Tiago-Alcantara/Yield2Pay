@@ -252,16 +252,11 @@ function PainelScreen({
     const query = params.toString();
     const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
     // router.replace devolve a query: o HistoryUpdater do Next grava ?acao e ?conta de novo.
-    // O state atual traz __NA. Com essa marca, o replaceState do Next não avisa o
-    // router, a URL canônica continua com a query e o próximo push da doca para
-    // o mesmo endereço não dispara estes efeitos. A cópia sem __NA faz o router
-    // acompanhar a URL limpa. O patch do Next recoloca a marca antes de gravar,
-    // então o voltar não recarrega a página. Continua replace, não push: o
-    // reload não empilha histórico nem reabre o diálogo.
-    const carried = window.history.state as Record<string, unknown> | null;
-    const nextState: Record<string, unknown> = carried && typeof carried === 'object' ? { ...carried } : {};
-    delete nextState.__NA;
-    window.history.replaceState(nextState, '', next);
+    // replaceState(null) é o caminho documentado pelo Next para mudar a URL por fora:
+    // o patch dele copia o state interno e avisa o router, então a URL canônica fica
+    // limpa e o próximo clique da doca no mesmo endereço volta a disparar estes
+    // efeitos. É replace, não push: o reload não empilha histórico nem reabre o diálogo.
+    window.history.replaceState(null, '', next);
   }, [queryKey, pathname]);
 
   useEffect(() => {
