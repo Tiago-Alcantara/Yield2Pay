@@ -17,8 +17,13 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
 .y2p *,
 .y2p *::before,
 .y2p *::after { box-sizing: border-box; }
-/* O cabeçalho fixo mede 93px. Sem esta folga, #s-gastos e #s-liberdade abrem por baixo dele. */
-.y2p [id^="s-"] { scroll-margin-top: 93px; }
+/*
+ * Seções que a doca abre por âncora (#s-gastos, #s-liberdade...). O Next rola
+ * com scrollIntoView, que respeita esta folga. A altura do cabeçalho fixo muda
+ * com a largura da tela, então o painel mede #painel-header e grava o valor em
+ * --y2p-header-height. A folga extra de 12px é a mesma do scrollToId.
+ */
+.y2p-dashboard__section { scroll-margin-top: calc(var(--y2p-header-height, 0px) + 12px); }
 .y2p a { color: var(--fx-text-2, #9A9DA1); text-decoration: none; }
 .y2p a:hover { color: var(--fx-text-strong, #F2F3F4); }
 .y2p button { font-family: inherit; color: inherit; cursor: pointer; }

@@ -205,6 +205,7 @@ describe('ações da doca no painel', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.history.pushState(null, '', '/');
   });
@@ -480,41 +481,45 @@ describe('ações da doca no painel', () => {
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
   });
 
-  it('N-02: #s-gastos rola com folga para o cabeçalho de 93px', async () => {
+  function readPainelCss() {
     const cssPath = join(process.cwd(), 'src/app/(family)/dashboard/painel.css');
-    const css = readFileSync(
+    return readFileSync(
       existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web/src/app/(family)/dashboard/painel.css'),
       'utf8',
     );
-    expect(css).toMatch(/\[id\^="s-"\][^{]*\{[^}]*scroll-margin-top:\s*93px/);
+  }
+
+  // O jsdom mede tudo com altura 0. Aqui o cabeçalho finge ter a altura dada.
+  function fakeHeaderHeight(height: number) {
+    const measure = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.id === 'painel-header') return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: height, width: 0, height, toJSON: () => ({}) } as DOMRect;
+      return measure.call(this);
+    });
+  }
+
+  it('N-02: a folga das seções vem da altura medida do cabeçalho, não de 93px fixo', async () => {
+    const css = readPainelCss();
+    expect(css).not.toMatch(/\[id\^="s-"\]/);
+    expect(css).toMatch(/\.y2p-dashboard__section\s*\{[^}]*scroll-margin-top:\s*calc\(var\(--y2p-header-height/);
+    fakeHeaderHeight(141);
     window.history.pushState(null, '', '/dashboard');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
-    await flushFrames();
-    scrollTo.mockClear();
-    expect(document.getElementById('s-gastos')).not.toBeNull();
-    window.history.pushState(null, '', '/dashboard#s-gastos');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-    await flushFrames();
-    expect(scrollTo).toHaveBeenCalled();
+    const root = document.getElementById('painel-header')?.closest('.y2p');
+    expect(root).toBeInstanceOf(HTMLElement);
+    expect((root as HTMLElement).style.getPropertyValue('--y2p-header-height')).toBe('141px');
+    for (const id of ['s-topo', 's-liberdade', 's-gastos', 's-aprender']) {
+      expect(document.getElementById(id)).toHaveClass('y2p-dashboard__section');
+    }
+    expect(document.getElementById('s-liberdade')).toHaveClass('fx-metal-card');
   });
 
-  it('LF-05: #s-liberdade rola com a mesma folga do cabeçalho', async () => {
-    const cssPath = join(process.cwd(), 'src/app/(family)/dashboard/painel.css');
-    const css = readFileSync(
-      existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web/src/app/(family)/dashboard/painel.css'),
-      'utf8',
-    );
-    expect(css).toMatch(/\[id\^="s-"\][^{]*\{[^}]*scroll-margin-top:\s*93px/);
-    window.history.pushState(null, '', '/dashboard');
+  it('LF-05: o acesso direto a #s-liberdade rola até a seção depois da carga', async () => {
+    window.history.pushState(null, '', '/dashboard#s-liberdade');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
-    await flushFrames();
-    scrollTo.mockClear();
     expect(document.getElementById('s-liberdade')).not.toBeNull();
-    expect(document.getElementById('painel-header')).not.toBeNull();
-    window.history.pushState(null, '', '/dashboard#s-liberdade');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
     await flushFrames();
     expect(scrollTo).toHaveBeenCalled();
   });

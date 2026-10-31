@@ -23,6 +23,7 @@ export function MetalCard({
   padding = 30,
   radius = 'var(--fx-radius-xl)',
   style = {},
+  className,
   ...rest
 }: MetalCardProps) {
   const [hover, setHover] = React.useState(false);
@@ -31,7 +32,7 @@ export function MetalCard({
 
   return (
     <div
-      className="fx-metal-card"
+      className={className ? `fx-metal-card ${className}` : 'fx-metal-card'}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{

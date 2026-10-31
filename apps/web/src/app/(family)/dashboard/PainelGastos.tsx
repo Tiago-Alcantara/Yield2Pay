@@ -308,15 +308,30 @@ function PainelScreen({
 
   useEffect(() => onLiberdadeChange(() => setLiberdadeOn(readLiberdade())), []);
 
+  // No acesso direto a /dashboard#s-..., a seção só existe depois da carga.
+  // Com o painel montado, o Link da doca faz pushState (sem hashchange) e o
+  // Next rola com scrollIntoView, que usa o scroll-margin-top da seção.
   useEffect(() => {
     if (phase !== 'panel') return;
-    const scrollFromHash = () => {
-      const id = window.location.hash.replace('#', '');
-      if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+    const id = window.location.hash.replace('#', '');
+    if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+  }, [phase]);
+
+  // A altura do cabeçalho fixo muda com a largura e com os filtros ativos.
+  // O valor medido vira --y2p-header-height, a folga das seções em painel.css.
+  useEffect(() => {
+    if (phase !== 'panel') return;
+    const header = document.getElementById('painel-header');
+    const root = header?.closest('.y2p');
+    if (!header || !(root instanceof HTMLElement)) return;
+    const writeHeaderHeight = () => {
+      root.style.setProperty('--y2p-header-height', `${Math.round(header.getBoundingClientRect().height)}px`);
     };
-    scrollFromHash();
-    window.addEventListener('hashchange', scrollFromHash);
-    return () => window.removeEventListener('hashchange', scrollFromHash);
+    writeHeaderHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(writeHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, [phase]);
 
   useEffect(() => {
@@ -861,6 +876,7 @@ function PainelScreen({
 
         <div
           id="s-topo"
+          className="y2p-dashboard__section"
           style={{
             padding: isMobile ? '16px 12px' : 32,
             maxWidth: 1180,
@@ -889,7 +905,7 @@ function PainelScreen({
             </div>
           </MetalCard>
           {liberdadeOn && (
-            <MetalCard id="s-liberdade" data-screen-label="Liberdade" padding={28} radius="var(--fx-radius-xl)" aria-label="Liberdade da família">
+            <MetalCard id="s-liberdade" className="y2p-dashboard__section" data-screen-label="Liberdade" padding={28} radius="var(--fx-radius-xl)" aria-label="Liberdade da família">
               <div className="y2p-lib-card">
                 <div className="y2p-lib-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -931,7 +947,7 @@ function PainelScreen({
         </div>
         )}
 
-        <div id="s-gastos" data-screen-label="Gastos" style={{ marginTop: 6 }}>
+        <div id="s-gastos" className="y2p-dashboard__section" data-screen-label="Gastos" style={{ marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
@@ -1016,6 +1032,7 @@ function PainelScreen({
 
         <div
           id="s-aprender"
+          className="y2p-dashboard__section"
           data-screen-label="Aprender"
           style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
@@ -1065,7 +1082,7 @@ function PainelScreen({
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" className="y2p-dashboard__section" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
