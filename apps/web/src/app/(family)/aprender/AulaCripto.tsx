@@ -693,7 +693,7 @@ function LessonPage({
 }) {
   return (
     <article className="aula-lesson">
-      <div className="aula-kicker" aria-label="Aula atual">Aula {index + 1} de {totalLessons}</div>
+      <div className="aula-kicker">Aula {index + 1} de {totalLessons}</div>
       <h2>{lesson.title}</h2>
       <p className="aula-lede">{lesson.desc}</p>
       <LessonVideo lesson={lesson} startAt={startAt} onProgress={onProgress} />
@@ -711,7 +711,7 @@ function LessonPage({
       <div className="aula-foot">
         <span />
         <div className="aula-foot-actions">
-          <button type="button" className="aula-next" onClick={onPrevious} disabled={index === 0}>
+          <button type="button" className="aula-prev" onClick={onPrevious} disabled={index === 0}>
             Aula anterior
           </button>
           {done && confirmUnmark ? (

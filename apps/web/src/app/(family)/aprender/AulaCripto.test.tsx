@@ -156,23 +156,23 @@ describe('trilha de aulas', () => {
     });
     const view = render(<AulaCripto />);
     expect(await screen.findByRole('heading', { level: 2, name: 'Chaves, endereço e frase de recuperação' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 4 de');
+    expect(screen.getByText(/^Aula 4 de \d+$/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /O que é criptomoeda/ }));
     expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=1', { scroll: false });
     expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 1 de');
+    expect(screen.getByText(/^Aula 1 de \d+$/)).toBeInTheDocument();
     view.unmount();
     nav.replace.mockClear();
     render(<AulaCripto />);
     expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 1 de');
+    expect(screen.getByText(/^Aula 1 de \d+$/)).toBeInTheDocument();
   });
 
   it('A-07: Aula anterior volta uma aula e atualiza ?aula', async () => {
     nav.aula = '2';
     render(<AulaCripto />);
     expect(await screen.findByRole('heading', { level: 2, name: 'Blockchain: o caderno que ninguém apaga' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 2 de');
+    expect(screen.getByText(/^Aula 2 de \d+$/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Aula anterior' }));
     expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=1', { scroll: false });
     expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
@@ -189,7 +189,7 @@ describe('trilha de aulas', () => {
     // A troca vem depois do await do salvamento, fora do act: o efeito que grava
     // ?aula pode rodar um tick depois do commit que já mostra o título.
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=2', { scroll: false }));
-    expect(screen.getByLabelText('Aula atual')).toHaveTextContent('Aula 2 de');
+    expect(screen.getByText(/^Aula 2 de \d+$/)).toBeInTheDocument();
   });
 
   it('mostra a trilha mesmo sem família criada', async () => {
