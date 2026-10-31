@@ -31,6 +31,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(22,48,48, .45);
   --fx-selection-bg: rgba(22,48,48, .15);
   --fam-chip-on: #c6c1b5;
+  --fam-on-chip: #12110e;
+  --fam-on-avatar: #12110e;
   --fam-avatar: linear-gradient(160deg, #fdfcfa, #e6e3dc);
   --fam-well-deep: #e0dcd3;
   --fam-raised: #fdfcfa;
@@ -85,6 +87,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(16,30,60, .45);
   --fx-selection-bg: rgba(16,30,60, .15);
   --fam-chip-on: #b0c0d3;
+  --fam-on-chip: #0b1220;
+  --fam-on-avatar: #0b1220;
   --fam-avatar: linear-gradient(160deg, #fbfcfe, #dce4ee);
   --fam-well-deep: #d3dce8;
   --fam-raised: #fbfcfe;
@@ -139,6 +143,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(26,44,24, .45);
   --fx-selection-bg: rgba(26,44,24, .15);
   --fam-chip-on: #b5c2aa;
+  --fam-on-chip: #10150d;
+  --fam-on-avatar: #10150d;
   --fam-avatar: linear-gradient(160deg, #fbfcf9, #dce3d6);
   --fam-well-deep: #d3dccb;
   --fam-raised: #fbfcf9;
@@ -193,6 +199,8 @@
   --fx-shadow-hero: 0 30px 60px -20px rgba(24,28,36, .45);
   --fx-selection-bg: rgba(24,28,36, .15);
   --fam-chip-on: #c2c5cc;
+  --fam-on-chip: #0f1115;
+  --fam-on-avatar: #0f1115;
   --fam-avatar: linear-gradient(160deg, #ffffff, #e4e5e8);
   --fam-well-deep: #d8dadd;
   --fam-raised: #ffffff;

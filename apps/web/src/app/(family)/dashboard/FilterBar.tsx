@@ -139,7 +139,7 @@ export function filterChips(filters: ExpenseFilters): { key: string; label: stri
 
 const chromeOn: CSSProperties = {
   border: 'none',
-  background: 'linear-gradient(180deg,var(--fx-text-strong, #F2F3F4),#A8AAAD)',
+  background: 'linear-gradient(180deg,#F2F3F4,#A8AAAD)',
   color: '#0E0F11',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,.5)',
   fontWeight: 600,
@@ -253,11 +253,11 @@ export function FilterBar({
                     onClick={() => chooseMonth(item)}
                     className={on ? undefined : 'y2p-quiet'}
                     style={on
-                      ? { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#3c3f44,#26282c 60%,#1b1d21)', boxShadow: 'inset 0 0 0 1px var(--fx-border-metal, #4a4d52)', color: 'var(--fx-text-strong, #F2F3F4)', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }
+                      ? { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'var(--fam-chip-on, #2E3136)', boxShadow: 'inset 0 0 0 1px var(--fx-border-metal, #4a4d52)', color: 'var(--fam-on-chip, #F2F3F4)', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }
                       : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, textAlign: 'left', cursor: 'pointer' }}
                   >
                     <span>{cap(mesNome(item)) + (partial ? ` · até dia ${saoPauloDay()}` : '')}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, color: on ? 'var(--fx-silver, #C0C2C5)' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, color: on ? 'var(--fam-on-chip, #F2F3F4)' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
                   </button>
                 );
               })}
@@ -280,7 +280,7 @@ export function FilterBar({
           </span>
           Filtros
           {chips.length > 0 && (
-            <span style={{ minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, background: 'linear-gradient(180deg,var(--fx-text-strong, #F2F3F4),#A8AAAD)', color: '#0E0F11', fontFamily: "'Geist Mono', monospace", fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{chips.length}</span>
+            <span style={{ minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, background: 'linear-gradient(180deg,#F2F3F4,#A8AAAD)', color: '#0E0F11', fontFamily: "'Geist Mono', monospace", fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{chips.length}</span>
           )}
         </button>
       </div>
@@ -297,20 +297,22 @@ export function FilterBar({
         </div>
       )}
       {open && draft && typeof document !== 'undefined' && createPortal(
-        <FiltersModal
-          draft={draft}
-          totals={totals}
-          months={months}
-          expenses={expenses}
-          loadedMonth={month}
-          today={today}
-          onDraft={setDraft}
-          onClose={() => setOpen(false)}
-          onApply={(next, nextMonth) => {
-            setOpen(false);
-            onApply(next, nextMonth);
-          }}
-        />,
+        <div className="fam-shell fam-portal">
+          <FiltersModal
+            draft={draft}
+            totals={totals}
+            months={months}
+            expenses={expenses}
+            loadedMonth={month}
+            today={today}
+            onDraft={setDraft}
+            onClose={() => setOpen(false)}
+            onApply={(next, nextMonth) => {
+              setOpen(false);
+              onApply(next, nextMonth);
+            }}
+          />
+        </div>,
         document.body,
       )}
     </div>
@@ -401,7 +403,7 @@ function FiltersModal({
   }
 
   return (
-    <div role="presentation" className="y2p-overlay" style={{ zIndex: 60, background: 'rgba(8,9,10,.72)', alignItems: 'flex-start', padding: '5vh 16px' }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div role="presentation" className="y2p-overlay" style={{ zIndex: 60, background: 'color-mix(in srgb, var(--fam-page, #0e0f11) 78%, transparent)', alignItems: 'flex-start', padding: '5vh 16px' }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-label="Filtros" style={{ position: 'relative', maxWidth: 580, width: '100%', borderRadius: 24, border: '1px solid var(--fx-border-strong, #3a3d42)', background: 'linear-gradient(160deg,var(--fam-raised, #1e2024),var(--fx-surface-1, #131417))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 80px -30px rgba(0,0,0,.8)', display: 'flex', flexDirection: 'column', animation: 'y2pIn .35s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '22px 24px 18px' }}>
           <div>
@@ -414,7 +416,7 @@ function FiltersModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Período</div>
-            <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: '#0E0F11' }}>
+            <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-2, #16181b)' }}>
               {([['mes', 'Por mês'], ['custom', 'Personalizado']] as const).map(([key, text]) => (
                 <button key={key} type="button" aria-pressed={draft.mode === key} onClick={() => patch({ mode: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13.5, cursor: 'pointer', ...(draft.mode === key ? chromeOn : chromeOff) }}>{text}</button>
               ))}
@@ -430,7 +432,7 @@ function FiltersModal({
                     : { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, padding: '12px 14px', borderRadius: 14, border: '1px solid var(--fx-border-strong, #3a3d42)', background: 'var(--fx-surface-1, #131417)', color: 'var(--fx-text, #E6E8EA)', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: 15, fontWeight: on ? 700 : 600 }}>{cap(mesNome(item).slice(0, 3))}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: on ? 'var(--fx-border, #2A2D31)' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: on ? '#3a3d42' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
                   </button>
                 );
               })}
@@ -479,7 +481,7 @@ function FiltersModal({
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '20px 24px', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Tipo de gasto</div>
-          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: '#0E0F11' }}>
+          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-2, #16181b)' }}>
             {([['todos', 'Todos'], ['fixo', 'Fixos'], ['var', 'Variáveis']] as const).map(([key, text]) => (
               <button key={key} type="button" aria-pressed={draft.tipo === key} onClick={() => patch({ tipo: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13.5, cursor: 'pointer', ...(draft.tipo === key ? chromeOn : chromeOff) }}>{text}</button>
             ))}
@@ -503,7 +505,7 @@ function FiltersModal({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '20px 24px', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Estabelecimento</div>
-          <input type="search" placeholder="Ex.: iFood, Carrefour" aria-label="Buscar estabelecimento" value={draft.q} onChange={(event) => patch({ q: event.target.value })} style={{ height: 46, width: '100%', padding: '0 14px', borderRadius: 12, border: '1px solid var(--fx-border-strong, #3a3d42)', background: '#0E0F11', color: 'var(--fx-text, #E6E8EA)', fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+          <input type="search" placeholder="Ex.: iFood, Carrefour" aria-label="Buscar estabelecimento" value={draft.q} onChange={(event) => patch({ q: event.target.value })} style={{ height: 46, width: '100%', padding: '0 14px', borderRadius: 12, border: '1px solid var(--fx-border-strong, #3a3d42)', background: 'var(--fx-surface-2, #16181b)', color: 'var(--fx-text, #E6E8EA)', fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
         <div style={{ position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '18px 24px', borderTop: '1px solid var(--fx-border-strong, #3a3d42)', borderRadius: '0 0 24px 24px', background: 'var(--fx-surface-2, #16181b)' }}>
@@ -535,13 +537,13 @@ const dateStyle: CSSProperties = {
   padding: '0 14px',
   borderRadius: 12,
   border: '1px solid var(--fx-border-strong, #3a3d42)',
-  background: '#0E0F11',
+  background: 'var(--fx-surface-2, #16181b)',
   color: 'var(--fx-text, #E6E8EA)',
   fontFamily: "'Geist Mono', monospace",
   fontSize: 14.5,
   outline: 'none',
   boxSizing: 'border-box',
-  colorScheme: 'dark',
+  colorScheme: 'inherit',
 };
 
 const moneyField: CSSProperties = {
@@ -552,9 +554,9 @@ const moneyField: CSSProperties = {
   padding: '0 14px',
   borderRadius: 12,
   border: '1px solid var(--fx-border-strong, #3a3d42)',
-  background: '#0E0F11',
+  background: 'var(--fx-surface-2, #16181b)',
   fontSize: 13.5,
-  color: 'var(--fx-text-3, #8a8d91)',
+  color: 'var(--fx-text-2, #9A9DA1)',
 };
 
 const moneyInput: CSSProperties = {

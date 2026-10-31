@@ -19,11 +19,24 @@
   --fam-panel-pad: 30px;   /* painéis de metal maiores */
 }
 
-/* Os temas claros sobrescrevem isto só dentro da família. */
+/* Os temas claros sobrescrevem isto só dentro da família.
+   O fundo cobre a página para o body escuro não aparecer no tema claro. */
 .fam-shell {
   min-height: 100%;
+  min-height: 100dvh;
+  background: var(--fam-page, #0e0f11);
+  color: var(--fx-text, #edeff1);
   --fam-avatar: linear-gradient(160deg, #43464b, #1b1d21);
+  --fam-on-avatar: #d4d6d9;
+  --fam-chip-on: #2e3136;
+  --fam-on-chip: #f2f3f4;
   --fam-well-deep: #0f1113;
+}
+
+/* Portal do filtro: herda os tokens, sem pintar outra página. */
+.fam-shell.fam-portal {
+  min-height: 0;
+  background: transparent;
 }
 
 @media (max-width: 640px) {

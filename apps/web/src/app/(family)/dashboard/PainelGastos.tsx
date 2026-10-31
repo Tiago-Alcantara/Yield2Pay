@@ -154,7 +154,7 @@ const iconBadgeStyle: CSSProperties = {
   justifyContent: 'center',
   background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
   border: '1px solid var(--fx-border-metal, #4a4d52)',
-  color: 'var(--fx-silver-bright, #D4D6D9)',
+  color: 'var(--fam-on-avatar, #d4d6d9)',
 };
 
 type GetToken = () => Promise<string | null>;
@@ -231,7 +231,10 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
     if (acao) params.delete('acao');
     if (conta === '1') params.delete('conta');
     const query = params.toString();
-    router.replace(`${pathname}${query ? `?${query}` : ''}${window.location.hash}`, { scroll: false });
+    const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    // O router do Next pode manter a query. O histórico tira da barra para o reload não reabrir.
+    window.history.replaceState(window.history.state, '', next);
+    router.replace(next, { scroll: false });
   }, [queryKey, pathname, router]);
 
   useEffect(() => {
@@ -702,7 +705,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               )}
             </div>
             {isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -721,7 +724,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
               />
             </div>
             {!isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver-bright, #D4D6D9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
@@ -1022,7 +1025,7 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
 
 const fieldStyle: CSSProperties = {
   width: '100%',
-  background: '#0E0F11',
+  background: 'var(--fx-surface-1, #131417)',
   border: '1px solid var(--fx-border, #2A2D31)',
   borderRadius: 12,
   padding: '12px 14px',

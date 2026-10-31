@@ -37,6 +37,19 @@ function applyTheme(id: string) {
   document.documentElement.dataset.theme = id;
 }
 
+/** O body fica da cor da página, para o tema claro não deixar uma faixa escura atrás. */
+function paintCanvas() {
+  const shell = document.querySelector('.fam-shell:not(.fam-portal)');
+  const bg = shell ? getComputedStyle(shell).backgroundColor : '';
+  document.documentElement.style.backgroundColor = bg;
+  document.body.style.backgroundColor = bg;
+}
+
+function clearCanvas() {
+  document.documentElement.style.backgroundColor = '';
+  document.body.style.backgroundColor = '';
+}
+
 /**
  * Tema de aparência da família. Persistido em localStorage['y2p-tema'] e
  * aplicado em <html data-theme>. THEME_BOOT_SCRIPT (no layout raiz) aplica
@@ -51,11 +64,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
     if (!allowed) {
       delete document.documentElement.dataset.theme;
+      clearCanvas();
       return;
     }
     applyTheme(id);
+    paintCanvas();
     return () => {
       delete document.documentElement.dataset.theme;
+      clearCanvas();
     };
   }, [id, allowed]);
 

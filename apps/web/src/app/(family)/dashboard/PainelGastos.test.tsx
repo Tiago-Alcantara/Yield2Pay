@@ -110,7 +110,7 @@ beforeEach(() => {
     return frames.length;
   });
   vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-    frames[id - 1] = () => undefined;
+    if (id >= 1 && id <= frames.length) frames[id - 1] = () => undefined;
   });
   installFetch();
 });
@@ -175,6 +175,27 @@ describe('ações da doca no painel', () => {
     expect(document.querySelector('img')).toBeNull();
     expect(window.location.search).not.toContain('acao');
     expect(window.location.href).not.toContain('onerror');
+  });
+
+  it('tira a query no acesso direto para o reload não reabrir o diálogo', async () => {
+    replace.mockImplementation(() => undefined);
+    const cases = [
+      ['/dashboard?acao=novo', 'Traga seus gastos'],
+      ['/dashboard?acao=importar', 'Traga seus gastos'],
+      ['/dashboard?conta=1', 'Configurações'],
+    ] as const;
+    for (const [url, name] of cases) {
+      window.history.pushState(null, '', url);
+      const view = render(<PainelGastos />);
+      await flushFrames();
+      expect(await screen.findByRole('dialog', { name })).toBeInTheDocument();
+      expect(new URLSearchParams(window.location.search).get('acao')).toBeNull();
+      expect(new URLSearchParams(window.location.search).get('conta')).toBeNull();
+      view.unmount();
+    }
+    replace.mockImplementation((next: string) => {
+      window.history.replaceState(null, '', next);
+    });
   });
 
   it('ignora ?acao=NOVO em maiúsculas', async () => {

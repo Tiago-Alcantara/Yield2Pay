@@ -69,7 +69,7 @@ export function ProfileSection() {
             justifyContent: 'center',
             fontFamily: C.mono,
             fontSize: 22,
-            color: C.silverBright,
+            color: 'var(--fam-on-avatar, #d4d6d9)',
           }}
         >
           {state.profile.hasPhoto ? '🙂' : state.profile.name.trim().charAt(0).toUpperCase() || 'A'}

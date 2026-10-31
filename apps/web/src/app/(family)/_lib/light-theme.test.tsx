@@ -20,7 +20,11 @@ describe('tokens do tema claro', () => {
     expect(C.tile).not.toBe('linear-gradient(160deg,#43464b,#1b1d21)');
 
     render(<SegmentedControl options={['Mês', 'Ano']} value="Mês" />);
-    expect(screen.getByRole('button', { name: 'Mês' }).getAttribute('style')).toContain('--fam-chip-on');
+    const selected = screen.getByRole('button', { name: 'Mês' }).getAttribute('style') ?? '';
+    expect(selected).toContain('--fam-chip-on');
+    expect(selected).toContain('#2E3136');
+    expect(selected).not.toContain('--fx-surface-3');
+    expect(selected).toContain('--fam-on-chip');
 
     render(<NumberTile>1</NumberTile>);
     expect(document.body.innerHTML).toContain('--fam-avatar');

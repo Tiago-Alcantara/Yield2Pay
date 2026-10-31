@@ -58,8 +58,8 @@ export function SegmentedControl({
               cursor: 'pointer',
               fontFamily: 'var(--fx-font-display)',
               letterSpacing: '.02em',
-              background: on ? 'var(--fam-chip-on, var(--fx-surface-3))' : 'transparent',
-              color: on ? 'var(--fx-text-strong)' : 'var(--fx-text-2)',
+              background: on ? 'var(--fam-chip-on, #2E3136)' : 'transparent',
+              color: on ? 'var(--fam-on-chip, var(--fx-text-strong))' : 'var(--fx-text-2)',
               transition:
                 'background var(--fx-dur-fast) var(--fx-ease), color var(--fx-dur-fast) var(--fx-ease)',
             }}
