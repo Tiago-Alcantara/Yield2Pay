@@ -183,6 +183,18 @@ async function flushFrames() {
   });
 }
 
+// O quadro do aviso só roda em flushFrames. Se o perfil chega depois do
+// primeiro flush, o efeito agenda outro quadro; repete até o aviso aparecer.
+async function findStatusAfterFrames() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    await flushFrames();
+    const status = screen.queryByRole('status');
+    if (status) return status;
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  }
+  throw new Error('O aviso não apareceu.');
+}
+
 describe('ações da doca no painel', () => {
   beforeEach(() => {
     fixClock();
@@ -403,8 +415,7 @@ describe('ações da doca no painel', () => {
     );
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
-    await flushFrames();
-    expect(await screen.findByRole('status')).toHaveTextContent('Só quem administra a casa pode convidar.');
+    expect(await findStatusAfterFrames()).toHaveTextContent('Só quem administra a casa pode convidar.');
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
     expect(scrollTo).not.toHaveBeenCalled();
@@ -475,8 +486,7 @@ describe('ações da doca no painel', () => {
     );
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
-    await flushFrames();
-    expect(await screen.findByRole('status')).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
+    expect(await findStatusAfterFrames()).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
     expect(document.getElementById('y2p-invite')).toBeNull();
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
   });
