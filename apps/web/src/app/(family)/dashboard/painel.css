@@ -234,7 +234,7 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
   letter-spacing: .03em;
 }
 .y2p-seg button:hover { color: var(--fx-text-strong, #F2F3F4); }
-.y2p-seg button.is-on { background: #2E3136; color: var(--fx-text-strong, #F2F3F4); box-shadow: none; }
+.y2p-seg button.is-on { background: var(--fam-chip-on, #2E3136); color: var(--fx-text-strong, #F2F3F4); box-shadow: none; }
 
 /* indicadores soltos, como os StatCards do /dashboard */
 .y2p-stats {
@@ -615,7 +615,7 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
   color: var(--fx-text-strong, #F2F3F4);
 }
 .y2p-opt:hover { border-color: var(--fx-border-metal, #4a4d52); }
-.y2p-opt.is-on { border-color: var(--fx-silver, #C0C2C5); background: #2E3136; color: var(--fx-text-strong, #F2F3F4) !important; font-weight: 600; }
+.y2p-opt.is-on { border-color: var(--fx-silver, #C0C2C5); background: var(--fam-chip-on, #2E3136); color: var(--fx-text-strong, #F2F3F4) !important; font-weight: 600; }
 .y2p-opt--tall { height: auto; padding: 16px 20px; }
 .y2p-opt-desc { font-size: 13.5px; color: var(--fx-text-2, #9A9DA1); margin-top: 3px; }
 .y2p-opt.is-on .y2p-opt-desc { color: var(--fx-silver, #C0C2C5); }

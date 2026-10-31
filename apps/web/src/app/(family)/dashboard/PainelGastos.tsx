@@ -10,6 +10,7 @@ import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi } from '../_lib/householdApi';
+import { setAccountView } from '../_lib/accountStore';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -206,6 +207,11 @@ function PainelScreen({ getToken, onLogout }: { getToken: GetToken; onLogout?: (
   const router = useRouter();
 
   const api = () => createHouseholdApi(() => getTokenRef.current());
+
+  // A doca mostra o nome e a família da conta carregada aqui.
+  useEffect(() => {
+    if (account) setAccountView(account);
+  }, [account]);
 
   // Ações rápidas da doca chegam como ?acao=importar|novo|convidar.
   useEffect(() => {

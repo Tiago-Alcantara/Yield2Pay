@@ -80,8 +80,8 @@ export function Charts({
     <section className="y2p-charts" data-screen-label="Gráficos">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ minWidth: 0, flex: '1 1 240px' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#F2F3F4', margin: 0 }}>Seus gastos</h2>
-          <p style={{ fontSize: 13.5, color: '#9A9DA1', margin: '6px 0 0', lineHeight: 1.55 }}>{desc}</p>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>Seus gastos</h2>
+          <p style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '6px 0 0', lineHeight: 1.55 }}>{desc}</p>
         </div>
         <SegmentedControl
           size="sm"
@@ -131,7 +131,7 @@ function Donut({
     <div className="y2p-donut-wrap">
       <div className="y2p-donut">
         <svg viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="80" fill="none" stroke="#1e2024" strokeWidth="26" />
+          <circle cx="100" cy="100" r="80" fill="none" style={{ stroke: 'var(--fam-chart-track, #1e2024)' }} strokeWidth="26" />
           {total > 0 &&
             cats.map(([c, v], i) => {
               const len = (v / total) * C;
@@ -142,7 +142,7 @@ function Donut({
                   cy="100"
                   r="80"
                   fill="none"
-                  stroke={SHADES[i % 8]}
+                  style={{ stroke: SHADES[i % 8] }}
                   strokeWidth="26"
                   strokeDasharray={Math.max(0, len - 2.5) + ' ' + C}
                   strokeDashoffset={-acc}
@@ -154,10 +154,10 @@ function Donut({
             })}
         </svg>
         <div className="y2p-donut-center">
-          <div className="y2p-mono" style={{ fontSize: 20, fontWeight: 600, color: '#F2F3F4' }}>
+          <div className="y2p-mono" style={{ fontSize: 20, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)' }}>
             {brlK(reais(total))}
           </div>
-          <div style={{ fontSize: 12.5, color: '#8a8d91', marginTop: 2 }}>{mName}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--fx-text-3, #8a8d91)', marginTop: 2 }}>{mName}</div>
         </div>
       </div>
       <div className="y2p-catlist">
@@ -165,10 +165,10 @@ function Donut({
           <button key={c} type="button" className="y2p-catrow" onClick={() => onPickCat(c)}>
             <span className="y2p-swatch" style={{ background: SHADES[i % 8] }} />
             <span className="y2p-ellipsis">{c}</span>
-            <span className="y2p-mono" style={{ fontSize: 12.5, color: '#8a8d91' }}>
+            <span className="y2p-mono" style={{ fontSize: 12.5, color: 'var(--fx-text-3, #8a8d91)' }}>
               {total ? Math.round((v / total) * 100) : 0}%
             </span>
-            <span className="y2p-mono" style={{ color: '#F2F3F4', minWidth: 92, textAlign: 'right' }}>
+            <span className="y2p-mono" style={{ color: 'var(--fx-text-strong, #F2F3F4)', minWidth: 92, textAlign: 'right' }}>
               {brl(reais(v))}
             </span>
           </button>
@@ -205,9 +205,8 @@ function MonthBars({
               y={200 - h}
               width={slot * 0.64}
               height={h}
-              fill={row.month === month ? '#E6E8EA' : '#3a3d42'}
               onClick={() => onPickMonth(row.month)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', fill: row.month === month ? 'var(--fam-chart-ink, #E6E8EA)' : 'var(--fx-border-strong, #3a3d42)' }}
             />
           );
         })}
@@ -216,18 +215,17 @@ function MonthBars({
           y1={avgY}
           x2="600"
           y2={avgY}
-          stroke="#9A9DA1"
           strokeWidth="1.5"
           strokeDasharray="6 5"
           vectorEffect="non-scaling-stroke"
-          style={{ pointerEvents: 'none' }}
+          style={{ pointerEvents: 'none', stroke: 'var(--fx-text-2, #9A9DA1)' }}
         />
       </svg>
       <div className="y2p-bar-labels">
         {months.map((row) => (
           <button key={row.month} type="button" onClick={() => onPickMonth(row.month)}>
-            <div style={{ fontSize: 13, color: '#9A9DA1' }}>{short(row.month)}</div>
-            <div className="y2p-mono" style={{ fontSize: 11.5, color: '#F2F3F4', marginTop: 2 }}>
+            <div style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>{short(row.month)}</div>
+            <div className="y2p-mono" style={{ fontSize: 11.5, color: 'var(--fx-text-strong, #F2F3F4)', marginTop: 2 }}>
               {brlK(reais(row.amountCents))}
             </div>
           </button>
@@ -270,25 +268,25 @@ function Ritmo({
     <div>
       <div className="y2p-ritmo">
         <svg viewBox="0 0 600 200" preserveAspectRatio="none">
-          <line x1="0" y1="0.5" x2="600" y2="0.5" stroke="#24272b" vectorEffect="non-scaling-stroke" />
-          <line x1="0" y1="100" x2="600" y2="100" stroke="#24272b" vectorEffect="non-scaling-stroke" />
-          <path d={path(previous)} fill="none" stroke="#6A6D72" strokeWidth="2" strokeDasharray="6 5" vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1="0.5" x2="600" y2="0.5" style={{ stroke: 'var(--fam-chart-track, #24272b)' }} vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1="100" x2="600" y2="100" style={{ stroke: 'var(--fam-chart-track, #24272b)' }} vectorEffect="non-scaling-stroke" />
+          <path d={path(previous)} fill="none" style={{ stroke: 'var(--fam-chart-muted, #6A6D72)' }} strokeWidth="2" strokeDasharray="6 5" vectorEffect="non-scaling-stroke" />
           {current.length > 0 && <path d={path(current) + ' L' + X(n) + ' 200 L0 200 Z'} fill="rgba(230,232,234,.08)" />}
           {partial && current.length > 0 && (
             <path
               d={'M' + X(n) + ' ' + Y(last) + ' L' + X(days - 1) + ' ' + Y(proj)}
               fill="none"
-              stroke="#E6E8EA"
+              style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }}
               strokeWidth="2"
               strokeDasharray="2 5"
               vectorEffect="non-scaling-stroke"
             />
           )}
-          <path d={path(current)} fill="none" stroke="#E6E8EA" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path d={path(current)} fill="none" style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }} strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           {current.length > 0 && (
             <>
               <path d={dot} stroke="rgba(230,232,234,.16)" strokeWidth="21" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              <path d={dot} stroke="#E6E8EA" strokeWidth="11" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={dot} style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }} strokeWidth="11" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
             </>
           )}
         </svg>
@@ -307,18 +305,18 @@ function Ritmo({
       </div>
       <div className="y2p-legend" style={{ gap: 18, flexWrap: 'wrap' }}>
         <span className="y2p-leg">
-          <span style={{ width: 18, height: 2.5, background: '#E6E8EA' }} />
+          <span style={{ width: 18, height: 2.5, background: 'var(--fam-chart-ink, #E6E8EA)' }} />
           {cap(mName)}
         </span>
         {previous.length > 0 && (
           <span className="y2p-leg">
-            <span className="y2p-leg-dash" style={{ borderColor: '#6A6D72' }} />
+            <span className="y2p-leg-dash" style={{ borderColor: 'var(--fam-chart-muted, #6A6D72)' }} />
             {cap(pName)}
           </span>
         )}
         {partial && (
           <span className="y2p-leg">
-            <span style={{ width: 18, borderTop: '2px dotted #E6E8EA' }} />
+            <span style={{ width: 18, borderTop: '2px dotted var(--fam-chart-ink, #E6E8EA)' }} />
             Projeção
           </span>
         )}
@@ -356,15 +354,15 @@ function FixVar({
               onClick={() => onPickMonth(row.month)}
               style={{ cursor: 'pointer' }}
             >
-              <rect x={i * slot + slot * 0.18} y={200 - fh - vh} width={slot * 0.64} height={Math.max(0, vh - 3)} fill="#5F6266" />
-              <rect x={i * slot + slot * 0.18} y={200 - fh} width={slot * 0.64} height={fh} fill="#E6E8EA" />
+              <rect x={i * slot + slot * 0.18} y={200 - fh - vh} width={slot * 0.64} height={Math.max(0, vh - 3)} style={{ fill: 'var(--fam-chart-muted, #5F6266)' }} />
+              <rect x={i * slot + slot * 0.18} y={200 - fh} width={slot * 0.64} height={fh} style={{ fill: 'var(--fam-chart-ink, #E6E8EA)' }} />
             </g>
           );
         })}
       </svg>
       <div className="y2p-bar-labels">
         {rows.map((row) => (
-          <button key={row.month} type="button" onClick={() => onPickMonth(row.month)} style={{ fontSize: 13, color: '#9A9DA1' }}>
+          <button key={row.month} type="button" onClick={() => onPickMonth(row.month)} style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
             {short(row.month)}
           </button>
         ))}
@@ -372,14 +370,14 @@ function FixVar({
       <div className="y2p-minis">
         <div className="y2p-mini">
           <div className="y2p-mini-l">
-            <span className="y2p-sq" style={{ background: '#E6E8EA' }} />
+            <span className="y2p-sq" style={{ background: 'var(--fam-chart-ink, #E6E8EA)' }} />
             Fixos no mês
           </div>
           <div className="y2p-mono y2p-mini-v">{brl0(reais(fixT))}</div>
         </div>
         <div className="y2p-mini">
           <div className="y2p-mini-l">
-            <span className="y2p-sq" style={{ background: '#5F6266' }} />
+            <span className="y2p-sq" style={{ background: 'var(--fam-chart-muted, #5F6266)' }} />
             Variáveis no mês
           </div>
           <div className="y2p-mono y2p-mini-v">{brl0(reais(variable))}</div>

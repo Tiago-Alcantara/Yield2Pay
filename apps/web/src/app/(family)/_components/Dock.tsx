@@ -3,7 +3,12 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { usePrivy } from '@privy-io/react-auth';
+import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { useFamily } from '../_lib/FamilyProvider';
+import { getAccountView, setAccountView, useAccountView } from '../_lib/accountStore';
+import { createHouseholdApi } from '../_lib/householdApi';
+import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { onLiberdadeChange, readLiberdade } from '../_lib/liberdadePref';
 import { DockIcon, type DockIconName } from './dockIcons';
 import { GroupMenu } from './GroupMenu';
@@ -31,6 +36,42 @@ const NAV: Array<{ id: string; icon: DockIconName; href: string }> = [
   { id: 'aprender', icon: 'book', href: '/aprender' },
 ];
 
+type GetToken = () => Promise<string | null>;
+
+/** Busca a conta uma vez quando a doca abre fora do painel. */
+function useLoadAccount(getToken: GetToken, enabled: boolean) {
+  const tokenRef = React.useRef(getToken);
+  useEffect(() => {
+    tokenRef.current = getToken;
+  });
+  useEffect(() => {
+    if (!enabled || getAccountView()) return;
+    let cancelled = false;
+    createHouseholdApi(() => tokenRef.current())
+      .getAccount()
+      .then((view) => {
+        if (!cancelled && !getAccountView()) setAccountView(view);
+      })
+      .catch(() => {
+        /* sem conta: a doca usa o nome do perfil local */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+}
+
+function PrivyAccountLoader({ enabled }: { enabled: boolean }) {
+  const { getAccessToken } = usePrivy();
+  useLoadAccount(getAccessToken, enabled);
+  return null;
+}
+
+function LocalAccountLoader({ enabled }: { enabled: boolean }) {
+  useLoadAccount(async () => LOCAL_DEV_TOKEN, enabled);
+  return null;
+}
+
 /**
  * Doca flutuante — substitui a barra lateral do painel em todas as telas
  * logadas da família.
@@ -43,6 +84,7 @@ export function Dock() {
   const d = t.dock;
 
   const liberdadeOn = useSyncExternalStore(onLiberdadeChange, readLiberdade, () => true);
+  const account = useAccountView();
 
   // Reserva espaço para a doca no rodapé (ver family.css).
   useEffect(() => {
@@ -51,11 +93,14 @@ export function Dock() {
     return () => document.body.classList.remove('fam-has-dock');
   }, [visible]);
 
-  if (!visible || !pathname) return null;
+  const loader = isPrivyConfigured ? <PrivyAccountLoader enabled={visible} /> : <LocalAccountLoader enabled={visible} />;
+
+  if (!visible || !pathname) return loader;
 
   const active = activeDockItem(pathname);
-  const firstName = state.profile.name.trim().split(/\s+/)[0] || d.account;
-  const initial = firstName.charAt(0).toUpperCase();
+  const fromApi = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0];
+  const firstName = fromApi || state.profile.name.trim().split(/\s+/)[0] || d.account;
+  const initial = (account?.initials && account.initials !== '?' ? account.initials : firstName).charAt(0).toUpperCase();
 
   /** Ação do painel (?acao=…): navega e o painel abre o modal/seção. */
   const quick = (acao: 'importar' | 'novo' | 'convidar') => () =>
@@ -63,7 +108,8 @@ export function Dock() {
 
   return (
     <nav id="y2p-dock" aria-label={d.aria}>
-      <GroupMenu name={firstName} initial={initial} />
+      {loader}
+      <GroupMenu name={firstName} initial={initial} householdName={account?.household?.name} />
       <span className="dk-sep" />
       {NAV.filter((i) => i.id !== 'liberdade' || liberdadeOn).map((item) => (
         <Link

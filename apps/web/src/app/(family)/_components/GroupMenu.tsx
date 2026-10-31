@@ -10,7 +10,22 @@ import { DockIcon } from './dockIcons';
  * Botão de conta da doca + popover "Grupos de finanças". Fecha em clique
  * fora, Esc ou ao escolher; a escolha persiste em localStorage['y2p-grupo'].
  */
-export function GroupMenu({ name, initial }: { name: string; initial: string }) {
+/** Iniciais de um nome de grupo ("Família Alcantara" → "FA"). */
+function groupInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
+}
+
+export function GroupMenu({
+  name,
+  initial,
+  householdName,
+}: {
+  name: string;
+  initial: string;
+  /** Nome real da família vindo da API; substitui o exemplo do grupo principal. */
+  householdName?: string;
+}) {
   const router = useRouter();
   const { t } = useFamily();
   const d = t.dock;
@@ -18,7 +33,10 @@ export function GroupMenu({ name, initial }: { name: string; initial: string }) 
   const [toast, setToast] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
   const group = useSyncExternalStore(onGroupChange, readGroup, readGroupServer);
-  const current = GROUPS.find((g) => g.id === group) ?? GROUPS[0];
+  const groups = householdName
+    ? GROUPS.map((g) => (g.id === 'fam' ? { ...g, name: householdName, initials: groupInitials(householdName) } : g))
+    : GROUPS;
+  const current = groups.find((g) => g.id === group) ?? groups[0];
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +63,7 @@ export function GroupMenu({ name, initial }: { name: string; initial: string }) 
   function choose(id: GroupId) {
     writeGroup(id);
     setOpen(false);
-    setToast(d.groupShown(GROUPS.find((g) => g.id === id)?.name ?? ''));
+    setToast(d.groupShown(groups.find((g) => g.id === id)?.name ?? ''));
   }
 
   return (
@@ -54,9 +72,9 @@ export function GroupMenu({ name, initial }: { name: string; initial: string }) 
         <div className="dk-grp" role="menu" aria-label={d.groupsTitle}>
           <div className="dk-gh">
             <b>{d.groupsTitle}</b>
-            <span>{d.groupsCount(GROUPS.length)}</span>
+            <span>{d.groupsCount(groups.length)}</span>
           </div>
-          {GROUPS.map((g) => {
+          {groups.map((g) => {
             const on = g.id === group;
             return (
               <button key={g.id} type="button" className="dk-g" role="menuitemradio" aria-checked={on} onClick={() => choose(g.id)}>
