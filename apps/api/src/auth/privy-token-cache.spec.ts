@@ -1,9 +1,9 @@
 /**
  * Módulo: privy-token-cache
  * Criado em: 2026-10-30
- * Última atualização: 2026-10-30
+ * Última atualização: 2026-10-31
  * Intuito: A chave gira quando a assinatura falha e o e-mail não fica para sempre.
- * Sequência: N validações buscam a chave uma vez; a assinatura ruim busca de novo; e-mail nulo não entra no cache.
+ * Sequência: N validações buscam a chave uma vez; a assinatura ruim busca de novo; o refetch já gravado não gera uma terceira busca; token forjado na chave nova é recusado; e-mail nulo não entra no cache.
  */
 import { generateKeyPairSync, type KeyObject } from 'node:crypto';
 import { createPrivyTokenCache } from './privy-token-cache';
@@ -29,6 +29,68 @@ const signatureError = () =>
   Object.assign(new Error('signature verification failed'), {
     code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
   });
+
+const forgedError = () => new Error('token forjado');
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/**
+ * Deixa a chave velha falhar só depois que o refetch do prazo já gravou a nova.
+ * A terceira busca, se o código pedir, resolve na hora para a suíte não pendurar.
+ */
+async function verifyAfterStoredRefresh(input: {
+  token: string;
+  onNewKey: (key: string) => Promise<{ userId: string }>;
+}) {
+  const second = deferred<string>();
+  let stored!: Promise<string>;
+  const fetchVerificationKey = vi
+    .fn()
+    .mockResolvedValueOnce(KEY_A)
+    .mockImplementationOnce(
+      () =>
+        ({
+          then(onFulfilled: (key: string) => Promise<string>) {
+            stored = second.promise.then(onFulfilled);
+            return stored;
+          },
+        }) as Promise<string>,
+    )
+    .mockResolvedValue(KEY_C);
+  const stale = deferred<void>();
+  let releaseStale: (() => void) | undefined;
+  const verifyAuthToken = vi.fn((token: string, key?: string) => {
+    if (token === 'quente') return Promise.resolve({ userId: 'user-quente' });
+    if (key === KEY_A) {
+      stale.resolve();
+      return new Promise<{ userId: string }>((_resolve, reject) => {
+        releaseStale = () => reject(signatureError());
+      });
+    }
+    return input.onNewKey(key ?? '');
+  });
+  let clock = 0;
+  const cache = createPrivyTokenCache(
+    { verifyAuthToken, getUser: vi.fn() },
+    { fetchVerificationKey, now: () => clock },
+  );
+  await cache.verify('quente');
+  clock = 45_000;
+  const pending = cache.verify(input.token);
+  await stale.promise;
+  second.resolve(KEY_B);
+  await stored;
+  await Promise.resolve();
+  if (!releaseStale) throw new Error('a chave velha não foi usada');
+  releaseStale();
+  return { pending, fetchVerificationKey, verifyAuthToken };
+}
 
 function clientWith(fetchVerificationKey: () => Promise<string>) {
   return {
@@ -239,6 +301,31 @@ describe('privy-token-cache', () => {
     expect(
       client.verifyAuthToken.mock.calls.every((call) => call[1] === KEY_A),
     ).toBe(true);
+  });
+
+  it('reusa a chave já gravada pelo refetch e não busca uma terceira vez', async () => {
+    const { pending, fetchVerificationKey, verifyAuthToken } = await verifyAfterStoredRefresh({
+      token: 'girado',
+      onNewKey: async () => ({ userId: 'user-girado' }),
+    });
+    await expect(pending).resolves.toEqual({ privyUserId: 'user-girado' });
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
+    expect(verifyAuthToken).toHaveBeenCalledWith('girado', KEY_A);
+    expect(verifyAuthToken).toHaveBeenCalledWith('girado', KEY_B);
+    expect(verifyAuthToken).not.toHaveBeenCalledWith('girado', KEY_C);
+  });
+
+  it('recusa o token forjado na tentativa com a chave nova e propaga o erro', async () => {
+    const { pending, fetchVerificationKey, verifyAuthToken } = await verifyAfterStoredRefresh({
+      token: 'forjado',
+      onNewKey: async () => {
+        throw forgedError();
+      },
+    });
+    await expect(pending).rejects.toThrow('token forjado');
+    expect(fetchVerificationKey).toHaveBeenCalledTimes(2);
+    expect(verifyAuthToken).toHaveBeenCalledWith('forjado', KEY_B);
+    expect(verifyAuthToken).not.toHaveBeenCalledWith('forjado', KEY_C);
   });
 
   it('não guarda e-mail nulo e esquece o mais antigo quando o teto estoura', async () => {
