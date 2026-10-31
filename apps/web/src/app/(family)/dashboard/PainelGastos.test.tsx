@@ -29,6 +29,15 @@ vi.mock('next/navigation', () => ({
 
 import PainelGastos from './PainelGastos';
 
+// Os testes leem o mês atual (saoPauloMonth) e os dados fixos usam 2026-09 e
+// 2026-10. Meio-dia de 15/10/2026 em São Paulo deixa a virada do mês longe.
+const FIXED_NOW = new Date('2026-10-15T15:00:00Z');
+
+function fixClock() {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FIXED_NOW);
+}
+
 const frames: FrameRequestCallback[] = [];
 const scrollTo = vi.fn();
 
@@ -176,6 +185,7 @@ async function flushFrames() {
 
 describe('ações da doca no painel', () => {
   beforeEach(() => {
+    fixClock();
     push.mockClear();
     replace.mockClear();
     searchBox.value = new URLSearchParams('stale');
@@ -194,6 +204,7 @@ describe('ações da doca no painel', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     window.history.pushState(null, '', '/');
   });
@@ -392,7 +403,7 @@ describe('ações da doca no painel', () => {
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
     await flushFrames();
-    expect(screen.getByRole('status')).toHaveTextContent('Só quem administra a casa pode convidar.');
+    expect(await screen.findByRole('status')).toHaveTextContent('Só quem administra a casa pode convidar.');
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
     expect(scrollTo).not.toHaveBeenCalled();
@@ -464,7 +475,7 @@ describe('ações da doca no painel', () => {
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
     await flushFrames();
-    expect(screen.getByRole('status')).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
+    expect(await screen.findByRole('status')).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
     expect(document.getElementById('y2p-invite')).toBeNull();
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
   });
@@ -511,10 +522,12 @@ describe('ações da doca no painel', () => {
 
 describe('PainelGastos', () => {
   beforeEach(() => {
+    fixClock();
     vi.stubGlobal('scrollTo', vi.fn());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
