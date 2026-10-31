@@ -5,10 +5,12 @@
  * Intuito: A carga do painel faz no máximo duas ondas e uma /expenses por mês, e a doca só abre as ações conhecidas.
  * Sequência: opens in two waves with one expenses call; switching month does not reload the house; a failed load shows the error; ?acao=importar abre o extrato; ?acao=novo abre o manual; ?acao=convidar rola até o convite; ?conta=1 abre as configurações; uma ação desconhecida não abre nada e não aparece na tela.
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { saoPauloMonth } from './painel-format';
+import { cap, mesNome, saoPauloMonth, shiftMonth } from './painel-format';
 
 const push = vi.hoisted(() => vi.fn());
 const replace = vi.hoisted(() => vi.fn((url: string) => {
@@ -395,6 +397,116 @@ describe('ações da doca no painel', () => {
     expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
     expect(scrollTo).not.toHaveBeenCalled();
   });
+
+  it('CV-07: ?acao=convidar foca o campo do convite', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=convidar');
+    render(<PainelGastos />);
+    const field = await screen.findByLabelText('Convidar');
+    await flushFrames();
+    expect(field).toHaveFocus();
+    expect(scrollTo).toHaveBeenCalled();
+  });
+
+  it('CV-07: com a família oculta, o convite avisa em vez de falhar em silêncio', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=convidar');
+    const month = saoPauloMonth();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const body = url.includes('/account')
+          ? {
+              displayName: 'Marina',
+              fullName: 'Marina Alves',
+              email: 'marina@email.com',
+              initials: 'MA',
+              accountType: 'family',
+              household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+            }
+          : url.includes('/household/profile')
+            ? {
+                householdSize: 'two',
+                monthlyIncomeCents: 1_200_000,
+                reserveCents: 3_000_000,
+                priorities: [],
+                goalMonths: 12,
+                cryptoExperience: null,
+                onboardingCompleted: true,
+                importMode: 'ofx',
+                showFamily: false,
+                showFreedom: true,
+              }
+            : url.includes('/households/current')
+              ? { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true, pendingInvites: [] }
+              : url.includes('/expenses/months')
+                ? [month]
+                : url.includes('/expenses')
+                  ? { items: [], total: 0 }
+                  : url.includes('/household/summary')
+                    ? {
+                        monthTotalCents: 0,
+                        previousComparableCents: 0,
+                        changePercent: null,
+                        projectedCents: 0,
+                        leftoverCents: null,
+                        byCategory: [],
+                        lastSixMonths: [{ month, amountCents: 0 }],
+                        averageCents: 0,
+                        dailyPace: { current: [], previous: [] },
+                        fixedVsVariable: [],
+                        freedom: null,
+                      }
+                    : [];
+        const text = JSON.stringify(body);
+        return { status: 200, ok: true, text: async () => text, json: async () => body };
+      }),
+    );
+    render(<PainelGastos />);
+    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    await flushFrames();
+    expect(screen.getByRole('status')).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
+    expect(document.getElementById('y2p-invite')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
+  });
+
+  it('N-02: #s-gastos rola com folga para o cabeçalho de 93px', async () => {
+    const cssPath = join(process.cwd(), 'src/app/(family)/dashboard/painel.css');
+    const css = readFileSync(
+      existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web/src/app/(family)/dashboard/painel.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/\[id\^="s-"\][^{]*\{[^}]*scroll-margin-top:\s*93px/);
+    window.history.pushState(null, '', '/dashboard');
+    render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await flushFrames();
+    scrollTo.mockClear();
+    expect(document.getElementById('s-gastos')).not.toBeNull();
+    window.history.pushState(null, '', '/dashboard#s-gastos');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await flushFrames();
+    expect(scrollTo).toHaveBeenCalled();
+  });
+
+  it('LF-05: #s-liberdade rola com a mesma folga do cabeçalho', async () => {
+    const cssPath = join(process.cwd(), 'src/app/(family)/dashboard/painel.css');
+    const css = readFileSync(
+      existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web/src/app/(family)/dashboard/painel.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/\[id\^="s-"\][^{]*\{[^}]*scroll-margin-top:\s*93px/);
+    window.history.pushState(null, '', '/dashboard');
+    render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await flushFrames();
+    scrollTo.mockClear();
+    expect(document.getElementById('s-liberdade')).not.toBeNull();
+    expect(document.getElementById('painel-header')).not.toBeNull();
+    window.history.pushState(null, '', '/dashboard#s-liberdade');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await flushFrames();
+    expect(scrollTo).toHaveBeenCalled();
+  });
 });
 
 describe('PainelGastos', () => {
@@ -538,5 +650,39 @@ describe('PainelGastos', () => {
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-30' } });
     await user.click(screen.getByRole('button', { name: /Mostrar/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('Mostramos só os primeiros 36 meses deste período.');
+  });
+
+  it('D-06: a seta entra no mês vazio e no mês seguinte, com o texto que já existe', async () => {
+    const today = saoPauloMonth();
+    const older = shiftMonth(today, -2);
+    const gap = shiftMonth(today, -1);
+    const upcoming = shiftMonth(today, 1);
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const target = String(url);
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { month: older, amountCents: 1000 },
+          { month: today, amountCents: 5590 },
+        ]), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(gap)}` })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(today)}` })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByText(`${cap(mesNome(upcoming))} ainda não começou`)).toBeInTheDocument();
+    expect(screen.getByText('Mês ainda não começou')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(older)}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
   });
 });
