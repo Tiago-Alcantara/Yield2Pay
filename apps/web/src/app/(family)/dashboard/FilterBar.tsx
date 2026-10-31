@@ -356,6 +356,11 @@ function FiltersModal({
 }) {
   const [moneyError, setMoneyError] = useState('');
   const matched = expenses.filter((row) => matchesExpense(row, draft, draft.mode === 'custom' ? undefined : draft.month)).length;
+  const monthLoaded = expenses.some((row) => row.date.slice(0, 7) === draft.month);
+  const canApply = draft.mode === 'custom' ? Boolean(draft.from && draft.to) : monthLoaded ? matched > 0 : true;
+  const applyLabel = matched > 0
+    ? `Mostrar ${matched} ${matched === 1 ? 'gasto' : 'gastos'}`
+    : draft.mode === 'custom' ? 'Mostrar período' : 'Mostrar mês';
   const earliest = months[0] ?? loadedMonth;
   const latestExpense = months.at(-1) ?? loadedMonth;
   const minDate = `${earliest}-01`;
@@ -508,12 +513,12 @@ function FiltersModal({
 
         <div style={{ position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '18px 24px', borderTop: '1px solid #3a3d42', borderRadius: '0 0 24px 24px', background: '#16181b' }}>
           <button type="button" onClick={() => onDraft({ ...EMPTY_FILTERS, ...monthBounds(loadedMonth, today), month: loadedMonth })} className="y2p-linkish" style={{ height: 48, padding: '0 4px', border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14.5, color: '#9A9DA1', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>Limpar filtros</button>
-          {matched === 0 ? (
-            <button type="button" disabled style={{ height: 48, padding: '0 26px', borderRadius: 999, border: '1px solid #2A2D31', background: '#131417', color: '#8A8D91', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>Nenhum gasto encontrado</button>
-          ) : (
+          {canApply ? (
             <button type="button" onClick={apply} style={{ height: 48, padding: '0 26px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.25)' }}>
-              {matched == null ? 'Mostrar gastos' : `Mostrar ${matched} ${matched === 1 ? 'gasto' : 'gastos'}`}
+              {applyLabel}
             </button>
+          ) : (
+            <button type="button" disabled style={{ height: 48, padding: '0 26px', borderRadius: 999, border: '1px solid #2A2D31', background: '#131417', color: '#8A8D91', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>Nenhum gasto encontrado</button>
           )}
         </div>
       </div>

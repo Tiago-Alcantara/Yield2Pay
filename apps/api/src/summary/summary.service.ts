@@ -3,7 +3,7 @@ import type { ExpenseCategory } from '@yield2pay/shared';
 import { HouseholdService } from '../household/household.service';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { PrismaService } from '../prisma/prisma.service';
-import { refreshFixedFlags } from '../expenses/fixed-flags';
+import { fixedForRead, loadLegacyFixedIds } from '../expenses/fixed-flags';
 import { saoPauloToday, summarize } from './summary.math';
 
 @Injectable()
@@ -22,41 +22,38 @@ export class SummaryService {
       throw new HouseholdNotFoundError();
     }
 
-    await refreshFixedFlags(this.prisma, householdId);
     const today = saoPauloToday(new Date());
     const todayMonth = today.slice(0, 7);
     const chartStart = utcMonthStart(month, -5);
     const closedStart = utcMonthStart(todayMonth, -5);
     const chartEnd = utcMonthStart(month, 1);
     const todayEnd = utcMonthStart(todayMonth, 1);
-    const [rows, first] = await Promise.all([
-      this.prisma.expense.findMany({
-        where: {
-          householdId,
-          spentOn: {
-            gte: chartStart < closedStart ? chartStart : closedStart,
-            lt: chartEnd > todayEnd ? chartEnd : todayEnd,
-          },
-        },
-      }),
+    const window = {
+      householdId,
+      spentOn: {
+        gte: chartStart < closedStart ? chartStart : closedStart,
+        lt: chartEnd > todayEnd ? chartEnd : todayEnd,
+      },
+    };
+    const [rows, first, legacy] = await Promise.all([
+      this.prisma.expense.findMany({ where: window }),
       this.prisma.expense.findFirst({
         where: { householdId },
         orderBy: { spentOn: 'asc' },
         select: { spentOn: true },
       }),
+      loadLegacyFixedIds(this.prisma, householdId),
     ]);
 
     return summarize({
       month,
       today,
-      firstExpenseMonth: first
-        ? first.spentOn.toISOString().slice(0, 7)
-        : null,
+      firstExpenseMonth: first ? first.spentOn.toISOString().slice(0, 7) : null,
       expenses: rows.map((row) => ({
         spentOn: row.spentOn.toISOString().slice(0, 10),
         merchant: row.merchant,
         category: row.category as ExpenseCategory,
-        fixed: row.fixed,
+        fixed: fixedForRead(row, legacy),
         amountCents: row.amountCents,
       })),
       incomeCents: profile.monthlyIncomeCents,

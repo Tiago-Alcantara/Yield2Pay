@@ -24,4 +24,22 @@ describe('company.service', () => {
       update: {},
     });
   });
+
+  it('devolve o e-mail gravado da pessoa', async () => {
+    const db = {
+      personName: {
+        findUnique: vi.fn().mockResolvedValue({ email: ' Ana@Casa.com ' }),
+      },
+    } as any;
+    const svc = new CompanyService(db);
+    await expect(svc.storedEmail('co_1')).resolves.toBe('ana@casa.com');
+  });
+
+  it('devolve nulo quando a pessoa não tem e-mail', async () => {
+    const db = {
+      personName: { findUnique: vi.fn().mockResolvedValue({ email: '  ' }) },
+    } as any;
+    const svc = new CompanyService(db);
+    await expect(svc.storedEmail('co_1')).resolves.toBeNull();
+  });
 });

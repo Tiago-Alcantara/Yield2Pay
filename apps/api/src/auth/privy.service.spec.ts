@@ -24,8 +24,11 @@ describe('PrivyService', () => {
     const privy = service(true);
     await expect(privy.verify('yield2pay-local-dev')).resolves.toEqual({
       privyUserId: LOCAL_DEV_USER_ID,
+      email: 'familia@localhost',
     });
-    await expect(privy.getEmail(LOCAL_DEV_USER_ID)).resolves.toBe('familia@localhost');
+    await expect(privy.getEmail(LOCAL_DEV_USER_ID)).resolves.toBe(
+      'familia@localhost',
+    );
   });
 
   it('recusa a sessão local quando ela está desligada', async () => {

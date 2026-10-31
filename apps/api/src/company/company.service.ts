@@ -23,9 +23,20 @@ export class CompanyService {
         'code' in e &&
         (e as { code?: string }).code === 'P2002'
       ) {
-        return this.prisma.company.findUniqueOrThrow({ where: { privyUserId } });
+        return this.prisma.company.findUniqueOrThrow({
+          where: { privyUserId },
+        });
       }
       throw e;
     }
+  }
+
+  async storedEmail(companyId: string): Promise<string | null> {
+    const person = await this.prisma.personName.findUnique({
+      where: { companyId },
+      select: { email: true },
+    });
+    const email = person?.email?.trim().toLowerCase() ?? '';
+    return email || null;
   }
 }
