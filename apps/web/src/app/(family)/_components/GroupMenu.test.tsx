@@ -105,10 +105,10 @@ describe('menu de grupos', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('leva a criar grupo e a ver a conta, sem toast', () => {
+  it('abre as configurações do grupo e a conta, sem toast', () => {
     renderMenu('Casa');
     openMenu();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Criar novo grupo' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Configurações do grupo' }));
     expect(push).toHaveBeenCalledWith('/dashboard?conta=1');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.queryByText(/Mostrando finanças/)).not.toBeInTheDocument();

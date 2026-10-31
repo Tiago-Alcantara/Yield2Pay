@@ -295,9 +295,7 @@ const pt = {
     newExpense: 'Novo gasto',
     switchGroup: 'Trocar grupo de finanças',
     groupsTitle: 'Grupos de finanças',
-    groupsCount: (n: number) => `${n} grupos`,
-    groupShown: (name: string) => `Mostrando finanças de “${name}”.`,
-    newGroup: 'Criar novo grupo',
+    newGroup: 'Configurações do grupo',
     myAccount: 'Ver minha conta',
   },
 
@@ -750,9 +748,7 @@ const en: FamilyDict = {
     newExpense: 'New expense',
     switchGroup: 'Switch finance group',
     groupsTitle: 'Finance groups',
-    groupsCount: (n: number) => `${n} groups`,
-    groupShown: (name: string) => `Showing finances for “${name}”.`,
-    newGroup: 'Create new group',
+    newGroup: 'Group settings',
     myAccount: 'View my account',
   },
 
