@@ -3,7 +3,7 @@
  * Criado em: 2026-10-19
  * Última atualização: 2026-11-01
  * Intuito: Conta, perfil, onboarding e saída do grupo seguem as regras da casa.
- * Sequência: creates a household and an owner membership; rejects a second household for the same person; lets an old member without a personal group create one; returns initials from the name shown, keeping an emoji whole; lists every group of an old member with the personal one active; rejects an empty name, a name past 32 characters, an email change, and a role; blocks the last admin from leaving the group; putProfile marks onboarding complete; skip only sets onboardingCompleted; rejects a profile goal that is not 6, 12, 24 or 60 months; rejects a negative income and an unknown crypto experience; patch beginner does not change onboardingCompleted; lets only the owner invite, and blocks someone already in a group; accepts a pending invite when the Google email matches and the person is free; rejects accept when the person already belongs to a group; saves the name shown on the platform; blocks a member from renaming the group; removes a member by the composite key of the active group; completes onboarding without changing income, reserve, or goal months; drops crypto actions when the person has not bought crypto; rejects an unknown goal and writes nothing; uses the first name when the nickname is empty.
+ * Sequência: creates a household and an owner membership; rejects a second household for the same person; lets an old member without a personal group create one; returns initials from the name shown, keeping an emoji whole; lists every group of an old member with the family active; creates the personal group once, only on GET /account without the header; rejects an empty name, a name past 32 characters, an email change, and a role; blocks the last admin from leaving the group; putProfile marks onboarding complete; skip only sets onboardingCompleted; rejects a profile goal that is not 6, 12, 24 or 60 months; rejects a negative income and an unknown crypto experience; patch beginner does not change onboardingCompleted; lets only the owner invite, and blocks someone already in a group; accepts a pending invite when the Google email matches and the person is free; rejects accept when the person already belongs to a group; saves the name shown on the platform; blocks a member from renaming the group; removes a member by the composite key of the active group; completes onboarding without changing income, reserve, or goal months; drops crypto actions when the person has not bought crypto; rejects an unknown goal and writes nothing; uses the first name when the nickname is empty.
  */
 import type { ActiveMembership } from '../auth/authenticated-request';
 import {
@@ -72,6 +72,8 @@ function memberOf(
 /** A pessoa co_1 é dona só do próprio grupo individual (HOUSEHOLD_ID). */
 function ownsPersonalHousehold(prisma: ReturnType<typeof fakePrisma>) {
   const row = {
+    id: 'm_casa',
+    createdAt: new Date('2026-01-01T00:00:00Z'),
     householdId: HOUSEHOLD_ID,
     role: 'owner',
     household: {
@@ -145,10 +147,12 @@ describe('HouseholdService', () => {
     expect(initialsOf(null, '')).toBe('?');
   });
 
-  it('lists every group of an old member with the personal one active', async () => {
+  it('lists every group of an old member with the family active', async () => {
     const prisma = fakePrisma();
     prisma.personName.findUnique.mockResolvedValue(null);
     const family = {
+      id: 'm_familia',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
       householdId: FAMILY_HOUSEHOLD_ID,
       role: 'member',
       household: {
@@ -160,6 +164,8 @@ describe('HouseholdService', () => {
       },
     };
     const personal = {
+      id: 'm_individual',
+      createdAt: new Date('2026-02-01T00:00:00Z'),
       householdId: HOUSEHOLD_ID,
       role: 'owner',
       household: {
@@ -183,13 +189,61 @@ describe('HouseholdService', () => {
       },
     ]);
     expect(account.activeHousehold).toEqual({
-      id: HOUSEHOLD_ID,
-      name: 'Meu grupo',
-      role: 'owner',
-      personal: true,
-      onboardingCompleted: false,
+      id: FAMILY_HOUSEHOLD_ID,
+      name: 'Família',
+      role: 'member',
+      personal: false,
+      onboardingCompleted: true,
     });
-    expect(account).not.toHaveProperty('household');
+    expect(account.household).toEqual(account.activeHousehold);
+  });
+
+  it('creates the personal group once, only on GET /account without the header', async () => {
+    const prisma = fakePrisma();
+    prisma.personName.findUnique.mockResolvedValue(null);
+    const family = {
+      id: 'm_familia',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      householdId: FAMILY_HOUSEHOLD_ID,
+      role: 'member',
+      household: {
+        id: FAMILY_HOUSEHOLD_ID,
+        name: 'Família',
+        ownerCompanyId: 'co_dono',
+        personal: true,
+        onboardingCompleted: true,
+      },
+    };
+    prisma.householdMember.findMany.mockResolvedValue([family]);
+    prisma.householdMember.findUnique.mockResolvedValue(family);
+    prisma.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    const svc = new HouseholdService(prisma as never);
+
+    // Com header não cria, mesmo sendo a família da própria pessoa.
+    await svc.getAccount('co_1', null, FAMILY_HOUSEHOLD_ID);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    // PATCH /account e o onboarding também não criam.
+    await svc.updateDisplayName('co_1', 'Ana');
+    await svc.completeOnboarding(
+      { ...memberOf('member'), householdId: FAMILY_HOUSEHOLD_ID },
+      null,
+      {
+        fullName: null,
+        displayName: null,
+        goals: [],
+        importMode: null,
+        cryptoFamiliarity: null,
+        cryptoActions: [],
+        showFreedom: true,
+        showFamily: true,
+        learnCrypto: false,
+      },
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    await svc.getAccount('co_1');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.household.create).toHaveBeenCalledTimes(1);
   });
 
   it('rejects an empty name, a name past 32 characters, an email change, and a role', () => {

@@ -117,15 +117,46 @@ export async function ensurePersonalHousehold(
   }
 }
 
+type DefaultCandidate = {
+  id: string;
+  createdAt: Date;
+  household: { ownerCompanyId: string; personal: boolean };
+};
+
+function isOwnPersonalGroup(row: DefaultCandidate, companyId: string): boolean {
+  return row.household.personal && row.household.ownerCompanyId === companyId;
+}
+
 /**
- * Resolve o grupo ativo do pedido.
+ * Grupo padrão de quem não manda o header: o grupo não individual, igual ao
+ * único grupo que o membro da família tinha antes. Com mais de um, o de
+ * membership mais antiga, com o id como desempate. O individual só vale se não
+ * houver outro. "Individual" é o da própria pessoa: o grupo da família tem
+ * personal = true no banco, mas é individual só para o dono dele.
+ */
+export function chooseDefaultMembership<Row extends DefaultCandidate>(
+  memberships: Row[],
+  companyId: string,
+): Row | undefined {
+  const [oldestShared] = memberships
+    .filter((row) => !isOwnPersonalGroup(row, companyId))
+    .sort(
+      (left, right) =>
+        left.createdAt.getTime() - right.createdAt.getTime() ||
+        (left.id < right.id ? -1 : 1),
+    );
+  return oldestShared ?? memberships[0];
+}
+
+/**
+ * Resolve o grupo ativo do pedido. Só lê: quem cria o grupo individual é o
+ * GET /account sem header.
  *
  * Com header: o id precisa ter o formato de id de grupo e a pessoa precisa
  * ser membro dele. Id malformado e grupo alheio dão o mesmo
  * HouseholdNotFoundError (404), para não revelar se o grupo existe.
  *
- * Sem header: a única membership da pessoa; com mais de uma, o grupo
- * individual.
+ * Sem header: chooseDefaultMembership.
  */
 export async function resolveActiveHousehold(
   prisma: PrismaService,
@@ -136,11 +167,6 @@ export async function resolveActiveHousehold(
     if (!isWellFormedHouseholdId(requestedHouseholdId)) {
       throw new HouseholdNotFoundError();
     }
-  }
-
-  await ensurePersonalHousehold(prisma, companyId);
-
-  if (requestedHouseholdId !== undefined) {
     const member = await prisma.householdMember.findUnique({
       where: {
         householdId_companyId: { householdId: requestedHouseholdId, companyId },
@@ -167,28 +193,21 @@ export async function resolveActiveHousehold(
   const memberships = await prisma.householdMember.findMany({
     where: { companyId },
     select: {
+      id: true,
+      createdAt: true,
       householdId: true,
       role: true,
       household: { select: { ownerCompanyId: true, personal: true } },
     },
   });
-  if (memberships.length === 0) {
-    throw new HouseholdNotFoundError();
-  }
-  const personalMembership = memberships.find(
-    (membership) =>
-      membership.household.personal &&
-      membership.household.ownerCompanyId === companyId,
-  );
-  const chosen = memberships.length === 1 ? memberships[0] : personalMembership;
+  const chosen = chooseDefaultMembership(memberships, companyId);
   if (!chosen) {
-    // Com mais de um grupo o ensurePersonalHousehold já garantiu o individual.
     throw new HouseholdNotFoundError();
   }
   return {
     householdId: chosen.householdId,
     companyId,
     role: chosen.role as HouseholdRole,
-    personal: chosen === personalMembership,
+    personal: isOwnPersonalGroup(chosen, companyId),
   };
 }

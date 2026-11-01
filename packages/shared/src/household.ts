@@ -63,6 +63,11 @@ export interface AccountView {
   households: AccountHouseholdView[];
   /** Grupo do header X-Household-Id ou o padrão. Nulo só com households vazio. */
   activeHousehold: ActiveHouseholdView | null;
+  /**
+   * Mesmo valor de activeHousehold, para o web publicado que ainda lê este campo.
+   * @deprecated Use activeHousehold. Sai na F4.
+   */
+  household: ActiveHouseholdView | null;
 }
 
 export interface HouseholdProfile {

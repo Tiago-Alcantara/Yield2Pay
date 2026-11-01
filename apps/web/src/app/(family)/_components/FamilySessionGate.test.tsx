@@ -47,6 +47,7 @@ describe("FamilySessionGate", () => {
       accountType: "family",
       households: [{ id: "h1", name: "Casa", role: "owner", personal: true }],
       activeHousehold: { id: "h1", name: "Casa", role: "owner", personal: true, onboardingCompleted: true },
+      household: { id: "h1", name: "Casa", role: "owner", personal: true, onboardingCompleted: true },
     });
     auth.ready = true;
     auth.authenticated = false;

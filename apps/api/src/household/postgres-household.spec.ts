@@ -2,16 +2,15 @@
  * Módulo: postgres-household
  * Criado em: 2026-11-01
  * Última atualização: 2026-11-01
- * Intuito: Regras de vários grupos no Postgres local: índice parcial, CHECK de role, grupo individual sob concorrência e down.sql.
- * Sequência: o índice parcial barra um segundo individual e deixa um grupo comum; o CHECK recusa role fora de owner/member; o membro antigo ganha exatamente um individual com chamadas concorrentes; o down.sql aborta num banco descartável quando alguém está em dois grupos e desfaz tudo quando ninguém está.
+ * Intuito: Regras de vários grupos no Postgres local: índice parcial, CHECK de role, grupo individual sob concorrência e grupo padrão.
+ * Sequência: o índice parcial barra um segundo individual e deixa um grupo comum; o CHECK recusa role fora de owner/member; o membro antigo ganha exatamente um individual com chamadas concorrentes e continua na família; com vários grupos não individuais, o padrão é o mais antigo pela membership.
+ * A migration e o down.sql estão em household-migration.spec.ts.
  * Só roda com RUN_DB_TESTS=1 e PG_TEST_URL (o banco descartável da porta 55432).
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { Client } from 'pg';
 import {
   ensurePersonalHousehold,
   resolveActiveHousehold,
@@ -21,10 +20,6 @@ import { HouseholdService } from './household.service';
 const DATABASE_URL =
   process.env.RUN_DB_TESTS === '1' ? process.env.PG_TEST_URL : undefined;
 const API_DIR = resolve(__dirname, '../..');
-const DOWN_SQL_PATH = resolve(
-  API_DIR,
-  'prisma/migrations/20261101120000_household_multi_group/down.sql',
-);
 
 function prismaCli(args: string[], databaseUrl: string): string {
   return execFileSync('pnpm', ['exec', 'prisma', ...args], {
@@ -32,13 +27,6 @@ function prismaCli(args: string[], databaseUrl: string): string {
     env: { ...process.env, DATABASE_URL: databaseUrl },
     encoding: 'utf8',
   });
-}
-
-/** Mesma URL, outro database no mesmo container. */
-function urlForDatabase(databaseUrl: string, databaseName: string): string {
-  const url = new URL(databaseUrl);
-  url.pathname = `/${databaseName}`;
-  return url.toString();
 }
 
 describe.skipIf(!DATABASE_URL)('postgres real: vários grupos', () => {
@@ -142,7 +130,7 @@ describe.skipIf(!DATABASE_URL)('postgres real: vários grupos', () => {
     const results = await Promise.all([
       ensurePersonalHousehold(prisma as never, oldMemberId),
       ensurePersonalHousehold(prisma as never, oldMemberId),
-      resolveActiveHousehold(prisma as never, oldMemberId, undefined),
+      service.getAccount(oldMemberId),
       service.getAccount(oldMemberId),
       ensurePersonalHousehold(prisma as never, oldMemberId),
     ]);
@@ -165,11 +153,12 @@ describe.skipIf(!DATABASE_URL)('postgres real: vários grupos', () => {
       oldMemberId,
       undefined,
     );
-    expect(active.householdId).toBe(personalHouseholds[0]?.id);
-    expect(active.role).toBe('owner');
+    expect(active.householdId).toBe(family.id);
+    expect(active.role).toBe('member');
     const account = await service.getAccount(oldMemberId);
     expect(account.households).toHaveLength(2);
-    expect(account.activeHousehold?.personal).toBe(true);
+    expect(account.activeHousehold?.id).toBe(family.id);
+    expect(account.activeHousehold?.personal).toBe(false);
 
     // O dono da família já tinha o individual: nada muda para ele.
     await ensurePersonalHousehold(prisma as never, ownerId);
@@ -178,70 +167,49 @@ describe.skipIf(!DATABASE_URL)('postgres real: vários grupos', () => {
     ).toBe(1);
   }, 30_000);
 
-  it('o down.sql aborta quando alguém está em dois grupos e desfaz tudo quando ninguém está', async () => {
-    const scratchName = `yield2pay_down_${Date.now()}`;
-    const scratchUrl = urlForDatabase(databaseUrl, scratchName);
-    await prisma.$executeRawUnsafe(`CREATE DATABASE "${scratchName}"`);
-    const scratch = new Client({ connectionString: scratchUrl });
-    try {
-      prismaCli(['migrate', 'deploy'], scratchUrl);
-      await scratch.connect();
-      await scratch.query(`
-        INSERT INTO companies (id, privy_user_id) VALUES ('co_dona', 'p_dona'), ('co_membro', 'p_membro');
-        INSERT INTO households (id, name, owner_company_id, personal) VALUES
-          ('h_familia', 'Família', 'co_dona', true),
-          ('h_membro', 'Meu grupo', 'co_membro', true);
-        INSERT INTO household_members (id, household_id, company_id, role) VALUES
-          ('m1', 'h_familia', 'co_dona', 'owner'),
-          ('m2', 'h_familia', 'co_membro', 'member'),
-          ('m3', 'h_membro', 'co_membro', 'owner');
-      `);
-      const downSql = readFileSync(DOWN_SQL_PATH, 'utf8');
+  it('com vários grupos não individuais, o padrão é o mais antigo pela membership', async () => {
+    const personId = await createCompany('varios-grupos');
+    const ownerId = await createCompany('varios-dono');
+    await prisma.household
+      .create({
+        data: { name: 'Meu', ownerCompanyId: personId, personal: true },
+      })
+      .then((own) =>
+        prisma.householdMember.create({
+          data: { householdId: own.id, companyId: personId, role: 'owner' },
+        }),
+      );
+    const newer = await prisma.household.create({
+      data: { name: 'Mais novo', ownerCompanyId: ownerId, personal: false },
+    });
+    const older = await prisma.household.create({
+      data: { name: 'Mais antigo', ownerCompanyId: ownerId, personal: false },
+    });
+    // O grupo mais antigo é inserido por último, para não coincidir com a
+    // ordem física das linhas.
+    await prisma.householdMember.create({
+      data: {
+        householdId: newer.id,
+        companyId: personId,
+        role: 'member',
+        createdAt: new Date('2026-06-01T00:00:00Z'),
+      },
+    });
+    await prisma.householdMember.create({
+      data: {
+        householdId: older.id,
+        companyId: personId,
+        role: 'member',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    });
 
-      await expect(scratch.query(downSql)).rejects.toThrow(
-        /household_multi_group down: há pessoa em dois ou mais grupos/,
-      );
-      await scratch.query('ROLLBACK');
-      const personalColumn = await scratch.query(
-        `SELECT 1 FROM information_schema.columns WHERE table_name = 'households' AND column_name = 'personal'`,
-      );
-      expect(personalColumn.rowCount).toBe(1);
-
-      // Sem ninguém em dois grupos o down volta ao modelo antigo.
-      await scratch.query(`
-        DELETE FROM household_members WHERE id = 'm3';
-        DELETE FROM households WHERE id = 'h_membro';
-      `);
-      await scratch.query(downSql);
-      const afterColumns = await scratch.query(
-        `SELECT column_name FROM information_schema.columns
-         WHERE (table_name = 'households' AND column_name = 'personal')
-            OR (table_name = 'companies' AND column_name = 'guest_group_limit')`,
-      );
-      expect(afterColumns.rowCount).toBe(0);
-      const afterIndexes = await scratch.query<{ indexname: string }>(
-        `SELECT indexname FROM pg_indexes
-         WHERE indexname IN (
-           'households_owner_company_id_key',
-           'household_members_company_id_key',
-           'households_owner_company_id_personal_key',
-           'household_members_company_id_idx'
-         )
-         ORDER BY indexname`,
-      );
-      expect(afterIndexes.rows.map((row) => row.indexname)).toEqual([
-        'household_members_company_id_key',
-        'households_owner_company_id_key',
-      ]);
-      const checks = await scratch.query(
-        `SELECT 1 FROM pg_constraint WHERE conname = 'household_members_role_check'`,
-      );
-      expect(checks.rowCount).toBe(0);
-    } finally {
-      await scratch.end().catch(() => undefined);
-      await prisma.$executeRawUnsafe(
-        `DROP DATABASE IF EXISTS "${scratchName}" WITH (FORCE)`,
-      );
-    }
-  }, 120_000);
+    const active = await resolveActiveHousehold(
+      prisma as never,
+      personId,
+      undefined,
+    );
+    expect(active.householdId).toBe(older.id);
+    expect(active.personal).toBe(false);
+  });
 });

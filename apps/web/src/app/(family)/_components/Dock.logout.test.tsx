@@ -42,6 +42,7 @@ describe('logout na doca', () => {
       accountType: 'family',
       households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
       activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
+      household: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
     });
   });
 

@@ -114,12 +114,27 @@ export class HouseholdService {
   }
 
   /**
-   * Conta da pessoa: todos os grupos (households) e o grupo ativo.
-   * requestedHouseholdId é o header X-Household-Id; sem ele vale o padrão
-   * (a única membership ou o grupo individual). activeHousehold só é nulo
-   * para quem ainda não tem grupo nenhum.
+   * GET /account. É o único caminho que cria o grupo individual, e só sem o
+   * header: um pedido com header nunca muda os grupos da pessoa.
    */
   async getAccount(
+    companyId: string,
+    email?: string | null,
+    requestedHouseholdId?: string,
+  ): Promise<AccountView> {
+    if (requestedHouseholdId === undefined) {
+      await ensurePersonalHousehold(this.prisma, companyId);
+    }
+    return this.accountView(companyId, email, requestedHouseholdId);
+  }
+
+  /**
+   * Conta da pessoa: todos os grupos (households) e o grupo ativo.
+   * requestedHouseholdId é o header X-Household-Id; sem ele vale o padrão
+   * (chooseDefaultMembership). activeHousehold só é nulo para quem ainda não
+   * tem grupo nenhum.
+   */
+  private async accountView(
     companyId: string,
     email?: string | null,
     requestedHouseholdId?: string,
@@ -137,7 +152,6 @@ export class HouseholdService {
     const displayName = person?.displayName ?? null;
     const fullName = person?.fullName ?? null;
 
-    await ensurePersonalHousehold(this.prisma, companyId);
     const memberships = await this.prisma.householdMember.findMany({
       where: { companyId },
       orderBy: { household: { name: 'asc' } },
@@ -197,6 +211,7 @@ export class HouseholdService {
       accountType: 'family',
       households,
       activeHousehold,
+      household: activeHousehold,
     };
   }
 
@@ -281,7 +296,7 @@ export class HouseholdService {
         onboardingCompleted: true,
       },
     });
-    return this.getAccount(companyId, email, householdId);
+    return this.accountView(companyId, email, householdId);
   }
 
   async patchProfile(
@@ -449,7 +464,7 @@ export class HouseholdService {
       },
       update: { displayName: name },
     });
-    return this.getAccount(companyId, email, requestedHouseholdId);
+    return this.accountView(companyId, email, requestedHouseholdId);
   }
 
   async renameHousehold(membership: ActiveMembership, name: string) {

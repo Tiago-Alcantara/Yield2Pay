@@ -3,12 +3,13 @@
  * Criado em: 2026-11-01
  * Última atualização: 2026-11-01
  * Intuito: O grupo ativo vem do header X-Household-Id ou do padrão da pessoa, e grupo alheio nunca vaza.
- * Sequência: header de grupo alheio dá 404; id malformado dá 404 sem consultar a membership; header de grupo próprio preenche req.membership; sem header usa a única membership; sem header e com dois grupos usa o individual; pessoa sem grupo dá 404; ensurePersonalHousehold cria o individual uma vez e a segunda chamada não cria de novo; quem já tem o individual ou não tem grupo nenhum não ganha grupo; o P2002 do índice parcial conta como grupo já criado.
+ * Sequência: header de grupo alheio dá 404; id malformado dá 404 sem consultar a membership; header de grupo próprio preenche req.membership; sem header usa a única membership; sem header e com dois grupos usa o não individual, em qualquer ordem; com vários não individuais usa a membership mais antiga, com o id de desempate; o guard nunca cria grupo; pessoa sem grupo dá 404; ensurePersonalHousehold cria o individual uma vez e a segunda chamada não cria de novo; quem já tem o individual ou não tem grupo nenhum não ganha grupo; o P2002 do índice parcial conta como grupo já criado.
  */
 import { NotFoundException, type ExecutionContext } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import {
+  chooseDefaultMembership,
   ensurePersonalHousehold,
   isWellFormedHouseholdId,
   PERSONAL_HOUSEHOLD_DEFAULT_NAME,
@@ -21,21 +22,36 @@ const PERSONAL_ID = 'cpessoal00000000000000001';
 const FAMILY_ID = 'cfamilia00000000000000001';
 const FOREIGN_ID = 'calheio000000000000000001';
 
+const OTHER_ID = 'coutro000000000000000001';
+
 type MembershipRow = {
+  id: string;
+  createdAt: Date;
   householdId: string;
   role: string;
   household: { ownerCompanyId: string; personal: boolean };
 };
 
 const personalRow: MembershipRow = {
+  id: 'm_individual',
+  createdAt: new Date('2026-03-01T00:00:00Z'),
   householdId: PERSONAL_ID,
   role: 'owner',
   household: { ownerCompanyId: 'co_ana', personal: true },
 };
 const familyRow: MembershipRow = {
+  id: 'm_familia',
+  createdAt: new Date('2026-01-01T00:00:00Z'),
   householdId: FAMILY_ID,
   role: 'member',
   household: { ownerCompanyId: 'co_bia', personal: true },
+};
+const otherRow: MembershipRow = {
+  id: 'm_outro',
+  createdAt: new Date('2026-02-01T00:00:00Z'),
+  householdId: OTHER_ID,
+  role: 'member',
+  household: { ownerCompanyId: 'co_bia', personal: false },
 };
 
 /** Banco em memória: as memberships de co_ana, por householdId. */
@@ -57,6 +73,8 @@ function fakePrisma(initialRows: MembershipRow[]) {
       create: vi.fn(
         async (args: { data: { householdId: string; role: string } }) => {
           rows.push({
+            id: 'm_novo',
+            createdAt: new Date('2026-04-01T00:00:00Z'),
             householdId: args.data.householdId,
             role: args.data.role,
             household: { ownerCompanyId: 'co_ana', personal: true },
@@ -161,15 +179,86 @@ describe('HouseholdMemberGuard', () => {
     });
   });
 
-  it('sem header e com dois grupos usa o individual', async () => {
-    const prisma = fakePrisma([familyRow, personalRow]);
-    const membership = await resolveActiveHousehold(
-      prisma as never,
-      'co_ana',
-      undefined,
+  // As duas ordens: pegar a primeira ou a última linha não passa em ambas.
+  it.each([
+    ['família primeiro', [familyRow, personalRow]],
+    ['individual primeiro', [personalRow, familyRow]],
+  ])(
+    'sem header e com dois grupos usa o não individual (%s)',
+    async (_label, rows) => {
+      const prisma = fakePrisma(rows);
+      const membership = await resolveActiveHousehold(
+        prisma as never,
+        'co_ana',
+        undefined,
+      );
+      expect(membership).toEqual({
+        householdId: FAMILY_ID,
+        companyId: 'co_ana',
+        role: 'member',
+        personal: false,
+      });
+    },
+  );
+
+  it.each([
+    [[familyRow, otherRow, personalRow]],
+    [[otherRow, familyRow, personalRow]],
+    [[personalRow, otherRow, familyRow]],
+    [[personalRow, familyRow, otherRow]],
+    [[otherRow, personalRow, familyRow]],
+    [[familyRow, personalRow, otherRow]],
+  ])(
+    'com vários não individuais usa a membership mais antiga',
+    async (rows) => {
+      const prisma = fakePrisma(rows);
+      const membership = await resolveActiveHousehold(
+        prisma as never,
+        'co_ana',
+        undefined,
+      );
+      expect(membership.householdId).toBe(FAMILY_ID);
+    },
+  );
+
+  it('na mesma data, o id desempata de forma estável', () => {
+    const sameDate = new Date('2026-01-01T00:00:00Z');
+    const first = { ...familyRow, id: 'm_a', createdAt: sameDate };
+    const second = { ...otherRow, id: 'm_b', createdAt: sameDate };
+    expect(chooseDefaultMembership([first, second], 'co_ana')).toBe(first);
+    expect(chooseDefaultMembership([second, first], 'co_ana')).toBe(first);
+  });
+
+  it('grupo próprio com personal = false conta como não individual', () => {
+    const ownShared = {
+      ...otherRow,
+      household: { ownerCompanyId: 'co_ana', personal: false },
+    };
+    expect(chooseDefaultMembership([personalRow, ownShared], 'co_ana')).toBe(
+      ownShared,
     );
-    expect(membership.householdId).toBe(PERSONAL_ID);
-    expect(membership.personal).toBe(true);
+  });
+
+  it('o guard nunca cria grupo, com ou sem header', async () => {
+    const prisma = fakePrisma([familyRow]);
+    const guard = new HouseholdMemberGuard(prisma as never);
+    await guard.canActivate(contextFor({ companyId: 'co_ana', headers: {} }));
+    await guard.canActivate(
+      contextFor({
+        companyId: 'co_ana',
+        headers: { 'x-household-id': FAMILY_ID },
+      }),
+    );
+    await expect(
+      guard.canActivate(
+        contextFor({
+          companyId: 'co_ana',
+          headers: { 'x-household-id': FOREIGN_ID },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.household.create).not.toHaveBeenCalled();
   });
 
   it('pessoa sem grupo dá 404', async () => {
@@ -208,12 +297,13 @@ describe('ensurePersonalHousehold', () => {
     // O lock vem antes da releitura, dentro da transação.
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
 
+    // Ganhar o individual não tira a pessoa da família.
     const membership = await resolveActiveHousehold(
       prisma as never,
       'co_ana',
       undefined,
     );
-    expect(membership.householdId).toBe(PERSONAL_ID);
+    expect(membership.householdId).toBe(FAMILY_ID);
     expect(prisma.household.create).toHaveBeenCalledTimes(1);
   });
 
