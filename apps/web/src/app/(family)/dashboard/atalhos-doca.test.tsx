@@ -36,7 +36,8 @@ vi.mock('next/navigation', async () => {
         const url = new URL(href, window.location.origin);
         if (url.pathname === '/dashboard' && url.search === nav.search) return;
         nav.search = url.search;
-        nativePushState({ __NA: true }, '', `${url.pathname}${url.search}${url.hash}`);
+        // Como o Next: o state traz __NA e a árvore interna do router.
+        nativePushState({ __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: 'dashboard' } }, '', `${url.pathname}${url.search}${url.hash}`);
         nav.emit();
       },
       replace: (href: string) => {
@@ -158,7 +159,10 @@ async function openDialog(press: () => void, name: string) {
   await flushFrames();
   const dialog = screen.getByRole('dialog', { name });
   expect(window.history.length).toBe(before + 1);
-  expect(replaced.some((data) => Boolean(data && typeof data === 'object' && '__NA' in data && (data as { __NA?: boolean }).__NA))).toBe(false);
+  // O painel limpa a query com replaceState(null). O truque antigo (copiar o
+  // history.state e apagar __NA) gravaria um objeto com a árvore do Next.
+  expect(replaced.length).toBeGreaterThan(0);
+  expect(replaced).toEqual(replaced.map(() => null));
   return dialog;
 }
 
