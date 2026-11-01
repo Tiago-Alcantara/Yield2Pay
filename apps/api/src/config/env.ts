@@ -1,5 +1,6 @@
+import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { z } from 'zod';
-import type { AppEnv } from '@yield2pay/shared';
+import { HOUSEHOLD_ID_HEADER, type AppEnv } from '@yield2pay/shared';
 import { isFinancialProductEnabled } from './financial-product';
 
 const schema = z.object({
@@ -65,8 +66,15 @@ export type Env = {
   financialProductEnabled: boolean;
 };
 
+/** A sessão fixa sem Privy nunca sobe em produção. A mensagem não traz valores. */
+export const LOCAL_SESSION_IN_PRODUCTION_MESSAGE =
+  'DEV_LOCAL_SESSION=true não é permitido com APP_ENV=production';
+
 export function loadEnv(raw: Record<string, string | undefined>): Env {
   const parsed = schema.parse(raw);
+  if (parsed.DEV_LOCAL_SESSION === 'true' && parsed.APP_ENV === 'production') {
+    throw new Error(LOCAL_SESSION_IN_PRODUCTION_MESSAGE);
+  }
   const financialProductEnabled = isFinancialProductEnabled({
     FINANCIAL_PRODUCT_ENABLED: parsed.FINANCIAL_PRODUCT_ENABLED,
   });
@@ -95,4 +103,31 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     etherfuseFiatCurrency: parsed.ETHERFUSE_FIAT_CURRENCY,
     financialProductEnabled,
   };
+}
+
+/** Headers que o navegador pode mandar. privy-id-token leva o e-mail do Privy. */
+export const CORS_ALLOWED_HEADERS = [
+  'Authorization',
+  'Content-Type',
+  'privy-id-token',
+  HOUSEHOLD_ID_HEADER,
+];
+
+/**
+ * CORS da API. O web roda em outra origem (localhost:3000 em dev, o domínio
+ * da Vercel em produção). Libera as origens de CORS_ORIGIN (separadas por
+ * vírgula); sem ela, em produção só o domínio público e fora dela qualquer
+ * origem. allowedHeaders é explícito para o preflight liberar X-Household-Id.
+ */
+export function corsOptionsFor(
+  raw: Record<string, string | undefined>,
+): CorsOptions {
+  const origin = raw.CORS_ORIGIN
+    ? raw.CORS_ORIGIN.split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : raw.APP_ENV === 'production'
+      ? ['https://yield2pay.com', 'https://www.yield2pay.com']
+      : true;
+  return { origin, credentials: true, allowedHeaders: CORS_ALLOWED_HEADERS };
 }

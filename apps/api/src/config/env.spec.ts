@@ -1,11 +1,15 @@
 /**
  * Módulo: env
  * Criado em: 2026-06-24
- * Última atualização: 2026-10-22
+ * Última atualização: 2026-11-01
  * Intuito: O ambiente sobe só com as chaves certas e o padrão de desenvolvimento.
- * Sequência: parses a valid env; rejects an invalid network; rejects missing required keys; defaults the app env to development; turns the local session on only when asked; parses an explicit app env; rejects an unknown app env.
+ * Sequência: parses a valid env; rejects an invalid network; rejects missing required keys; defaults the app env to development; turns the local session on only when asked; parses an explicit app env; rejects an unknown app env; recusa a sessão local em produção; CORS libera os headers da API.
  */
-import { loadEnv } from './env';
+import {
+  corsOptionsFor,
+  loadEnv,
+  LOCAL_SESSION_IN_PRODUCTION_MESSAGE,
+} from './env';
 
 const base = {
   DATABASE_URL: 'postgres://x',
@@ -58,6 +62,45 @@ describe('env', () => {
 
   it('rejects an unknown app env', () => {
     expect(() => loadEnv({ ...base, APP_ENV: 'homolog' })).toThrow();
+  });
+
+  it('recusa DEV_LOCAL_SESSION=true com APP_ENV=production, sem imprimir valores', () => {
+    let message = '';
+    try {
+      loadEnv({ ...base, APP_ENV: 'production', DEV_LOCAL_SESSION: 'true' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(LOCAL_SESSION_IN_PRODUCTION_MESSAGE);
+    expect(message).not.toContain(base.DATABASE_URL);
+    expect(message).not.toContain(base.PRIVY_APP_SECRET);
+    expect(
+      loadEnv({ ...base, APP_ENV: 'production', DEV_LOCAL_SESSION: 'false' })
+        .localSession,
+    ).toBe(false);
+    expect(
+      loadEnv({ ...base, APP_ENV: 'staging', DEV_LOCAL_SESSION: 'true' })
+        .localSession,
+    ).toBe(true);
+  });
+
+  it('CORS libera Authorization, Content-Type, privy-id-token e X-Household-Id', () => {
+    const options = corsOptionsFor({ APP_ENV: 'production' });
+    expect(options.allowedHeaders).toEqual([
+      'Authorization',
+      'Content-Type',
+      'privy-id-token',
+      'X-Household-Id',
+    ]);
+    expect(options.origin).toEqual([
+      'https://yield2pay.com',
+      'https://www.yield2pay.com',
+    ]);
+    expect(
+      corsOptionsFor({ CORS_ORIGIN: 'https://a.example, https://b.example' })
+        .origin,
+    ).toEqual(['https://a.example', 'https://b.example']);
+    expect(corsOptionsFor({}).origin).toBe(true);
   });
 
   it('sobe sem as chaves do cofre quando o produto financeiro está desligado', () => {

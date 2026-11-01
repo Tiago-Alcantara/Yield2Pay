@@ -1,9 +1,9 @@
 /**
  * Módulo: PrivyService
  * Criado em: 2026-10-21
- * Última atualização: 2026-10-22
+ * Última atualização: 2026-11-01
  * Intuito: a sessão local da família só vale quando o ambiente pede, e devolve o e-mail fixo.
- * Sequência: com a sessão ligada, o token local autentica e o e-mail sai; com a sessão desligada, o mesmo token é recusado.
+ * Sequência: com a sessão ligada, o token local autentica e o e-mail sai; com a sessão desligada, o mesmo token é recusado; em produção a sessão ligada é recusada.
  */
 import { describe, expect, it } from 'vitest';
 import { PrivyService } from './privy.service';
@@ -11,9 +11,10 @@ import type { Env } from '../config/env';
 
 const LOCAL_DEV_USER_ID = 'did:privy:local-dev';
 
-function service(localSession: boolean) {
+function service(localSession: boolean, appEnv: Env['appEnv'] = 'development') {
   return new PrivyService({
     localSession,
+    appEnv,
     privyAppId: 'privy_app_id',
     privyAppSecret: 'privy_app_secret',
   } as Env);
@@ -34,5 +35,12 @@ describe('PrivyService', () => {
   it('recusa a sessão local quando ela está desligada', async () => {
     const privy = service(false);
     await expect(privy.verify('yield2pay-local-dev')).rejects.toThrow();
+  });
+
+  it('recusa a sessão local ligada em produção, com erro claro', async () => {
+    const privy = service(true, 'production');
+    await expect(privy.verify('yield2pay-local-dev')).rejects.toThrow(
+      'DEV_LOCAL_SESSION=true não é permitido com APP_ENV=production',
+    );
   });
 });
