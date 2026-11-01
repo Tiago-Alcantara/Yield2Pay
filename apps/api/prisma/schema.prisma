@@ -146,6 +146,11 @@ model PersonName {
 // (owner_company_id) WHERE personal, criado na migration
 // 20261101120000_household_multi_group. O Prisma não expressa índice parcial,
 // então ele não aparece aqui.
+//
+// O individual pode ter membros: a migration marcou como individual o grupo que
+// cada dono já tinha, com a família dentro. personal só diz que este é o grupo
+// individual do DONO; para um membro, o mesmo grupo é um grupo dos outros. Por
+// isso o limite de convidado da F3 (guestGroupLimit) conta só os grupos dos outros.
 model Household {
   id                   String   @id @default(cuid())
   name                 String
@@ -180,6 +185,7 @@ model HouseholdMember {
   householdId String @map("household_id")
   companyId   String @map("company_id")
   role        String
+  createdAt   DateTime @default(now()) @map("created_at")
   household   Household @relation(fields: [householdId], references: [id])
   company     Company   @relation(fields: [companyId], references: [id])
   @@unique([householdId, companyId])

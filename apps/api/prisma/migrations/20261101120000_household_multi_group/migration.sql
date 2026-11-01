@@ -1,10 +1,27 @@
 SET lock_timeout = '4s';
 
--- Grupo individual: cada pessoa tem exatamente um, criado por ela.
+-- Aborta antes de qualquer DDL, com a mensagem certa no erro do deploy. Fica fora
+-- do BEGIN: um erro dentro dele chega ao deploy só como "current transaction is
+-- aborted", porque o Prisma tenta gravar o log da falha na mesma conexão.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "household_members" WHERE "role" NOT IN ('owner', 'member')
+  ) THEN
+    RAISE EXCEPTION 'household_multi_group: há role fora de (owner, member) em household_members; corrija o dado antes do deploy';
+  END IF;
+END $$;
+
+-- O Prisma não abre transação em volta da migration: sem este BEGIN uma falha no
+-- meio deixa estado parcial. Ver docs/DEPLOY.md, seção 5.
+BEGIN;
+
+-- Grupo individual: cada pessoa tem exatamente um.
 ALTER TABLE "households" ADD COLUMN "personal" BOOLEAN NOT NULL DEFAULT false;
 
--- Até aqui cada pessoa era dona de no máximo um grupo, o que ela criou.
--- Todos os grupos que já existem passam a ser o grupo individual do dono.
+-- Até aqui cada pessoa era dona de no máximo um grupo, o que ela criou. Todos
+-- os grupos que já existem passam a ser o grupo individual do dono, inclusive
+-- os que têm membros: o individual pode ter membros.
 UPDATE "households" SET "personal" = true;
 
 -- Uma pessoa pode ser dona de vários grupos, mas de um só grupo individual.
@@ -17,7 +34,14 @@ CREATE UNIQUE INDEX "households_owner_company_id_personal_key" ON "households"("
 DROP INDEX "household_members_company_id_key";
 CREATE INDEX "household_members_company_id_idx" ON "household_members"("company_id");
 
-ALTER TABLE "household_members" ADD CONSTRAINT "household_members_role_check" CHECK ("role" IN ('owner', 'member'));
+-- Desempata o grupo padrão de quem está em mais de um grupo não individual.
+-- As linhas antigas recebem a mesma data: cada pessoa só tinha um grupo.
+ALTER TABLE "household_members" ADD COLUMN "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "household_members" ADD CONSTRAINT "household_members_role_check" CHECK ("role" IN ('owner', 'member')) NOT VALID;
+ALTER TABLE "household_members" VALIDATE CONSTRAINT "household_members_role_check";
 
 -- Quantos grupos alheios a pessoa pode ter. Nulo vale o padrão (1).
 ALTER TABLE "companies" ADD COLUMN "guest_group_limit" INTEGER;
+
+COMMIT;

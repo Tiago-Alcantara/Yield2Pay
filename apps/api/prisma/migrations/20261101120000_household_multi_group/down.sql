@@ -21,6 +21,8 @@ ALTER TABLE "companies" DROP COLUMN IF EXISTS "guest_group_limit";
 
 ALTER TABLE "household_members" DROP CONSTRAINT IF EXISTS "household_members_role_check";
 
+ALTER TABLE "household_members" DROP COLUMN IF EXISTS "created_at";
+
 DROP INDEX IF EXISTS "household_members_company_id_idx";
 CREATE UNIQUE INDEX "household_members_company_id_key" ON "household_members"("company_id");
 
