@@ -31,7 +31,7 @@ export interface RampOrder {
 // ── Erros (contrato entre a API e as telas de erro) ───────────────────────────
 
 /** Ambiente lógico da aplicação. Governa quanto detalhe o erro expõe. */
-export type AppEnv = 'production' | 'staging' | 'development';
+export type AppEnv = 'production' | 'staging' | 'development' | 'test';
 
 /**
  * Conjunto fechado de status que as telas de erro sabem apresentar. O filter da

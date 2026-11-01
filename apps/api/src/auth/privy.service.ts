@@ -1,7 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrivyClient } from '@privy-io/server-auth';
 import { APP_CONFIG } from '../config/config.module';
-import { LOCAL_SESSION_IN_PRODUCTION_MESSAGE, type Env } from '../config/env';
+import {
+  isLocalSessionAllowed,
+  LOCAL_SESSION_NOT_ALLOWED_MESSAGE,
+  type Env,
+} from '../config/env';
 import {
   createPrivyTokenCache,
   fetchPrivyVerificationKey,
@@ -33,9 +37,9 @@ export class PrivyService {
     token: string,
   ): Promise<{ privyUserId: string; email: string | null }> {
     // Segunda trava além do loadEnv: um Env montado à mão (teste, script)
-    // também não aceita a sessão fixa em produção.
-    if (this.localSession && this.appEnv === 'production') {
-      throw new Error(LOCAL_SESSION_IN_PRODUCTION_MESSAGE);
+    // também só aceita a sessão fixa em development ou test.
+    if (this.localSession && !isLocalSessionAllowed(this.appEnv)) {
+      throw new Error(LOCAL_SESSION_NOT_ALLOWED_MESSAGE);
     }
     if (this.localSession && token === LOCAL_DEV_TOKEN) {
       return { privyUserId: LOCAL_DEV_USER_ID, email: LOCAL_DEV_EMAIL };

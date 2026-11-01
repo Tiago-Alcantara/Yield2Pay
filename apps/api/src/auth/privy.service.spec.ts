@@ -3,7 +3,7 @@
  * Criado em: 2026-10-21
  * Última atualização: 2026-11-01
  * Intuito: a sessão local da família só vale quando o ambiente pede, e devolve o e-mail fixo.
- * Sequência: com a sessão ligada, o token local autentica e o e-mail sai; com a sessão desligada, o mesmo token é recusado; em produção a sessão ligada é recusada.
+ * Sequência: com a sessão ligada, o token local autentica e o e-mail sai; com a sessão desligada, o mesmo token é recusado; a sessão ligada só vale com APP_ENV development ou test.
  */
 import { describe, expect, it } from 'vitest';
 import { PrivyService } from './privy.service';
@@ -11,7 +11,12 @@ import type { Env } from '../config/env';
 
 const LOCAL_DEV_USER_ID = 'did:privy:local-dev';
 
-function service(localSession: boolean, appEnv: Env['appEnv'] = 'development') {
+function service(localSession: boolean) {
+  return withAppEnv(localSession, 'development');
+}
+
+/** Env montado à mão: o appEnv pode vir com qualquer valor, ou sem valor. */
+function withAppEnv(localSession: boolean, appEnv: string | undefined) {
   return new PrivyService({
     localSession,
     appEnv,
@@ -37,10 +42,29 @@ describe('PrivyService', () => {
     await expect(privy.verify('yield2pay-local-dev')).rejects.toThrow();
   });
 
-  it('recusa a sessão local ligada em produção, com erro claro', async () => {
-    const privy = service(true, 'production');
+  it.each(['development', 'test'])(
+    'aceita a sessão local ligada com APP_ENV=%s',
+    async (appEnv) => {
+      const privy = withAppEnv(true, appEnv);
+      await expect(privy.verify('yield2pay-local-dev')).resolves.toEqual({
+        privyUserId: LOCAL_DEV_USER_ID,
+        email: 'familia@localhost',
+      });
+    },
+  );
+
+  it.each([
+    ['production'],
+    ['staging'],
+    ['prod'],
+    ['homolog'],
+    ['DEVELOPMENT'],
+    [''],
+    [undefined],
+  ])('recusa a sessão local ligada com APP_ENV=%s', async (appEnv) => {
+    const privy = withAppEnv(true, appEnv);
     await expect(privy.verify('yield2pay-local-dev')).rejects.toThrow(
-      'DEV_LOCAL_SESSION=true não é permitido com APP_ENV=production',
+      'DEV_LOCAL_SESSION=true só é permitido com APP_ENV=development ou APP_ENV=test',
     );
   });
 });

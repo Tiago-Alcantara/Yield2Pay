@@ -3,12 +3,13 @@
  * Criado em: 2026-06-24
  * Última atualização: 2026-11-01
  * Intuito: O ambiente sobe só com as chaves certas e o padrão de desenvolvimento.
- * Sequência: parses a valid env; rejects an invalid network; rejects missing required keys; defaults the app env to development; turns the local session on only when asked; parses an explicit app env; rejects an unknown app env; recusa a sessão local em produção; CORS libera os headers da API.
+ * Sequência: parses a valid env; rejects an invalid network; rejects missing required keys; defaults the app env to development; turns the local session on only when asked; parses an explicit app env; rejects an unknown app env; a sessão local só vale com APP_ENV development ou test; CORS libera os headers da API; sem CORS_ORIGIN e sem APP_ENV o CORS só libera o localhost.
  */
 import {
+  CORS_DEV_ORIGINS,
   corsOptionsFor,
   loadEnv,
-  LOCAL_SESSION_IN_PRODUCTION_MESSAGE,
+  LOCAL_SESSION_NOT_ALLOWED_MESSAGE,
 } from './env';
 
 const base = {
@@ -48,9 +49,14 @@ describe('env', () => {
   });
 
   it('turns the local session on only when asked', () => {
-    expect(loadEnv({ ...base, DEV_LOCAL_SESSION: 'true' }).localSession).toBe(
-      true,
-    );
+    expect(
+      loadEnv({ ...base, APP_ENV: 'development', DEV_LOCAL_SESSION: 'true' })
+        .localSession,
+    ).toBe(true);
+    expect(
+      loadEnv({ ...base, APP_ENV: 'development', DEV_LOCAL_SESSION: 'false' })
+        .localSession,
+    ).toBe(false);
   });
 
   it('parses an explicit app env', () => {
@@ -64,24 +70,53 @@ describe('env', () => {
     expect(() => loadEnv({ ...base, APP_ENV: 'homolog' })).toThrow();
   });
 
-  it('recusa DEV_LOCAL_SESSION=true com APP_ENV=production, sem imprimir valores', () => {
-    let message = '';
-    try {
-      loadEnv({ ...base, APP_ENV: 'production', DEV_LOCAL_SESSION: 'true' });
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    expect(message).toBe(LOCAL_SESSION_IN_PRODUCTION_MESSAGE);
-    expect(message).not.toContain(base.DATABASE_URL);
-    expect(message).not.toContain(base.PRIVY_APP_SECRET);
+  it.each(['development', 'test'])(
+    'aceita DEV_LOCAL_SESSION=true com APP_ENV=%s',
+    (appEnv) => {
+      const env = loadEnv({
+        ...base,
+        APP_ENV: appEnv,
+        DEV_LOCAL_SESSION: 'true',
+      });
+      expect(env.localSession).toBe(true);
+      expect(env.appEnv).toBe(appEnv);
+    },
+  );
+
+  it.each([
+    ['production', { APP_ENV: 'production' }],
+    ['staging', { APP_ENV: 'staging' }],
+    ['prod', { APP_ENV: 'prod' }],
+    ['homolog', { APP_ENV: 'homolog' }],
+    ['DEVELOPMENT', { APP_ENV: 'DEVELOPMENT' }],
+    ['vazio', { APP_ENV: '' }],
+    ['ausente', {}],
+    ['ausente com NODE_ENV=production', { NODE_ENV: 'production' }],
+  ])(
+    'recusa DEV_LOCAL_SESSION=true com APP_ENV %s, sem imprimir valores',
+    (_label, extra) => {
+      let message = '';
+      try {
+        loadEnv({
+          ...base,
+          ...extra,
+          PRIVY_APP_SECRET: 'segredo-ficticio',
+          DEV_LOCAL_SESSION: 'true',
+        });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toBe(LOCAL_SESSION_NOT_ALLOWED_MESSAGE);
+      expect(message).not.toContain(base.DATABASE_URL);
+      expect(message).not.toContain('segredo-ficticio');
+    },
+  );
+
+  it('produção com a sessão local desligada sobe normalmente', () => {
     expect(
       loadEnv({ ...base, APP_ENV: 'production', DEV_LOCAL_SESSION: 'false' })
         .localSession,
     ).toBe(false);
-    expect(
-      loadEnv({ ...base, APP_ENV: 'staging', DEV_LOCAL_SESSION: 'true' })
-        .localSession,
-    ).toBe(true);
   });
 
   it('CORS libera Authorization, Content-Type, privy-id-token e X-Household-Id', () => {
@@ -100,8 +135,26 @@ describe('env', () => {
       corsOptionsFor({ CORS_ORIGIN: 'https://a.example, https://b.example' })
         .origin,
     ).toEqual(['https://a.example', 'https://b.example']);
-    expect(corsOptionsFor({}).origin).toBe(true);
+    expect(corsOptionsFor({ APP_ENV: 'development' }).origin).toBe(true);
   });
+
+  it.each([
+    ['nada definido', {}],
+    ['NODE_ENV=production', { NODE_ENV: 'production' }],
+    ['APP_ENV vazio', { APP_ENV: '' }],
+    ['CORS_ORIGIN vazio', { CORS_ORIGIN: '' }],
+  ])(
+    'sem CORS_ORIGIN e sem APP_ENV (%s) só libera o localhost',
+    (_label, raw) => {
+      const { origin } = corsOptionsFor(raw);
+      expect(origin).not.toBe(true);
+      expect(origin).toEqual(CORS_DEV_ORIGINS);
+      expect(CORS_DEV_ORIGINS).toEqual([
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+      ]);
+    },
+  );
 
   it('sobe sem as chaves do cofre quando o produto financeiro está desligado', () => {
     const {
@@ -125,7 +178,8 @@ describe('env', () => {
       loadEnv({ ...rest, FINANCIAL_PRODUCT_ENABLED: 'true' }),
     ).toThrow();
     expect(
-      loadEnv({ ...base, FINANCIAL_PRODUCT_ENABLED: 'true' }).financialProductEnabled,
+      loadEnv({ ...base, FINANCIAL_PRODUCT_ENABLED: 'true' })
+        .financialProductEnabled,
     ).toBe(true);
   });
 });
