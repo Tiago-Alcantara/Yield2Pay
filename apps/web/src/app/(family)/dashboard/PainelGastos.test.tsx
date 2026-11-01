@@ -751,4 +751,19 @@ describe('PainelGastos', () => {
     expect(await screen.findByRole('heading', { name: 'Gastos de janeiro' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
   });
+
+  it('D-06: um gasto além do limite de 36 meses é alcançável pela seta, na ida e na volta', async () => {
+    stubExpenseMonths(['2023-09', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Escolher mês' })).getByRole('option', { name: /^Setembro/ }));
+    expect(await screen.findByRole('button', { name: /setembro 2023/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /outubro 2023/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('button', { name: /setembro 2023/i })).toBeInTheDocument();
+  });
 });

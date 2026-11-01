@@ -3,13 +3,14 @@
  * Criado em: 2026-10-31
  * Última atualização: 2026-10-31
  * Intuito: O modal de filtros herda o tema da família. As setas andam numa faixa
- * contínua de meses; menu, grade e datas do período ficam com os meses com gasto.
+ * contínua de meses e saltam até os meses com gasto fora dela; menu, grade e
+ * datas do período ficam com os meses com gasto.
  * Sequência: abrir Filtros coloca o diálogo num .fam-shell, fora do cartão escuro do body.
  */
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { monthArrowRange, saoPauloMonth } from './painel-format';
+import { monthArrowSteps, saoPauloMonth } from './painel-format';
 import { EMPTY_FILTERS, FilterBar } from './FilterBar';
 
 // Meio-dia de 15/10/2026 em São Paulo: longe da virada do mês.
@@ -23,7 +24,7 @@ describe('modal de filtros', () => {
         <FilterBar
           month={month}
           months={[month]}
-          arrowRange={monthArrowRange([month])}
+          arrowMonths={monthArrowSteps([month])}
           totals={{}}
           expenses={[]}
           filters={EMPTY_FILTERS}
@@ -48,7 +49,7 @@ function renderBar(month: string, expenseMonths: string[], onMonth: (next: strin
     <FilterBar
       month={month}
       months={expenseMonths}
-      arrowRange={monthArrowRange(expenseMonths)}
+      arrowMonths={monthArrowSteps(expenseMonths)}
       totals={{}}
       expenses={[]}
       filters={EMPTY_FILTERS}
@@ -108,12 +109,66 @@ describe('setas do mês', () => {
     expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
   });
 
-  it('D-06: mês aberto fora do limite volta para a ponta da faixa', () => {
+  function clickArrow(name: 'Mês anterior' | 'Próximo mês', onMonth: ReturnType<typeof vi.fn>) {
+    fireEvent.click(screen.getByRole('button', { name }));
+    return onMonth.mock.lastCall?.[0];
+  }
+
+  it('D-06: gasto em 01/2023 com hoje em 10/2026 é alcançável nos dois sentidos', () => {
+    const expenseMonths = ['2023-01', '2026-10'];
     const onMonth = vi.fn();
-    renderBar('1000-01', ['1000-01', '2026-10'], onMonth);
+    const { unmount } = renderBar('2023-10', expenseMonths, onMonth);
+    expect(clickArrow('Mês anterior', onMonth)).toBe('2023-01');
+    unmount();
+
+    renderBar('2023-01', expenseMonths, onMonth);
     expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }));
-    expect(onMonth).toHaveBeenCalledWith('2023-10');
+    expect(clickArrow('Próximo mês', onMonth)).toBe('2023-10');
+  });
+
+  it('D-06: gastos a −37 e +37 meses entram como salto na ida e na volta', () => {
+    const expenseMonths = ['2023-09', '2026-10', '2029-11'];
+    const onMonth = vi.fn();
+    const walk = (from: string, name: 'Mês anterior' | 'Próximo mês') => {
+      const view = renderBar(from, expenseMonths, onMonth);
+      const target = clickArrow(name, onMonth);
+      view.unmount();
+      return target;
+    };
+    expect(walk('2023-10', 'Mês anterior')).toBe('2023-09');
+    expect(walk('2023-09', 'Próximo mês')).toBe('2023-10');
+    expect(walk('2029-10', 'Próximo mês')).toBe('2029-11');
+    expect(walk('2029-11', 'Mês anterior')).toBe('2029-10');
+
+    renderBar('2029-11', expenseMonths, onMonth);
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+  });
+
+  it('D-06: 1000-01 vira um salto e a seta não anda mês a mês fora da faixa', () => {
+    const expenseMonths = ['1000-01', '2026-10'];
+    const onMonth = vi.fn();
+    const { unmount } = renderBar('1000-01', expenseMonths, onMonth);
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+    expect(clickArrow('Próximo mês', onMonth)).toBe('2023-10');
+    unmount();
+
+    renderBar('2023-10', expenseMonths, onMonth);
+    expect(clickArrow('Mês anterior', onMonth)).toBe('1000-01');
+  });
+
+  it('D-06: mês aberto fora da lista volta para o vizinho mais próximo dela', () => {
+    // A seta não pode ser month ± 1: de 2031-05 (fora da lista) o anterior é a ponta
+    // de cima da faixa e o próximo é o gasto seguinte; de 2020-01, o contrário.
+    const expenseMonths = ['1000-01', '2026-10', '9999-12'];
+    const onMonth = vi.fn();
+    const { unmount } = renderBar('2031-05', expenseMonths, onMonth);
+    expect(clickArrow('Mês anterior', onMonth)).toBe('2029-10');
+    expect(clickArrow('Próximo mês', onMonth)).toBe('9999-12');
+    unmount();
+
+    renderBar('2020-01', expenseMonths, onMonth);
+    expect(clickArrow('Mês anterior', onMonth)).toBe('1000-01');
+    expect(clickArrow('Próximo mês', onMonth)).toBe('2023-10');
   });
 });
 

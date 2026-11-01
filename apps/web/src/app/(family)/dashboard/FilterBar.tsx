@@ -15,8 +15,6 @@ import {
   saoPauloDay,
   saoPauloMonth,
   saoPauloToday,
-  shiftMonth,
-  type MonthArrowRange,
 } from './painel-format';
 
 export type ExpenseFilters = {
@@ -156,7 +154,7 @@ const chromeOff: CSSProperties = {
 export function FilterBar({
   month,
   months,
-  arrowRange,
+  arrowMonths,
   totals,
   expenses,
   filters,
@@ -167,8 +165,8 @@ export function FilterBar({
   month: string;
   /** Meses com gasto: alimentam o menu, a grade do modal e as datas do período. */
   months: string[];
-  /** Limites das setas, calculados pelo painel junto com a lista de meses. */
-  arrowRange: MonthArrowRange;
+  /** Meses que as setas percorrem, em ordem (monthArrowSteps, derivado no painel). */
+  arrowMonths: string[];
   totals: Record<string, number>;
   expenses: ExpenseView[];
   filters: ExpenseFilters;
@@ -184,12 +182,12 @@ export function FilterBar({
   const [draft, setDraft] = useState<Draft | null>(null);
   const today = saoPauloToday();
   const chips = filterChips(filters);
-  // Um mês aberto pelo menu pode estar fora da faixa (gasto além do limite).
-  // Daí a seta volta para a ponta mais próxima em vez de andar fora dela.
-  const previousMonth = month > arrowRange.last ? arrowRange.last : shiftMonth(month, -1);
-  const nextMonth = month < arrowRange.first ? arrowRange.first : shiftMonth(month, 1);
-  const previousOff = previousMonth < arrowRange.first;
-  const nextOff = nextMonth > arrowRange.last;
+  // A seta vai para o vizinho na lista, não para month ± 1: um mês com gasto
+  // fora do limite é um salto, e um mês aberto fora da lista volta para ela.
+  const previousMonth = arrowMonths.filter((item) => item < month).pop() ?? '';
+  const nextMonth = arrowMonths.find((item) => item > month) ?? '';
+  const previousOff = !previousMonth;
+  const nextOff = !nextMonth;
   const label = filters.mode === 'custom' ? rangeLabel(filters) : `${cap(mesNome(month))} ${month.slice(0, 4)}`;
   const controlHeight = isMobile ? 44 : 52;
 

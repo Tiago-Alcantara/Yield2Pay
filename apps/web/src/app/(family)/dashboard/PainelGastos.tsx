@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
@@ -31,7 +31,7 @@ import {
   mesNome,
   metaLabel,
   MONTH_RANGE_CAP_NOTE,
-  monthArrowRange,
+  monthArrowSteps,
   monthsCovering,
   nf,
   shiftMonth,
@@ -196,8 +196,13 @@ function PainelScreen({
   const [summary, setSummary] = useState<HouseholdSummary>(EMPTY_SUMMARY);
   const [expenses, setExpenses] = useState<ExpenseView[]>([]);
   const [months, setMonths] = useState<string[]>([]);
-  const [arrowRange, setArrowRange] = useState(() => monthArrowRange([]));
   const [monthTotals, setMonthTotals] = useState<MonthTotal[]>([]);
+  const [currentMonth] = useState(() => saoPauloMonth());
+  // As setas saem dos meses com gasto e do mês atual, sem estado próprio.
+  const arrowMonths = useMemo(
+    () => monthArrowSteps(monthTotals.map((row) => row.month), currentMonth),
+    [monthTotals, currentMonth],
+  );
   const [month, setMonth] = useState(() => saoPauloMonth());
   const [filters, setFilters] = useState<ExpenseFilters>(EMPTY_FILTERS);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -390,7 +395,6 @@ function PainelScreen({
         setProfile(profileView);
         setMonthTotals(monthList);
         setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
-        setArrowRange(monthArrowRange(sorted));
         setMonth(selected);
         setExpenses(expenseRows);
         setSummary(summaryView);
@@ -527,7 +531,6 @@ function PainelScreen({
     setSummary(summaryView);
     setMonthTotals(monthList);
     setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
-    setArrowRange(monthArrowRange(sorted));
   }
 
   async function importFile(file: File) {
@@ -594,7 +597,7 @@ function PainelScreen({
       setProfile(profileView);
       setMonth(selected);
       setMonths([selected]);
-      setArrowRange(monthArrowRange([]));
+      setMonthTotals([]);
       setExpenses([]);
       setSummary(EMPTY_SUMMARY);
       setLessons([]);
@@ -852,7 +855,7 @@ function PainelScreen({
               <FilterBar
                 month={month}
                 months={pills}
-                arrowRange={arrowRange}
+                arrowMonths={arrowMonths}
                 totals={totals}
                 expenses={expenses}
                 filters={filters}

@@ -183,17 +183,17 @@ export function isValidMonth(month: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
 
-export type MonthArrowRange = { first: string; last: string };
-
 /**
- * Faixa contínua que só as setas de mês percorrem: do primeiro mês com gasto
- * até o maior entre o mês atual + 1 e o último mês com gasto. O extrato aceita
- * data futura, então o último gasto pode passar do mês seguinte. Os filtros
- * continuam com a lista de meses com gasto; aqui só entram os limites.
- * Uma data absurda (1000-01, 9999-12) não pode esticar a faixa sem fim: cada
- * ponta para em MONTH_RANGE_CAP meses do mês atual.
+ * Meses, em ordem, que só as setas percorrem. Junta duas coisas:
+ * - a faixa contínua do primeiro mês com gasto até o maior entre o mês atual + 1
+ *   e o último mês com gasto (o extrato aceita data futura), com cada ponta
+ *   limitada a MONTH_RANGE_CAP meses do mês atual;
+ * - todos os meses válidos com gasto, mesmo os de fora da faixa.
+ * Assim nenhum mês com gasto fica inalcançável, e uma data absurda (1000-01,
+ * 9999-12) vira um salto em vez de milhares de meses vazios. Os filtros
+ * continuam com a lista de meses com gasto.
  */
-export function monthArrowRange(expenseMonths: string[], today = saoPauloMonth()): MonthArrowRange {
+export function monthArrowSteps(expenseMonths: string[], today = saoPauloMonth()): string[] {
   const sorted = sortMonths(expenseMonths.filter(isValidMonth));
   const earliestExpense = sorted[0];
   const latestExpense = sorted[sorted.length - 1];
@@ -205,7 +205,9 @@ export function monthArrowRange(expenseMonths: string[], today = saoPauloMonth()
   if (first < oldestAllowed) first = oldestAllowed;
   let last = latestExpense && latestExpense > nextMonth ? latestExpense : nextMonth;
   if (last > newestAllowed) last = newestAllowed;
-  return { first, last };
+  const steps = new Set(sorted);
+  for (let cursor = first; cursor <= last; cursor = shiftMonth(cursor, 1)) steps.add(cursor);
+  return sortMonths([...steps]);
 }
 
 export function sortMonths(months: string[]): string[] {
