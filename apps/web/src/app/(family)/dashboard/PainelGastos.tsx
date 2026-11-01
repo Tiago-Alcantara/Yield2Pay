@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
@@ -31,6 +31,8 @@ import {
   mesNome,
   metaLabel,
   MONTH_RANGE_CAP_NOTE,
+  isValidMonth,
+  monthArrowSteps,
   monthsCovering,
   nf,
   shiftMonth,
@@ -196,6 +198,12 @@ function PainelScreen({
   const [expenses, setExpenses] = useState<ExpenseView[]>([]);
   const [months, setMonths] = useState<string[]>([]);
   const [monthTotals, setMonthTotals] = useState<MonthTotal[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(() => saoPauloMonth());
+  // As setas saem dos meses com gasto e do mês atual, sem estado próprio.
+  const arrowMonths = useMemo(
+    () => monthArrowSteps(monthTotals.map((row) => row.month), currentMonth),
+    [monthTotals, currentMonth],
+  );
   const [month, setMonth] = useState(() => saoPauloMonth());
   const [filters, setFilters] = useState<ExpenseFilters>(EMPTY_FILTERS);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -210,7 +218,7 @@ function PainelScreen({
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteDenied, setInviteDenied] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importManual, setImportManual] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -250,7 +258,11 @@ function PainelScreen({
     const query = params.toString();
     const next = `${pathname}${query ? `?${query}` : ''}${window.location.hash}`;
     // router.replace devolve a query: o HistoryUpdater do Next grava ?acao e ?conta de novo.
-    window.history.replaceState(window.history.state, '', next);
+    // replaceState(null) é o caminho documentado pelo Next para mudar a URL por fora:
+    // o patch dele copia o state interno e avisa o router, então a URL canônica fica
+    // limpa e o próximo clique da doca no mesmo endereço volta a disparar estes
+    // efeitos. É replace, não push: o reload não empilha histórico nem reabre o diálogo.
+    window.history.replaceState(null, '', next);
   }, [queryKey, pathname]);
 
   useEffect(() => {
@@ -270,15 +282,22 @@ function PainelScreen({
         return;
       }
       if (!account || !profile) return;
-      const canInvite = account.household?.role === 'owner' && profile.showFamily !== false;
-      if (!canInvite) {
+      if (account.household?.role !== 'owner') {
         pendingAcao.current = null;
-        setInviteDenied(true);
+        setInviteNotice('Só quem administra a casa pode convidar.');
         return;
       }
-      if (!document.getElementById('s-convidar')) return;
+      if (profile.showFamily === false) {
+        pendingAcao.current = null;
+        setInviteNotice('A família está oculta nas configurações. Ative para convidar.');
+        return;
+      }
+      const field = document.getElementById('y2p-invite');
+      if (!(field instanceof HTMLElement)) return;
       pendingAcao.current = null;
+      setInviteNotice('');
       scrollToId('s-convidar');
+      field.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [account, profile, queryKey]);
@@ -295,10 +314,36 @@ function PainelScreen({
 
   useEffect(() => onLiberdadeChange(() => setLiberdadeOn(readLiberdade())), []);
 
+  // O mês pode virar com a página aberta: a seta "próximo" acompanha o mês atual + 1.
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentMonth(saoPauloMonth()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // No acesso direto a /dashboard#s-..., a seção só existe depois da carga.
+  // Com o painel montado, o Link da doca faz pushState (sem hashchange) e o
+  // Next rola com scrollIntoView, que usa o scroll-margin-top da seção.
   useEffect(() => {
     if (phase !== 'panel') return;
     const id = window.location.hash.replace('#', '');
     if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
+  }, [phase]);
+
+  // A altura do cabeçalho fixo muda com a largura e com os filtros ativos.
+  // O valor medido vira --y2p-header-height, a folga das seções em painel.css.
+  useEffect(() => {
+    if (phase !== 'panel') return;
+    const header = document.getElementById('painel-header');
+    const root = header?.closest('.y2p');
+    if (!header || !(root instanceof HTMLElement)) return;
+    const writeHeaderHeight = () => {
+      root.style.setProperty('--y2p-header-height', `${Math.round(header.getBoundingClientRect().height)}px`);
+    };
+    writeHeaderHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(writeHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, [phase]);
 
   useEffect(() => {
@@ -341,7 +386,7 @@ function PainelScreen({
           client.getLessons('fund').catch(() => [] as LessonView[]),
         ]);
         if (cancelled) return;
-        const sorted = sortMonths(monthList.map((row) => row.month));
+        const sorted = sortMonths(monthList.map((row) => row.month).filter(isValidMonth));
         const track = lessonTrack(profileView.cryptoExperience);
         expenseCache.current[selected] = expenseRows;
         summaryCache.current[selected] = summaryView;
@@ -488,7 +533,7 @@ function PainelScreen({
     });
     setPageNote(pages.some((page) => page.truncated) ? EXPENSE_PAGE_CAP_NOTE : '');
     summaryCache.current[selected] = summaryView;
-    const sorted = sortMonths(monthList.map((row) => row.month));
+    const sorted = sortMonths(monthList.map((row) => row.month).filter(isValidMonth));
     setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
     setSummary(summaryView);
     setMonthTotals(monthList);
@@ -559,6 +604,7 @@ function PainelScreen({
       setProfile(profileView);
       setMonth(selected);
       setMonths([selected]);
+      setMonthTotals([]);
       setExpenses([]);
       setSummary(EMPTY_SUMMARY);
       setLessons([]);
@@ -816,6 +862,7 @@ function PainelScreen({
               <FilterBar
                 month={month}
                 months={pills}
+                arrowMonths={arrowMonths}
                 totals={totals}
                 expenses={expenses}
                 filters={filters}
@@ -831,14 +878,15 @@ function PainelScreen({
             )}
           </div>
         </header>
-        {inviteDenied && (
+        {inviteNotice && (
           <p role="status" style={{ margin: '16px 32px 0', fontSize: 14.5, color: 'var(--fx-text-strong, #F2F3F4)' }}>
-            Só quem administra a casa pode convidar.
+            {inviteNotice}
           </p>
         )}
 
         <div
           id="s-topo"
+          className="y2p-dashboard__section"
           style={{
             padding: isMobile ? '16px 12px' : 32,
             maxWidth: 1180,
@@ -867,7 +915,7 @@ function PainelScreen({
             </div>
           </MetalCard>
           {liberdadeOn && (
-            <MetalCard id="s-liberdade" data-screen-label="Liberdade" padding={28} radius="var(--fx-radius-xl)" aria-label="Liberdade da família">
+            <MetalCard id="s-liberdade" className="y2p-dashboard__section" data-screen-label="Liberdade" padding={28} radius="var(--fx-radius-xl)" aria-label="Liberdade da família">
               <div className="y2p-lib-card">
                 <div className="y2p-lib-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -909,7 +957,7 @@ function PainelScreen({
         </div>
         )}
 
-        <div id="s-gastos" data-screen-label="Gastos" style={{ marginTop: 6 }}>
+        <div id="s-gastos" className="y2p-dashboard__section" data-screen-label="Gastos" style={{ marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
@@ -994,6 +1042,7 @@ function PainelScreen({
 
         <div
           id="s-aprender"
+          className="y2p-dashboard__section"
           data-screen-label="Aprender"
           style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
@@ -1043,7 +1092,7 @@ function PainelScreen({
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form id="s-convidar" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" className="y2p-dashboard__section" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />

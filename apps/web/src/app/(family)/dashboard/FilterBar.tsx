@@ -154,6 +154,7 @@ const chromeOff: CSSProperties = {
 export function FilterBar({
   month,
   months,
+  arrowMonths,
   totals,
   expenses,
   filters,
@@ -162,7 +163,10 @@ export function FilterBar({
   onApply,
 }: {
   month: string;
+  /** Meses com gasto: alimentam o menu, a grade do modal e as datas do período. */
   months: string[];
+  /** Meses que as setas percorrem, em ordem (monthArrowSteps, derivado no painel). */
+  arrowMonths: string[];
   totals: Record<string, number>;
   expenses: ExpenseView[];
   filters: ExpenseFilters;
@@ -178,7 +182,12 @@ export function FilterBar({
   const [draft, setDraft] = useState<Draft | null>(null);
   const today = saoPauloToday();
   const chips = filterChips(filters);
-  const index = Math.max(0, months.indexOf(month));
+  // A seta vai para o vizinho na lista, não para month ± 1: um mês com gasto
+  // fora do limite é um salto, e um mês aberto fora da lista volta para ela.
+  const previousMonth = arrowMonths.filter((item) => item < month).pop() ?? '';
+  const nextMonth = arrowMonths.find((item) => item > month) ?? '';
+  const previousOff = !previousMonth;
+  const nextOff = !nextMonth;
   const label = filters.mode === 'custom' ? rangeLabel(filters) : `${cap(mesNome(month))} ${month.slice(0, 4)}`;
   const controlHeight = isMobile ? 44 : 52;
 
@@ -222,7 +231,7 @@ export function FilterBar({
     <div ref={rootRef} className="y2p-filterbar" style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'stretch' : 'flex-end', gap: 10, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
       <div className="y2p-filterbar-row" style={{ display: 'flex', flexWrap: isMobile ? 'nowrap' : 'wrap', gap: isMobile ? 8 : 8, alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end', width: isMobile ? '100%' : undefined, minWidth: 0 }}>
         <div className="y2p-period" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 2, height: controlHeight, padding: isMobile ? '0 4px' : '0 6px', borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-1, #131417)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)', flex: isMobile ? '1 1 0' : undefined, minWidth: 0, maxWidth: '100%' }}>
-          <button type="button" aria-label="Mês anterior" disabled={index <= 0} onClick={() => chooseMonth(months[index - 1])} className="y2p-hover" style={arrowStyle(index <= 0, isMobile)}>‹</button>
+          <button type="button" aria-label="Mês anterior" disabled={previousOff} onClick={() => chooseMonth(previousMonth)} className="y2p-hover" style={arrowStyle(previousOff, isMobile)}>‹</button>
           <button
             type="button"
             aria-haspopup="listbox"
@@ -238,7 +247,7 @@ export function FilterBar({
             </span>
             <span style={{ fontSize: 10, color: 'var(--fx-text-2, #9A9DA1)', flex: 'none' }}>▼</span>
           </button>
-          <button type="button" aria-label="Próximo mês" disabled={index >= months.length - 1} onClick={() => chooseMonth(months[index + 1])} className="y2p-hover" style={arrowStyle(index >= months.length - 1, isMobile)}>›</button>
+          <button type="button" aria-label="Próximo mês" disabled={nextOff} onClick={() => chooseMonth(nextMonth)} className="y2p-hover" style={arrowStyle(nextOff, isMobile)}>›</button>
           {menu && (
             <div id={menuId} role="listbox" aria-label="Escolher mês" style={{ position: 'absolute', right: isMobile ? 'auto' : 0, left: isMobile ? 0 : 'auto', top: 'calc(100% + 10px)', zIndex: 31, width: 'min(300px, 86vw)', padding: 6, borderRadius: 16, border: '1px solid var(--fx-border-strong, #3a3d42)', background: 'linear-gradient(160deg,var(--fam-raised, #1e2024),var(--fx-surface-1, #131417))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.08), 0 30px 60px -20px rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {options.map((item) => {

@@ -793,6 +793,8 @@
 }
 .aula-done:hover { background: #1e2024; }
 .aula-next { height: 48px; padding: 0 24px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+.aula-prev { height: 48px; padding: 0 24px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+.aula-prev:disabled { opacity: 0.4; cursor: not-allowed; }
 .aula-error { margin: 0; color: #e6e8ea; font-size: 14px; }
 
 .aula-empty {

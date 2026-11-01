@@ -175,7 +175,39 @@ export function shiftMonth(month: string, delta: number): string {
   const index = year * 12 + (monthNumber - 1) + delta;
   const nextYear = Math.floor(index / 12);
   const nextMonth = (index % 12) + 1;
-  return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  // Ano com quatro dígitos: os meses são comparados como texto ('0999-12' < '2026-10').
+  return `${String(nextYear).padStart(4, '0')}-${String(nextMonth).padStart(2, '0')}`;
+}
+
+export function isValidMonth(month: string): boolean {
+  return /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(month);
+}
+
+/**
+ * Meses, em ordem, que só as setas percorrem. Junta duas coisas:
+ * - a faixa contínua do primeiro mês com gasto até o maior entre o mês atual + 1
+ *   e o último mês com gasto (o extrato aceita data futura), com cada ponta
+ *   limitada a MONTH_RANGE_CAP meses do mês atual;
+ * - todos os meses válidos com gasto, mesmo os de fora da faixa.
+ * Assim nenhum mês com gasto fica inalcançável, e uma data absurda (1000-01,
+ * 9999-12) vira um salto em vez de milhares de meses vazios. Os filtros
+ * continuam com a lista de meses com gasto.
+ */
+export function monthArrowSteps(expenseMonths: string[], today = saoPauloMonth()): string[] {
+  const sorted = sortMonths(expenseMonths.filter(isValidMonth));
+  const earliestExpense = sorted[0];
+  const latestExpense = sorted[sorted.length - 1];
+  const nextMonth = shiftMonth(today, 1);
+  const oldestAllowed = shiftMonth(today, -MONTH_RANGE_CAP);
+  const newestAllowed = shiftMonth(today, MONTH_RANGE_CAP);
+
+  let first = earliestExpense && earliestExpense < today ? earliestExpense : today;
+  if (first < oldestAllowed) first = oldestAllowed;
+  let last = latestExpense && latestExpense > nextMonth ? latestExpense : nextMonth;
+  if (last > newestAllowed) last = newestAllowed;
+  const steps = new Set(sorted);
+  for (let cursor = first; cursor <= last; cursor = shiftMonth(cursor, 1)) steps.add(cursor);
+  return sortMonths([...steps]);
 }
 
 export function sortMonths(months: string[]): string[] {

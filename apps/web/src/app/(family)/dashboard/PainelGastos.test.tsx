@@ -5,10 +5,12 @@
  * Intuito: A carga do painel faz no máximo duas ondas e uma /expenses por mês, e a doca só abre as ações conhecidas.
  * Sequência: opens in two waves with one expenses call; switching month does not reload the house; a failed load shows the error; ?acao=importar abre o extrato; ?acao=novo abre o manual; ?acao=convidar rola até o convite; ?conta=1 abre as configurações; uma ação desconhecida não abre nada e não aparece na tela.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { saoPauloMonth } from './painel-format';
+import { cap, mesNome, saoPauloMonth, shiftMonth } from './painel-format';
 
 const push = vi.hoisted(() => vi.fn());
 const replace = vi.hoisted(() => vi.fn((url: string) => {
@@ -26,6 +28,15 @@ vi.mock('next/navigation', () => ({
 }));
 
 import PainelGastos from './PainelGastos';
+
+// Os testes leem o mês atual (saoPauloMonth) e os dados fixos usam 2026-09 e
+// 2026-10. Meio-dia de 15/10/2026 em São Paulo deixa a virada do mês longe.
+const FIXED_NOW = new Date('2026-10-15T15:00:00Z');
+
+function fixClock() {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FIXED_NOW);
+}
 
 const frames: FrameRequestCallback[] = [];
 const scrollTo = vi.fn();
@@ -172,8 +183,31 @@ async function flushFrames() {
   });
 }
 
+// O quadro do aviso só roda em flushFrames. Se o perfil chega depois do
+// primeiro flush, o efeito agenda outro quadro; repete até o aviso aparecer.
+async function findStatusAfterFrames() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    await flushFrames();
+    const status = screen.queryByRole('status');
+    if (status) return status;
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  }
+  throw new Error('O aviso não apareceu.');
+}
+
+// O foco do convite também roda dentro de um quadro: mesma espera repetida.
+async function expectFocusAfterFrames(element: HTMLElement) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    await flushFrames();
+    if (document.activeElement === element) return;
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  }
+  expect(element).toHaveFocus();
+}
+
 describe('ações da doca no painel', () => {
   beforeEach(() => {
+    fixClock();
     push.mockClear();
     replace.mockClear();
     searchBox.value = new URLSearchParams('stale');
@@ -192,6 +226,8 @@ describe('ações da doca no painel', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.history.pushState(null, '', '/');
   });
@@ -389,22 +425,145 @@ describe('ações da doca no painel', () => {
     );
     render(<PainelGastos />);
     expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
-    await flushFrames();
-    expect(screen.getByRole('status')).toHaveTextContent('Só quem administra a casa pode convidar.');
+    expect(await findStatusAfterFrames()).toHaveTextContent('Só quem administra a casa pode convidar.');
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('CV-07: ?acao=convidar foca o campo do convite', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=convidar');
+    render(<PainelGastos />);
+    const field = await screen.findByLabelText('Convidar');
+    await expectFocusAfterFrames(field);
+    expect(scrollTo).toHaveBeenCalled();
+  });
+
+  it('CV-07: com a família oculta, o convite avisa em vez de falhar em silêncio', async () => {
+    window.history.pushState(null, '', '/dashboard?acao=convidar');
+    const month = saoPauloMonth();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const body = url.includes('/account')
+          ? {
+              displayName: 'Marina',
+              fullName: 'Marina Alves',
+              email: 'marina@email.com',
+              initials: 'MA',
+              accountType: 'family',
+              household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+            }
+          : url.includes('/household/profile')
+            ? {
+                householdSize: 'two',
+                monthlyIncomeCents: 1_200_000,
+                reserveCents: 3_000_000,
+                priorities: [],
+                goalMonths: 12,
+                cryptoExperience: null,
+                onboardingCompleted: true,
+                importMode: 'ofx',
+                showFamily: false,
+                showFreedom: true,
+              }
+            : url.includes('/households/current')
+              ? { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true, pendingInvites: [] }
+              : url.includes('/expenses/months')
+                ? [month]
+                : url.includes('/expenses')
+                  ? { items: [], total: 0 }
+                  : url.includes('/household/summary')
+                    ? {
+                        monthTotalCents: 0,
+                        previousComparableCents: 0,
+                        changePercent: null,
+                        projectedCents: 0,
+                        leftoverCents: null,
+                        byCategory: [],
+                        lastSixMonths: [{ month, amountCents: 0 }],
+                        averageCents: 0,
+                        dailyPace: { current: [], previous: [] },
+                        fixedVsVariable: [],
+                        freedom: null,
+                      }
+                    : [];
+        const text = JSON.stringify(body);
+        return { status: 200, ok: true, text: async () => text, json: async () => body };
+      }),
+    );
+    render(<PainelGastos />);
+    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    expect(await findStatusAfterFrames()).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
+    expect(document.getElementById('y2p-invite')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
+  });
+
+  function readPainelCss() {
+    const cssPath = join(process.cwd(), 'src/app/(family)/dashboard/painel.css');
+    return readFileSync(
+      existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web/src/app/(family)/dashboard/painel.css'),
+      'utf8',
+    );
+  }
+
+  // O jsdom mede tudo com altura 0. Aqui o cabeçalho finge ter a altura dada.
+  function fakeHeaderHeight(height: number) {
+    const measure = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.id === 'painel-header') return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: height, width: 0, height, toJSON: () => ({}) } as DOMRect;
+      return measure.call(this);
+    });
+  }
+
+  it('N-02: a folga das seções vem da altura medida do cabeçalho, não de 93px fixo', async () => {
+    const css = readPainelCss();
+    expect(css).not.toMatch(/\[id\^="s-"\]/);
+    expect(css).toMatch(/\.y2p-dashboard__section\s*\{[^}]*scroll-margin-top:\s*calc\(var\(--y2p-header-height/);
+    fakeHeaderHeight(141);
+    window.history.pushState(null, '', '/dashboard');
+    render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    const root = document.getElementById('painel-header')?.closest('.y2p');
+    expect(root).toBeInstanceOf(HTMLElement);
+    expect((root as HTMLElement).style.getPropertyValue('--y2p-header-height')).toBe('141px');
+    for (const id of ['s-topo', 's-liberdade', 's-gastos', 's-aprender']) {
+      expect(document.getElementById(id)).toHaveClass('y2p-dashboard__section');
+    }
+    expect(document.getElementById('s-liberdade')).toHaveClass('fx-metal-card');
+  });
+
+  it('LF-05: o acesso direto a #s-liberdade rola até a seção depois da carga', async () => {
+    window.history.pushState(null, '', '/dashboard#s-liberdade');
+    render(<PainelGastos />);
+    expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    expect(document.getElementById('s-liberdade')).not.toBeNull();
+    await flushFrames();
+    expect(scrollTo).toHaveBeenCalled();
   });
 });
 
 describe('PainelGastos', () => {
   beforeEach(() => {
+    fixClock();
     vi.stubGlobal('scrollTo', vi.fn());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
+
+  function stubExpenseMonths(months: string[]) {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const target = String(url);
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify(months.map((month) => ({ month, amountCents: 1000 }))), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+  }
 
   it('opens in two waves with one expenses call and switches month without reloading the house', async () => {
     const calls: { url: string; at: number }[] = [];
@@ -538,5 +697,155 @@ describe('PainelGastos', () => {
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-30' } });
     await user.click(screen.getByRole('button', { name: /Mostrar/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('Mostramos só os primeiros 36 meses deste período.');
+  });
+
+  it('D-06: a seta entra no mês vazio e no mês seguinte, com o texto que já existe', async () => {
+    const today = saoPauloMonth();
+    const older = shiftMonth(today, -2);
+    const gap = shiftMonth(today, -1);
+    const upcoming = shiftMonth(today, 1);
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const target = String(url);
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { month: older, amountCents: 1000 },
+          { month: today, amountCents: 5590 },
+        ]), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(gap)}` })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(today)}` })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByText(`${cap(mesNome(upcoming))} ainda não começou`)).toBeInTheDocument();
+    expect(screen.getByText('Mês ainda não começou')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('heading', { name: `Gastos de ${mesNome(older)}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+  });
+
+  it('D-06: o menu de mês lista só os meses com gasto, sem o vazio nem o seguinte', async () => {
+    stubExpenseMonths(['2026-08', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    const options = within(screen.getByRole('listbox', { name: 'Escolher mês' })).getAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringMatching(/^Outubro/),
+      expect.stringMatching(/^Agosto/),
+    ]);
+  });
+
+  function monthOptions() {
+    return within(screen.getByRole('listbox', { name: 'Escolher mês' }))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+  }
+
+  it('D-06: o menu de mês ignora mês inválido como 0000-05 e 2026-00', async () => {
+    stubExpenseMonths(['0000-05', '2026-00', '2026-08', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    expect(monthOptions()).toEqual([expect.stringMatching(/^Outubro/), expect.stringMatching(/^Agosto/)]);
+  });
+
+  it('D-06: depois de uma escrita, menu e setas seguem a lista nova de meses', async () => {
+    // Depois da escrita outubro some da lista, entra 2023-01 (além do limite) e um mês inválido.
+    let monthList = ['2026-09', '2026-10'];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const target = String(url);
+      if (init?.method === 'PATCH') {
+        monthList = ['2023-01', '2026-00', '2026-09'];
+        return Promise.resolve(new Response(JSON.stringify({ ...expense, category: 'groceries' }), { status: 200 }));
+      }
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify(monthList.map((month) => ({ month, amountCents: 1000 }))), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    expect(monthOptions()).toEqual([expect.stringMatching(/^Outubro/), expect.stringMatching(/^Setembro/)]);
+    await user.keyboard('{Escape}');
+
+    await user.selectOptions(screen.getByLabelText('Categoria de Netflix'), 'groceries');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    // O mês aberto continua no menu mesmo sem gasto; o inválido fica de fora.
+    await waitFor(() => expect(monthOptions()).toHaveLength(3));
+    expect(monthOptions()).toEqual([
+      expect.stringMatching(/^Outubro/),
+      expect.stringMatching(/^Setembro/),
+      expect.stringMatching(/^Janeiro/),
+    ]);
+    await user.click(within(screen.getByRole('listbox', { name: 'Escolher mês' })).getByRole('option', { name: /^Janeiro/ }));
+    expect(await screen.findByRole('button', { name: /janeiro 2023/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /outubro 2023/i })).toBeInTheDocument();
+  });
+
+  it('D-06: um gasto depois do mês seguinte é alcançável pela seta', async () => {
+    stubExpenseMonths(['2026-10', '2027-01']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    const next = screen.getByRole('button', { name: 'Próximo mês' });
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de novembro' })).toBeTruthy();
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de dezembro' })).toBeTruthy();
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'Gastos de janeiro' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+  });
+
+  it('D-06: com a página aberta na virada do mês, a seta "próximo" passa a ir até o novo mês seguinte', async () => {
+    vi.setSystemTime(new Date('2026-10-31T15:00:00Z'));
+    const intervals = vi.spyOn(globalThis, 'setInterval');
+    stubExpenseMonths(['2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /novembro 2026/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+
+    const tick = intervals.mock.calls.find((call) => call[1] === 60_000)?.[0];
+    intervals.mockRestore();
+    expect(tick).toBeTypeOf('function');
+    vi.setSystemTime(new Date('2026-11-01T15:00:00Z'));
+    act(() => (tick as () => void)());
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /dezembro 2026/i })).toBeInTheDocument();
+  });
+
+  it('D-06: um gasto além do limite de 36 meses é alcançável pela seta, na ida e na volta', async () => {
+    stubExpenseMonths(['2023-09', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    await user.click(within(screen.getByRole('listbox', { name: 'Escolher mês' })).getByRole('option', { name: /^Setembro/ }));
+    expect(await screen.findByRole('button', { name: /setembro 2023/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /outubro 2023/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }));
+    expect(await screen.findByRole('button', { name: /setembro 2023/i })).toBeInTheDocument();
   });
 });

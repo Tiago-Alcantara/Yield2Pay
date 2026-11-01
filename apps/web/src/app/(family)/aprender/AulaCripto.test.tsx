@@ -5,7 +5,7 @@
  * Intuito: A trilha mostra as aulas, o teste e o estado de cada uma.
  * Sequência: mostra o vídeo e a leitura da aula, e troca quando muda de aula; abre a aula pedida na URL, não a última salva no navegador; avisa quais aulas faltam e não libera o investimento; mostra a trilha mesmo sem família criada.
  */
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AulaCripto from './AulaCripto';
 import { PLAYBACK_KEY } from './player';
@@ -50,7 +50,7 @@ function json(body: unknown, status = 200) {
 describe('trilha de aulas', () => {
   beforeEach(() => {
     nav.aula = '1';
-    nav.replace.mockClear();
+    nav.replace.mockReset();
     window.localStorage.clear();
     vi.stubGlobal(
       'fetch',
@@ -147,6 +147,49 @@ describe('trilha de aulas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Concluir trilha' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Ainda faltam as aulas 1, 2 e 3');
     expect(screen.queryByText(/está liberado/)).not.toBeInTheDocument();
+  });
+
+  it('A-06: o clique do chip e o Próxima gravam ?aula e a reabertura volta na mesma', async () => {
+    nav.aula = '4';
+    nav.replace.mockImplementation((url: string) => {
+      nav.aula = new URL(url, 'http://localhost').searchParams.get('aula') ?? nav.aula;
+    });
+    const view = render(<AulaCripto />);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Chaves, endereço e frase de recuperação' })).toBeInTheDocument();
+    expect(screen.getByText(/^Aula 4 de \d+$/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /O que é criptomoeda/ }));
+    expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=1', { scroll: false });
+    expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
+    expect(screen.getByText(/^Aula 1 de \d+$/)).toBeInTheDocument();
+    view.unmount();
+    nav.replace.mockClear();
+    render(<AulaCripto />);
+    expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
+    expect(screen.getByText(/^Aula 1 de \d+$/)).toBeInTheDocument();
+  });
+
+  it('A-07: Aula anterior volta uma aula e atualiza ?aula', async () => {
+    nav.aula = '2';
+    render(<AulaCripto />);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Blockchain: o caderno que ninguém apaga' })).toBeInTheDocument();
+    expect(screen.getByText(/^Aula 2 de \d+$/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Aula anterior' }));
+    expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=1', { scroll: false });
+    expect(await screen.findByRole('heading', { level: 2, name: 'O que é criptomoeda?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Aula anterior' })).toBeDisabled();
+  });
+
+  it('A-07: Próxima aula grava a aula seguinte na query depois do teste', async () => {
+    render(<AulaCripto />);
+    expect(await screen.findByText('O que liga um bloco?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /O hash/ }));
+    expect(await screen.findByText(/Acertou/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Próxima aula' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Blockchain: o caderno que ninguém apaga' })).toBeInTheDocument();
+    // A troca vem depois do await do salvamento, fora do act: o efeito que grava
+    // ?aula pode rodar um tick depois do commit que já mostra o título.
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/aprender?aula=2', { scroll: false }));
+    expect(screen.getByText(/^Aula 2 de \d+$/)).toBeInTheDocument();
   });
 
   it('mostra a trilha mesmo sem família criada', async () => {
