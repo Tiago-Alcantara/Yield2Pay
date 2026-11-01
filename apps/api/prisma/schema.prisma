@@ -23,6 +23,8 @@ model Company {
   id          String   @id @default(cuid())
   privyUserId String   @unique @map("privy_user_id")
   createdAt   DateTime @default(now()) @map("created_at")
+  /// Quantos grupos alheios a pessoa pode ter. Nulo vale DEFAULT_GUEST_LIMIT (1).
+  guestGroupLimit Int? @map("guest_group_limit")
 
   wallet            Wallet?
   deposits          Deposit[]
@@ -31,8 +33,8 @@ model Company {
   etherfuseCustomer EtherfuseCustomer?
   rampOrders        RampOrder[]
   personName         PersonName?
-  ownedHousehold     Household?  @relation("HouseholdOwner")
-  householdMembership HouseholdMember?
+  ownedHouseholds    Household[] @relation("HouseholdOwner")
+  householdMemberships HouseholdMember[]
   lessonProgress     LessonProgress[]
 
   @@map("companies")
@@ -139,14 +141,20 @@ model PersonName {
   @@map("person_names")
 }
 
+// Cada pessoa é dona de no máximo um grupo individual (personal = true).
+// A regra vive no índice único PARCIAL "households_owner_company_id_personal_key"
+// (owner_company_id) WHERE personal, criado na migration
+// 20261101120000_household_multi_group. O Prisma não expressa índice parcial,
+// então ele não aparece aqui.
 model Household {
   id                   String   @id @default(cuid())
   name                 String
-  ownerCompanyId       String   @unique @map("owner_company_id")
+  ownerCompanyId       String   @map("owner_company_id")
+  personal             Boolean  @default(false)
   householdSize        String?  @map("household_size")
   monthlyIncomeCents   Int?     @map("monthly_income_cents")
   reserveCents         Int?     @map("reserve_cents")
-  priorities           String[]
+  priorities           String[] @default([])
   goalMonths           Int?     @map("goal_months")
   cryptoExperience     String?  @map("crypto_experience")
   onboardingCompleted  Boolean  @default(false) @map("onboarding_completed")
@@ -164,14 +172,18 @@ model Household {
   @@map("households")
 }
 
+// A pessoa pode estar em vários grupos. role só aceita 'owner' ou 'member'
+// (CHECK household_members_role_check, só no SQL da migration
+// 20261101120000_household_multi_group).
 model HouseholdMember {
   id          String @id @default(cuid())
   householdId String @map("household_id")
-  companyId   String @unique @map("company_id")
+  companyId   String @map("company_id")
   role        String
   household   Household @relation(fields: [householdId], references: [id])
   company     Company   @relation(fields: [companyId], references: [id])
   @@unique([householdId, companyId])
+  @@index([companyId])
   @@map("household_members")
 }
 
