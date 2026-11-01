@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { ActiveMembership } from '../auth/authenticated-request';
 import { classifyMerchant } from '../expenses/classify';
 import {
   GROUP_SELECT,
@@ -9,7 +10,6 @@ import {
   planExpenseWrite,
   writeExpensePlan,
 } from '../expenses/fixed-flags';
-import { HouseholdService } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseCsv } from './parse-csv';
 import { decodeOfx, parseOfx } from './parse-ofx';
@@ -26,12 +26,13 @@ const MAX_STATEMENT_BYTES = 5 * 1024 * 1024;
 
 @Injectable()
 export class StatementsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly household: HouseholdService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async importFile(companyId: string, filename: string, bytes: Buffer) {
+  async importFile(
+    membership: ActiveMembership,
+    filename: string,
+    bytes: Buffer,
+  ) {
     if (bytes.length === 0) {
       throw new StatementFormatError();
     }
@@ -39,7 +40,7 @@ export class StatementsService {
       throw new StatementTooLargeError();
     }
 
-    const { householdId } = await this.household.requireMembership(companyId);
+    const { householdId, companyId } = membership;
     const contentHash = createHash('sha256').update(bytes).digest('hex');
     const duplicate = await this.prisma.statement.findFirst({
       where: { householdId, contentHash },
@@ -146,8 +147,8 @@ export class StatementsService {
     }
   }
 
-  async remove(companyId: string, statementId: string) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async remove(membership: ActiveMembership, statementId: string) {
+    const { householdId } = membership;
     const statement = await this.prisma.statement.findFirst({
       where: { id: statementId, householdId },
       select: { id: true },
@@ -174,8 +175,8 @@ export class StatementsService {
     });
   }
 
-  async list(companyId: string) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async list(membership: ActiveMembership) {
+    const { householdId } = membership;
     const rows = await this.prisma.statement.findMany({
       where: { householdId },
       orderBy: { importedAt: 'desc' },

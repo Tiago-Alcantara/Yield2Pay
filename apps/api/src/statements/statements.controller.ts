@@ -15,7 +15,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '../auth/auth.guard';
-import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import type { HouseholdMemberRequest } from '../auth/authenticated-request';
+import { HouseholdMemberGuard } from '../household/household-member.guard';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import {
   StatementDuplicateError,
@@ -26,14 +27,14 @@ import {
 import { StatementsService } from './statements.service';
 
 @Controller('statements')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, HouseholdMemberGuard)
 export class StatementsController {
   constructor(private readonly statementsService: StatementsService) {}
 
   @Post()
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async importFile(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @UploadedFile() file?: { originalname: string; buffer: Buffer },
   ) {
     if (!file) {
@@ -41,7 +42,7 @@ export class StatementsController {
     }
     try {
       return await this.statementsService.importFile(
-        req.companyId,
+        req.membership,
         file.originalname,
         file.buffer,
       );
@@ -63,9 +64,9 @@ export class StatementsController {
   }
 
   @Get()
-  async list(@Req() req: AuthenticatedRequest) {
+  async list(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.statementsService.list(req.companyId);
+      return await this.statementsService.list(req.membership);
     } catch (error) {
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
@@ -76,9 +77,9 @@ export class StatementsController {
 
   @Delete(':id')
   @HttpCode(204)
-  async remove(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async remove(@Req() req: HouseholdMemberRequest, @Param('id') id: string) {
     try {
-      await this.statementsService.remove(req.companyId, id);
+      await this.statementsService.remove(req.membership, id);
     } catch (error) {
       if (error instanceof StatementNotFoundError || error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();

@@ -15,20 +15,21 @@ import {
 } from '@nestjs/common';
 import type { ExpenseCategory } from '@yield2pay/shared';
 import { AuthGuard } from '../auth/auth.guard';
-import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import type { HouseholdMemberRequest } from '../auth/authenticated-request';
+import { HouseholdMemberGuard } from '../household/household-member.guard';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
 import { parseExpensePage } from './page-query';
 
 @Controller('expenses')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, HouseholdMemberGuard)
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
   async create(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body()
     dto: {
       merchant?: string;
@@ -38,7 +39,7 @@ export class ExpensesController {
     },
   ) {
     try {
-      return await this.expensesService.create(req.companyId, dto);
+      return await this.expensesService.create(req.membership, dto);
     } catch (error) {
       if (error instanceof ExpenseInvalidError) {
         throw new BadRequestException();
@@ -49,7 +50,7 @@ export class ExpensesController {
 
   @Get()
   async list(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Query('month') month: string,
     @Query('category') category?: ExpenseCategory,
     @Query('limit') limit?: string | string[],
@@ -60,7 +61,7 @@ export class ExpensesController {
   ) {
     try {
       return await this.expensesService.list(
-        req.companyId,
+        req.membership,
         month,
         category,
         parseExpensePage({ limit, offset, cursor }),
@@ -75,9 +76,9 @@ export class ExpensesController {
   }
 
   @Get('months')
-  async months(@Req() req: AuthenticatedRequest) {
+  async months(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.expensesService.months(req.companyId);
+      return await this.expensesService.months(req.membership);
     } catch (error) {
       this.rethrow(error);
     }
@@ -85,12 +86,12 @@ export class ExpensesController {
 
   @Patch(':id')
   async patch(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Param('id') id: string,
     @Body() dto: { category?: ExpenseCategory; fixed?: boolean },
   ) {
     try {
-      return await this.expensesService.patch(req.companyId, id, dto);
+      return await this.expensesService.patch(req.membership, id, dto);
     } catch (error) {
       this.rethrow(error);
     }
@@ -98,9 +99,9 @@ export class ExpensesController {
 
   @Delete(':id')
   @HttpCode(204)
-  async remove(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async remove(@Req() req: HouseholdMemberRequest, @Param('id') id: string) {
     try {
-      await this.expensesService.remove(req.companyId, id);
+      await this.expensesService.remove(req.membership, id);
     } catch (error) {
       this.rethrow(error);
     }

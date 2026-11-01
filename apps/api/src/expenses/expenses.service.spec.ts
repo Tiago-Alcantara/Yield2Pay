@@ -5,20 +5,23 @@
  * Intuito: Gastos do grupo são listados, criados, reclassificados e apagados sem misturar casas.
  * Sequência: lists the group and attaches the adder name; rejects a month that is not YYYY-MM; pages the month with limit and offset; rejects a limit outside 1 to 200; reads distinct months from the database; deletes an expense that belongs to the group; does not delete an expense outside the group; creates a manual expense for the group; rejects an expense dated after today; lists a custom date range; rejects an expense without amount; does not patch an expense outside the group.
  */
+import type { ActiveMembership } from '../auth/authenticated-request';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
 import { clearLegacyKeyCache } from './fixed-flags';
 
-const households = {
-  requireMembership: vi
-    .fn()
-    .mockResolvedValue({ householdId: 'h1', role: 'member' }),
-};
+// Grupo ativo que o HouseholdMemberGuard entregaria ao controller.
+let activeHouseholdId = 'h1';
 function membership(_prisma: unknown, householdId: string) {
-  households.requireMembership.mockResolvedValue({
-    householdId,
+  activeHouseholdId = householdId;
+}
+function memberOf(companyId: string): ActiveMembership {
+  return {
+    householdId: activeHouseholdId,
+    companyId,
     role: 'member',
-  });
+    personal: false,
+  };
 }
 function fakePrisma() {
   const prisma = {
@@ -62,8 +65,8 @@ describe('ExpensesService', () => {
     prisma.personName.findMany.mockResolvedValue([
       { companyId: 'co_bia', displayName: 'Bia', fullName: 'Bia Souza' },
     ]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const page = await svc.list('co_ana', '2026-10');
+    const svc = new ExpensesService(prisma as never);
+    const page = await svc.list(memberOf('co_ana'), '2026-10');
     expect(prisma.expense.updateMany).not.toHaveBeenCalled();
     expect(page.total).toBe(1);
     expect(page.items[0].addedBy).toEqual({
@@ -77,8 +80,8 @@ describe('ExpensesService', () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     prisma.expense.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    await expect(svc.list('co_ana', '2026-13')).rejects.toThrow(
+    const svc = new ExpensesService(prisma as never);
+    await expect(svc.list(memberOf('co_ana'), '2026-13')).rejects.toThrow(
       'month is invalid',
     );
   });
@@ -89,8 +92,8 @@ describe('ExpensesService', () => {
     prisma.expense.count.mockResolvedValue(120);
     prisma.expense.findMany.mockResolvedValue([]);
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const page = await svc.list('co_ana', '2026-10', undefined, {
+    const svc = new ExpensesService(prisma as never);
+    const page = await svc.list(memberOf('co_ana'), '2026-10', undefined, {
       limit: 50,
       offset: 100,
     });
@@ -103,12 +106,18 @@ describe('ExpensesService', () => {
   it('rejects a limit outside 1 to 5000', async () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
-    const svc = new ExpensesService(prisma as never, households as never);
+    const svc = new ExpensesService(prisma as never);
     await expect(
-      svc.list('co_ana', '2026-10', undefined, { limit: 0, offset: 0 }),
+      svc.list(memberOf('co_ana'), '2026-10', undefined, {
+        limit: 0,
+        offset: 0,
+      }),
     ).rejects.toThrow('limit is invalid');
     await expect(
-      svc.list('co_ana', '2026-10', undefined, { limit: 5001, offset: 0 }),
+      svc.list(memberOf('co_ana'), '2026-10', undefined, {
+        limit: 5001,
+        offset: 0,
+      }),
     ).rejects.toThrow('limit is invalid');
   });
 
@@ -120,8 +129,8 @@ describe('ExpensesService', () => {
       { month: '2026-10', amountCents: 15000 },
       { month: '2026-09', amountCents: 4000 },
     ]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const months = await svc.months('co_ana');
+    const svc = new ExpensesService(prisma as never);
+    const months = await svc.months(memberOf('co_ana'));
     expect(prisma.expense.findMany).not.toHaveBeenCalled();
     expect(months).toEqual([
       { month: '2026-10', amountCents: 15000 },
@@ -133,8 +142,8 @@ describe('ExpensesService', () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     prisma.expense.findFirst.mockResolvedValue({ id: 'e1' });
-    const svc = new ExpensesService(prisma as never, households as never);
-    await svc.remove('co_ana', 'e1');
+    const svc = new ExpensesService(prisma as never);
+    await svc.remove(memberOf('co_ana'), 'e1');
     expect(prisma.expense.delete).toHaveBeenCalledWith({ where: { id: 'e1' } });
   });
 
@@ -142,10 +151,10 @@ describe('ExpensesService', () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     prisma.expense.findFirst.mockResolvedValue(null);
-    const svc = new ExpensesService(prisma as never, households as never);
-    await expect(svc.remove('co_ana', 'e_other')).rejects.toBeInstanceOf(
-      ExpenseNotFoundError,
-    );
+    const svc = new ExpensesService(prisma as never);
+    await expect(
+      svc.remove(memberOf('co_ana'), 'e_other'),
+    ).rejects.toBeInstanceOf(ExpenseNotFoundError);
   });
 
   it('creates a manual expense for the group', async () => {
@@ -161,8 +170,8 @@ describe('ExpensesService', () => {
       addedByCompanyId: 'co_ana',
     });
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const row = await svc.create('co_ana', {
+    const svc = new ExpensesService(prisma as never);
+    const row = await svc.create(memberOf('co_ana'), {
       merchant: 'Padaria',
       amountCents: 18740,
       spentOn: '2026-10-12',
@@ -202,8 +211,8 @@ describe('ExpensesService', () => {
       addedByCompanyId: 'co_ana',
     });
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const row = await svc.create('co_ana', {
+    const svc = new ExpensesService(prisma as never);
+    const row = await svc.create(memberOf('co_ana'), {
       merchant: 'Aluguel',
       amountCents: 250000,
       spentOn: '2026-10-05',
@@ -234,9 +243,9 @@ describe('ExpensesService', () => {
   it('rejects an expense dated after today', async () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
-    const svc = new ExpensesService(prisma as never, households as never);
+    const svc = new ExpensesService(prisma as never);
     await expect(
-      svc.create('co_ana', {
+      svc.create(memberOf('co_ana'), {
         merchant: 'Padaria',
         amountCents: 1000,
         spentOn: '2099-01-01',
@@ -251,8 +260,8 @@ describe('ExpensesService', () => {
     membership(prisma, 'h1');
     prisma.expense.findMany.mockResolvedValue([]);
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    await svc.list('co_ana', '', undefined, undefined, {
+    const svc = new ExpensesService(prisma as never);
+    await svc.list(memberOf('co_ana'), '', undefined, undefined, {
       from: '2026-08-01',
       to: '2026-11-30',
     });
@@ -271,9 +280,9 @@ describe('ExpensesService', () => {
   it('rejects an expense without amount', async () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
-    const svc = new ExpensesService(prisma as never, households as never);
+    const svc = new ExpensesService(prisma as never);
     await expect(
-      svc.create('co_ana', {
+      svc.create(memberOf('co_ana'), {
         merchant: 'Padaria',
         amountCents: 0,
         spentOn: '2026-10-12',
@@ -286,9 +295,9 @@ describe('ExpensesService', () => {
     const prisma = fakePrisma();
     membership(prisma, 'h1');
     prisma.expense.findFirst.mockResolvedValue(null);
-    const svc = new ExpensesService(prisma as never, households as never);
+    const svc = new ExpensesService(prisma as never);
     await expect(
-      svc.patch('co_ana', 'e_other', { fixed: true }),
+      svc.patch(memberOf('co_ana'), 'e_other', { fixed: true }),
     ).rejects.toBeInstanceOf(ExpenseNotFoundError);
   });
 
@@ -306,10 +315,10 @@ describe('ExpensesService', () => {
       addedByCompanyId: 'co_ana',
     });
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
+    const svc = new ExpensesService(prisma as never);
     await Promise.all(
       Array.from({ length: 10 }, () =>
-        svc.create('co_ana', {
+        svc.create(memberOf('co_ana'), {
           merchant: 'Padaria',
           amountCents: 1000,
           spentOn: '2026-10-12',
@@ -349,8 +358,8 @@ describe('ExpensesService', () => {
       rent,
       { ...rent, id: 'rent2', spentOn: new Date('2026-10-05T00:00:00.000Z') },
     ]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    await svc.remove('co_ana', 'rent2');
+    const svc = new ExpensesService(prisma as never);
+    await svc.remove(memberOf('co_ana'), 'rent2');
     expect(prisma.expense.delete).toHaveBeenCalledWith({
       where: { id: 'rent2' },
     });
@@ -379,8 +388,10 @@ describe('ExpensesService', () => {
     prisma.expense.findMany.mockResolvedValue([rent]);
     prisma.expense.update.mockResolvedValue({ ...rent, category: 'shopping' });
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const row = await svc.patch('co_ana', 'rent', { category: 'shopping' });
+    const svc = new ExpensesService(prisma as never);
+    const row = await svc.patch(memberOf('co_ana'), 'rent', {
+      category: 'shopping',
+    });
     expect(row.fixed).toBe(true);
     expect(prisma.expense.updateMany).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: { fixed: false } }),
@@ -426,8 +437,8 @@ describe('ExpensesService', () => {
       },
     );
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    const page = await svc.list('co_ana', '2026-10');
+    const svc = new ExpensesService(prisma as never);
+    const page = await svc.list(memberOf('co_ana'), '2026-10');
     expect(page.items[0]?.fixed).toBe(true);
     expect(prisma.expense.updateMany).not.toHaveBeenCalled();
   });
@@ -438,8 +449,8 @@ describe('ExpensesService', () => {
     prisma.expense.count.mockResolvedValue(2);
     prisma.expense.findMany.mockResolvedValue([]);
     prisma.personName.findMany.mockResolvedValue([]);
-    const svc = new ExpensesService(prisma as never, households as never);
-    await svc.list('co_ana', '2026-10', undefined, {
+    const svc = new ExpensesService(prisma as never);
+    await svc.list(memberOf('co_ana'), '2026-10', undefined, {
       limit: 1,
       offset: 0,
       cursor: '2026-10-12|e9',

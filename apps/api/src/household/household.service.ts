@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   accountInitials,
   cryptoExperienceFor,
   isMature,
   onboardingLevel,
+  type AccountHouseholdView,
   type AccountView,
+  type ActiveHouseholdView,
   type CompleteOnboarding,
   type CryptoAction,
   type CryptoFamiliarity,
@@ -17,7 +20,13 @@ import {
   type PatchHouseholdProfile,
   type UpsertHouseholdProfile,
 } from '@yield2pay/shared';
+import type { ActiveMembership } from '../auth/authenticated-request';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  ensurePersonalHousehold,
+  lockPersonalHousehold,
+  resolveActiveHousehold,
+} from './active-household';
 import {
   HouseholdConflictError,
   HouseholdForbiddenError,
@@ -63,42 +72,57 @@ export function readDisplayNamePatch(body: unknown): string {
 export class HouseholdService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Cria o grupo individual da pessoa. Só recusa quem já tem um: o membro
+   * antigo que ainda não ganhou o individual pode criar o seu por aqui.
+   */
   async create(companyId: string, name: string) {
-    const existing = await this.prisma.householdMember.findUnique({
-      where: { companyId },
-    });
-    if (existing) {
-      throw new HouseholdConflictError();
+    try {
+      const household = await this.prisma.$transaction(async (tx) => {
+        await lockPersonalHousehold(tx, companyId);
+        const personalHousehold = await tx.household.findFirst({
+          where: { ownerCompanyId: companyId, personal: true },
+          select: { id: true },
+        });
+        if (personalHousehold) {
+          throw new HouseholdConflictError();
+        }
+        const created = await tx.household.create({
+          data: { name, ownerCompanyId: companyId, personal: true },
+        });
+        await tx.householdMember.create({
+          data: { householdId: created.id, companyId, role: 'owner' },
+        });
+        return created;
+      });
+      return {
+        id: household.id,
+        name: household.name,
+        role: 'owner' as const,
+        personal: true,
+      };
+    } catch (error) {
+      // O índice parcial recusou um segundo individual criado fora do lock.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new HouseholdConflictError();
+      }
+      throw error;
     }
-
-    const household = await this.prisma.household.create({
-      data: { name, ownerCompanyId: companyId },
-    });
-
-    await this.prisma.householdMember.create({
-      data: {
-        householdId: household.id,
-        companyId,
-        role: 'owner',
-      },
-    });
-
-    return { id: household.id, name: household.name, role: 'owner' as const };
   }
 
-  async requireMembership(companyId: string) {
-    const member = await this.prisma.householdMember.findUnique({
-      where: { companyId },
-    });
-    if (!member) {
-      throw new HouseholdNotFoundError();
-    }
-    return { householdId: member.householdId, role: member.role };
-  }
-
+  /**
+   * Conta da pessoa: todos os grupos (households) e o grupo ativo.
+   * requestedHouseholdId é o header X-Household-Id; sem ele vale o padrão
+   * (a única membership ou o grupo individual). activeHousehold só é nulo
+   * para quem ainda não tem grupo nenhum.
+   */
   async getAccount(
     companyId: string,
     email?: string | null,
+    requestedHouseholdId?: string,
   ): Promise<AccountView> {
     if (email?.trim()) {
       await this.prisma.personName.upsert({
@@ -112,39 +136,72 @@ export class HouseholdService {
     });
     const displayName = person?.displayName ?? null;
     const fullName = person?.fullName ?? null;
-    const member = await this.prisma.householdMember.findUnique({
+
+    await ensurePersonalHousehold(this.prisma, companyId);
+    const memberships = await this.prisma.householdMember.findMany({
       where: { companyId },
+      orderBy: { household: { name: 'asc' } },
+      select: {
+        role: true,
+        household: {
+          select: {
+            id: true,
+            name: true,
+            ownerCompanyId: true,
+            personal: true,
+            onboardingCompleted: true,
+          },
+        },
+      },
     });
-    if (!member) {
-      return {
-        displayName,
-        fullName,
-        email: person?.email ?? null,
-        initials: initialsOf(fullName, displayName),
-        accountType: 'family',
-        household: null,
+    const households: AccountHouseholdView[] = memberships.map(
+      (membership) => ({
+        id: membership.household.id,
+        name: membership.household.name,
+        role: membership.role as HouseholdRole,
+        personal:
+          membership.household.personal &&
+          membership.household.ownerCompanyId === companyId,
+      }),
+    );
+    // O grupo individual vem primeiro; os outros seguem pelo nome.
+    households.sort(
+      (left, right) => Number(right.personal) - Number(left.personal),
+    );
+
+    let activeHousehold: ActiveHouseholdView | null = null;
+    if (memberships.length > 0 || requestedHouseholdId !== undefined) {
+      const active = await resolveActiveHousehold(
+        this.prisma,
+        companyId,
+        requestedHouseholdId,
+      );
+      const activeMembership = memberships.find(
+        (membership) => membership.household.id === active.householdId,
+      );
+      activeHousehold = {
+        id: active.householdId,
+        name: activeMembership?.household.name ?? '',
+        role: active.role,
+        personal: active.personal,
+        onboardingCompleted:
+          activeMembership?.household.onboardingCompleted ?? false,
       };
     }
-    const household = await this.prisma.household.findUnique({
-      where: { id: member.householdId },
-    });
+
     return {
       displayName,
       fullName,
       email: person?.email ?? null,
       initials: initialsOf(fullName, displayName),
       accountType: 'family',
-      household: {
-        id: member.householdId,
-        name: household?.name ?? '',
-        role: member.role as HouseholdRole,
-        onboardingCompleted: household?.onboardingCompleted ?? false,
-      },
+      households,
+      activeHousehold,
     };
   }
 
-  async getProfile(companyId: string): Promise<HouseholdProfile> {
-    const { householdId } = await this.requireMembership(companyId);
+  async getProfile(membership: ActiveMembership): Promise<HouseholdProfile> {
+    const { householdId } = membership;
     const household = await this.prisma.household.findUnique({
       where: { id: householdId },
     });
@@ -171,22 +228,21 @@ export class HouseholdService {
     };
   }
 
-  async putProfile(companyId: string, body: UpsertHouseholdProfile) {
+  async putProfile(membership: ActiveMembership, body: UpsertHouseholdProfile) {
     const data = readProfile(body, true);
-    const { householdId } = await this.requireMembership(companyId);
     await this.prisma.household.update({
-      where: { id: householdId },
+      where: { id: membership.householdId },
       data: { ...data, onboardingCompleted: true },
     });
   }
 
   async completeOnboarding(
-    companyId: string,
+    membership: ActiveMembership,
     email: string | null | undefined,
     body: CompleteOnboarding,
   ): Promise<AccountView> {
     const parsed = readComplete(body);
-    const { householdId } = await this.requireMembership(companyId);
+    const { householdId, companyId } = membership;
     const displayName = parsed.displayName || firstWord(parsed.fullName);
     if (displayName) {
       await this.prisma.personName.upsert({
@@ -225,31 +281,32 @@ export class HouseholdService {
         onboardingCompleted: true,
       },
     });
-    return this.getAccount(companyId, email);
+    return this.getAccount(companyId, email, householdId);
   }
 
-  async patchProfile(companyId: string, body: PatchHouseholdProfile) {
+  async patchProfile(
+    membership: ActiveMembership,
+    body: PatchHouseholdProfile,
+  ) {
     const data = { ...readProfile(body, false), ...readFlags(body) };
     if (Object.keys(data).length === 0) {
       return;
     }
-    const { householdId } = await this.requireMembership(companyId);
     await this.prisma.household.update({
-      where: { id: householdId },
+      where: { id: membership.householdId },
       data,
     });
   }
 
-  async skip(companyId: string) {
-    const { householdId } = await this.requireMembership(companyId);
+  async skip(membership: ActiveMembership) {
     await this.prisma.household.update({
-      where: { id: householdId },
+      where: { id: membership.householdId },
       data: { onboardingCompleted: true },
     });
   }
 
-  async getCurrent(companyId: string) {
-    const { householdId, role } = await this.requireMembership(companyId);
+  async getCurrent(membership: ActiveMembership) {
+    const { householdId, role, personal } = membership;
     const household = await this.prisma.household.findUnique({
       where: { id: householdId },
     });
@@ -267,13 +324,14 @@ export class HouseholdService {
       id: household.id,
       name: household.name,
       role,
+      personal,
       onboardingCompleted: household.onboardingCompleted,
       pendingInvites,
     };
   }
 
-  async invite(companyId: string, email: string) {
-    const { householdId, role } = await this.requireMembership(companyId);
+  async invite(membership: ActiveMembership, email: string) {
+    const { householdId, role } = membership;
     if (role !== 'owner') {
       throw new HouseholdForbiddenError();
     }
@@ -285,8 +343,11 @@ export class HouseholdService {
       where: { email: normalized },
     });
     if (person) {
-      const existingMember = await this.prisma.householdMember.findUnique({
+      // Convite antigo: quem já está em algum grupo não é convidado.
+      // O convite v2 (F3) troca esta regra pelos limites de grupos.
+      const existingMember = await this.prisma.householdMember.findFirst({
         where: { companyId: person.companyId },
+        select: { id: true },
       });
       if (existingMember) {
         throw new HouseholdConflictError();
@@ -321,8 +382,11 @@ export class HouseholdService {
     ) {
       throw new HouseholdConflictError();
     }
-    const existing = await this.prisma.householdMember.findUnique({
+    // Aceite antigo: só quem ainda não está em grupo nenhum. O convite v2 (F3)
+    // troca esta regra pelos limites de grupos.
+    const existing = await this.prisma.householdMember.findFirst({
       where: { companyId },
+      select: { id: true },
     });
     if (existing) {
       throw new HouseholdConflictError();
@@ -340,8 +404,8 @@ export class HouseholdService {
     });
   }
 
-  async revokeInvite(companyId: string, inviteId: string) {
-    const { householdId, role } = await this.requireMembership(companyId);
+  async revokeInvite(membership: ActiveMembership, inviteId: string) {
+    const { householdId, role } = membership;
     if (role !== 'owner') {
       throw new HouseholdForbiddenError();
     }
@@ -365,6 +429,7 @@ export class HouseholdService {
     companyId: string,
     displayName: string,
     email?: string | null,
+    requestedHouseholdId?: string,
   ): Promise<AccountView> {
     const name = displayName.trim();
     if (!name) {
@@ -384,11 +449,11 @@ export class HouseholdService {
       },
       update: { displayName: name },
     });
-    return this.getAccount(companyId, email);
+    return this.getAccount(companyId, email, requestedHouseholdId);
   }
 
-  async renameHousehold(companyId: string, name: string) {
-    const { householdId, role } = await this.requireMembership(companyId);
+  async renameHousehold(membership: ActiveMembership, name: string) {
+    const { householdId, role } = membership;
     if (role !== 'owner') {
       throw new HouseholdForbiddenError();
     }
@@ -402,8 +467,10 @@ export class HouseholdService {
     });
   }
 
-  async listPeople(companyId: string): Promise<HouseholdPersonView[]> {
-    const { householdId } = await this.requireMembership(companyId);
+  async listPeople(
+    membership: ActiveMembership,
+  ): Promise<HouseholdPersonView[]> {
+    const { householdId, companyId } = membership;
     const members = await this.prisma.householdMember.findMany({
       where: { householdId },
     });
@@ -439,28 +506,28 @@ export class HouseholdService {
     return people;
   }
 
-  async removeMember(actorId: string, memberCompanyId: string) {
-    const { householdId, role } = await this.requireMembership(actorId);
+  async removeMember(membership: ActiveMembership, memberCompanyId: string) {
+    const { householdId, role, companyId: actorId } = membership;
     if (role !== 'owner' || memberCompanyId === actorId) {
       throw new HouseholdForbiddenError();
     }
     const target = await this.prisma.householdMember.findUnique({
-      where: { companyId: memberCompanyId },
+      where: {
+        householdId_companyId: { householdId, companyId: memberCompanyId },
+      },
     });
-    if (
-      !target ||
-      target.householdId !== householdId ||
-      target.role === 'owner'
-    ) {
+    if (!target || target.role === 'owner') {
       throw new HouseholdConflictError();
     }
     await this.prisma.householdMember.delete({
-      where: { companyId: memberCompanyId },
+      where: {
+        householdId_companyId: { householdId, companyId: memberCompanyId },
+      },
     });
   }
 
-  async leave(companyId: string) {
-    const { householdId, role } = await this.requireMembership(companyId);
+  async leave(membership: ActiveMembership) {
+    const { householdId, role, companyId } = membership;
     if (role === 'owner') {
       const others = await this.prisma.householdMember.count({
         where: { householdId, companyId: { not: companyId } },
@@ -474,11 +541,13 @@ export class HouseholdService {
         'O último admin não pode sair. O grupo ficaria sem ninguém.',
       );
     }
-    await this.prisma.householdMember.delete({ where: { companyId } });
+    await this.prisma.householdMember.delete({
+      where: { householdId_companyId: { householdId, companyId } },
+    });
   }
 
-  async clearMyData(companyId: string, mode: 'expenses' | 'all') {
-    const { householdId } = await this.requireMembership(companyId);
+  async clearMyData(membership: ActiveMembership, mode: 'expenses' | 'all') {
+    const { householdId, companyId } = membership;
     await this.prisma.expense.deleteMany({
       where: { householdId, addedByCompanyId: companyId },
     });

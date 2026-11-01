@@ -16,7 +16,12 @@ import {
 } from '@nestjs/common';
 import type { CompleteOnboarding, PatchHouseholdProfile, UpsertHouseholdProfile } from '@yield2pay/shared';
 import { AuthGuard } from '../auth/auth.guard';
-import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import type {
+  AuthenticatedRequest,
+  HouseholdMemberRequest,
+} from '../auth/authenticated-request';
+import { readRequestedHouseholdId } from './active-household';
+import { HouseholdMemberGuard } from './household-member.guard';
 import {
   HouseholdConflictError,
   HouseholdForbiddenError,
@@ -31,8 +36,16 @@ export class HouseholdController {
   constructor(private readonly householdService: HouseholdService) {}
 
   @Get('account')
-  getAccount(@Req() req: AuthenticatedRequest) {
-    return this.householdService.getAccount(req.companyId, req.email);
+  async getAccount(@Req() req: AuthenticatedRequest) {
+    try {
+      return await this.householdService.getAccount(
+        req.companyId,
+        req.email,
+        readRequestedHouseholdId(req.headers),
+      );
+    } catch (error) {
+      this.rethrow(error);
+    }
   }
 
   @Patch('account')
@@ -45,6 +58,7 @@ export class HouseholdController {
         req.companyId,
         readDisplayNamePatch(dto),
         req.email,
+        readRequestedHouseholdId(req.headers),
       );
     } catch (error) {
       this.rethrow(error);
@@ -52,13 +66,14 @@ export class HouseholdController {
   }
 
   @Post('account/data')
+  @UseGuards(HouseholdMemberGuard)
   async clearData(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: { mode?: 'expenses' | 'all' },
   ) {
     try {
       const mode = dto.mode === 'all' ? 'all' : 'expenses';
-      return await this.householdService.clearMyData(req.companyId, mode);
+      return await this.householdService.clearMyData(req.membership, mode);
     } catch (error) {
       this.rethrow(error);
     }
@@ -80,9 +95,10 @@ export class HouseholdController {
   }
 
   @Get('household/profile')
-  async getProfile(@Req() req: AuthenticatedRequest) {
+  @UseGuards(HouseholdMemberGuard)
+  async getProfile(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.householdService.getProfile(req.companyId);
+      return await this.householdService.getProfile(req.membership);
     } catch (error) {
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
@@ -92,12 +108,13 @@ export class HouseholdController {
   }
 
   @Put('household/profile')
+  @UseGuards(HouseholdMemberGuard)
   async putProfile(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: UpsertHouseholdProfile,
   ) {
     try {
-      return await this.householdService.putProfile(req.companyId, dto);
+      return await this.householdService.putProfile(req.membership, dto);
     } catch (error) {
       if (error instanceof HouseholdInvalidError) {
         throw new BadRequestException(error.message);
@@ -110,12 +127,17 @@ export class HouseholdController {
   }
 
   @Post('household/onboarding')
+  @UseGuards(HouseholdMemberGuard)
   async completeOnboarding(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: CompleteOnboarding,
   ) {
     try {
-      return await this.householdService.completeOnboarding(req.companyId, req.email, dto);
+      return await this.householdService.completeOnboarding(
+        req.membership,
+        req.email,
+        dto,
+      );
     } catch (error) {
       if (error instanceof HouseholdInvalidError) {
         throw new BadRequestException(error.message);
@@ -128,12 +150,13 @@ export class HouseholdController {
   }
 
   @Patch('household/profile')
+  @UseGuards(HouseholdMemberGuard)
   async patchProfile(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: PatchHouseholdProfile,
   ) {
     try {
-      return await this.householdService.patchProfile(req.companyId, dto);
+      return await this.householdService.patchProfile(req.membership, dto);
     } catch (error) {
       if (error instanceof HouseholdInvalidError) {
         throw new BadRequestException(error.message);
@@ -146,9 +169,10 @@ export class HouseholdController {
   }
 
   @Post('household/profile/skip')
-  async skip(@Req() req: AuthenticatedRequest) {
+  @UseGuards(HouseholdMemberGuard)
+  async skip(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.householdService.skip(req.companyId);
+      return await this.householdService.skip(req.membership);
     } catch (error) {
       if (error instanceof HouseholdNotFoundError) {
         throw new NotFoundException();
@@ -158,60 +182,72 @@ export class HouseholdController {
   }
 
   @Patch('households/current')
+  @UseGuards(HouseholdMemberGuard)
   async rename(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: { name?: string },
   ) {
     try {
-      return await this.householdService.renameHousehold(req.companyId, dto.name ?? '');
+      return await this.householdService.renameHousehold(
+        req.membership,
+        dto.name ?? '',
+      );
     } catch (error) {
       this.rethrow(error);
     }
   }
 
   @Get('households/current/people')
-  async people(@Req() req: AuthenticatedRequest) {
+  @UseGuards(HouseholdMemberGuard)
+  async people(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.householdService.listPeople(req.companyId);
+      return await this.householdService.listPeople(req.membership);
     } catch (error) {
       this.rethrow(error);
     }
   }
 
   @Post('households/current/leave')
-  async leave(@Req() req: AuthenticatedRequest) {
+  @UseGuards(HouseholdMemberGuard)
+  async leave(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.householdService.leave(req.companyId);
+      return await this.householdService.leave(req.membership);
     } catch (error) {
       this.rethrow(error);
     }
   }
 
   @Delete('households/current/members/:id')
-  async removeMember(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  @UseGuards(HouseholdMemberGuard)
+  async removeMember(
+    @Req() req: HouseholdMemberRequest,
+    @Param('id') id: string,
+  ) {
     try {
-      return await this.householdService.removeMember(req.companyId, id);
+      return await this.householdService.removeMember(req.membership, id);
     } catch (error) {
       this.rethrow(error);
     }
   }
 
   @Get('households/current')
-  async getCurrent(@Req() req: AuthenticatedRequest) {
+  @UseGuards(HouseholdMemberGuard)
+  async getCurrent(@Req() req: HouseholdMemberRequest) {
     try {
-      return await this.householdService.getCurrent(req.companyId);
+      return await this.householdService.getCurrent(req.membership);
     } catch (error) {
       this.rethrow(error);
     }
   }
 
   @Post('households/current/invites')
+  @UseGuards(HouseholdMemberGuard)
   async invite(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Body() dto: { email: string },
   ) {
     try {
-      return await this.householdService.invite(req.companyId, dto.email);
+      return await this.householdService.invite(req.membership, dto.email);
     } catch (error) {
       this.rethrow(error);
     }
@@ -234,12 +270,13 @@ export class HouseholdController {
   }
 
   @Post('households/invites/:id/revoke')
+  @UseGuards(HouseholdMemberGuard)
   async revokeInvite(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: HouseholdMemberRequest,
     @Param('id') id: string,
   ) {
     try {
-      return await this.householdService.revokeInvite(req.companyId, id);
+      return await this.householdService.revokeInvite(req.membership, id);
     } catch (error) {
       this.rethrow(error);
     }
