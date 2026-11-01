@@ -1,7 +1,7 @@
 /**
  * Módulo: family
  * Criado em: 2026-08-16
- * Última atualização: 2026-10-22
+ * Última atualização: 2026-10-31
  * Intuito: A entrada da família e o painel de gastos abrem com a casa e os gastos do mês.
  * Sequência: mostra a proposta em português por padrão; troca a página inteira para inglês pelo seletor de idioma; recalcula o percentual de liberdade ao marcar mais uma assinatura; reage ao cenário de rendimento escolhido; exige e-mail válido na lista de espera; apaga um gasto da lista; abre a trilha ao começar a primeira aula; mostra o painel de gastos e não chama a carteira; abre o modal de filtros; não mostra gasto zerado quando a API falha; abre o modal de extrato com as três formas de trazer gastos.
  */
@@ -92,10 +92,16 @@ describe('landing /family', () => {
   });
 });
 
+// Os gastos fixos caem no dia 12 do mês atual. Meio-dia de 15/10/2026 em
+// São Paulo deixa esse dia no passado e a virada do mês longe.
+const FIXED_NOW = new Date('2026-10-15T15:00:00Z');
+
 describe('painel /dashboard', () => {
-  const month = saoPauloMonth();
+  const month = saoPauloMonth(FIXED_NOW);
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FIXED_NOW);
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
@@ -161,6 +167,7 @@ describe('painel /dashboard', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 

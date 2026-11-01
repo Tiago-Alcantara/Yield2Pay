@@ -17,6 +17,15 @@ import { EMPTY_FILTERS, FilterBar } from './FilterBar';
 const FIXED_NOW = new Date('2026-10-15T15:00:00Z');
 
 describe('modal de filtros', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('abre dentro de um .fam-shell para herdar o tema claro', () => {
     const month = saoPauloMonth();
     render(
