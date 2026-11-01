@@ -82,7 +82,8 @@ function installFetch(profile: { showFamily: boolean } = { showFamily: true }) {
           email: 'marina@email.com',
           initials: 'MA',
           accountType: 'family',
-          household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+          households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
+          activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
         });
       }
       if (url.includes('/household/profile')) {

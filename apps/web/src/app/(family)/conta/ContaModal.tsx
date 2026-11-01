@@ -119,7 +119,7 @@ export function ContaModal({
       try {
         const accountView = await client.getAccount();
         if (cancelled) return;
-        if (!accountView.household) {
+        if (!accountView.activeHousehold) {
           onCloseRef.current();
           return;
         }
@@ -132,7 +132,7 @@ export function ContaModal({
         setProfile(profileView);
         setPeople(peopleView);
         setNameDraft(accountView.displayName?.trim() || accountView.fullName?.trim() || '');
-        setGroupDraft(accountView.household.name);
+        setGroupDraft(accountView.activeHousehold.name);
         setLiberdade(profileView.showFreedom !== false);
         setPhase('ready');
       } catch {
@@ -152,9 +152,9 @@ export function ContaModal({
 
   if (!open) return null;
 
-  const isOwner = account?.household?.role === 'owner';
+  const isOwner = account?.activeHousehold?.role === 'owner';
   const savedName = account?.displayName?.trim() || account?.fullName?.trim() || 'Conta família';
-  const groupName = account?.household?.name || 'Grupo';
+  const groupName = account?.activeHousehold?.name || 'Grupo';
   const email = account?.email || '—';
   const criptoOn = profile?.cryptoExperience !== 'declined';
   const level: Level = profile?.cryptoExperience === 'fund' ? 'fundo' : 'zero';
@@ -191,7 +191,7 @@ export function ContaModal({
     try {
       await api().renameHousehold(name);
       const prev = accountRef.current;
-      if (prev?.household) publishAccount({ ...prev, household: { ...prev.household, name } });
+      if (prev?.activeHousehold) publishAccount({ ...prev, activeHousehold: { ...prev.activeHousehold, name } });
       setToast('Nome do grupo atualizado');
     } catch (error) {
       setToast(statusOf(error) === 403 ? 'Só o admin muda o nome do grupo' : 'Não foi possível salvar o grupo');
