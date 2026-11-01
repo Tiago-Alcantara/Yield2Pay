@@ -752,6 +752,27 @@ describe('PainelGastos', () => {
     expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
   });
 
+  it('D-06: com a página aberta na virada do mês, a seta "próximo" passa a ir até o novo mês seguinte', async () => {
+    vi.setSystemTime(new Date('2026-10-31T15:00:00Z'));
+    const intervals = vi.spyOn(globalThis, 'setInterval');
+    stubExpenseMonths(['2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /novembro 2026/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeDisabled();
+
+    const tick = intervals.mock.calls.find((call) => call[1] === 60_000)?.[0];
+    intervals.mockRestore();
+    expect(tick).toBeTypeOf('function');
+    vi.setSystemTime(new Date('2026-11-01T15:00:00Z'));
+    act(() => (tick as () => void)());
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /dezembro 2026/i })).toBeInTheDocument();
+  });
+
   it('D-06: um gasto além do limite de 36 meses é alcançável pela seta, na ida e na volta', async () => {
     stubExpenseMonths(['2023-09', '2026-10']);
     const user = userEvent.setup();

@@ -197,7 +197,7 @@ function PainelScreen({
   const [expenses, setExpenses] = useState<ExpenseView[]>([]);
   const [months, setMonths] = useState<string[]>([]);
   const [monthTotals, setMonthTotals] = useState<MonthTotal[]>([]);
-  const [currentMonth] = useState(() => saoPauloMonth());
+  const [currentMonth, setCurrentMonth] = useState(() => saoPauloMonth());
   // As setas saem dos meses com gasto e do mês atual, sem estado próprio.
   const arrowMonths = useMemo(
     () => monthArrowSteps(monthTotals.map((row) => row.month), currentMonth),
@@ -312,6 +312,12 @@ function PainelScreen({
   }, [profile]);
 
   useEffect(() => onLiberdadeChange(() => setLiberdadeOn(readLiberdade())), []);
+
+  // O mês pode virar com a página aberta: a seta "próximo" acompanha o mês atual + 1.
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentMonth(saoPauloMonth()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // No acesso direto a /dashboard#s-..., a seção só existe depois da carga.
   // Com o painel montado, o Link da doca faz pushState (sem hashchange) e o
