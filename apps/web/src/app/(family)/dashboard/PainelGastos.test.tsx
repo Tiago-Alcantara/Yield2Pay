@@ -195,6 +195,16 @@ async function findStatusAfterFrames() {
   throw new Error('O aviso não apareceu.');
 }
 
+// O foco do convite também roda dentro de um quadro: mesma espera repetida.
+async function expectFocusAfterFrames(element: HTMLElement) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    await flushFrames();
+    if (document.activeElement === element) return;
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  }
+  expect(element).toHaveFocus();
+}
+
 describe('ações da doca no painel', () => {
   beforeEach(() => {
     fixClock();
@@ -425,8 +435,7 @@ describe('ações da doca no painel', () => {
     window.history.pushState(null, '', '/dashboard?acao=convidar');
     render(<PainelGastos />);
     const field = await screen.findByLabelText('Convidar');
-    await flushFrames();
-    expect(field).toHaveFocus();
+    await expectFocusAfterFrames(field);
     expect(scrollTo).toHaveBeenCalled();
   });
 

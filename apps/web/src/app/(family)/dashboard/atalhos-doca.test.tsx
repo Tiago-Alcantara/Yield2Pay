@@ -131,6 +131,17 @@ async function flushFrames() {
   });
 }
 
+// O foco roda dentro de um quadro, e o quadro pode ser agendado depois do
+// primeiro flush (perfil chegando depois). Repete o flush até o foco chegar.
+async function expectFocusAfterFrames(element: HTMLElement) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    await flushFrames();
+    if (document.activeElement === element) return;
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  }
+  expect(element).toHaveFocus();
+}
+
 function renderShell() {
   return render(
     <FamilyProvider>
@@ -238,15 +249,11 @@ describe('atalhos da doca no mesmo carregamento', () => {
     const button = await screen.findByRole('button', { name: 'Convidar família' });
     const field = await screen.findByLabelText('Convidar');
     fireEvent.click(button);
-    await act(async () => {});
-    await flushFrames();
-    expect(field).toHaveFocus();
+    await expectFocusAfterFrames(field);
     field.blur();
     expect(field).not.toHaveFocus();
 
     fireEvent.click(button);
-    await act(async () => {});
-    await flushFrames();
-    expect(field).toHaveFocus();
+    await expectFocusAfterFrames(field);
   });
 });
