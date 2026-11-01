@@ -46,8 +46,9 @@ const familyRow: MembershipRow = {
   role: 'member',
   household: { ownerCompanyId: 'co_bia', personal: true },
 };
+// O id ordena antes do da família, mas a membership é mais nova: quem decide é a data.
 const otherRow: MembershipRow = {
-  id: 'm_outro',
+  id: 'm_a_outro',
   createdAt: new Date('2026-02-01T00:00:00Z'),
   householdId: OTHER_ID,
   role: 'member',
