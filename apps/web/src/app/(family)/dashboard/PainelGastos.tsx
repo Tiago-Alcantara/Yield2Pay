@@ -31,6 +31,7 @@ import {
   mesNome,
   metaLabel,
   MONTH_RANGE_CAP_NOTE,
+  isValidMonth,
   monthArrowSteps,
   monthsCovering,
   nf,
@@ -385,7 +386,7 @@ function PainelScreen({
           client.getLessons('fund').catch(() => [] as LessonView[]),
         ]);
         if (cancelled) return;
-        const sorted = sortMonths(monthList.map((row) => row.month));
+        const sorted = sortMonths(monthList.map((row) => row.month).filter(isValidMonth));
         const track = lessonTrack(profileView.cryptoExperience);
         expenseCache.current[selected] = expenseRows;
         summaryCache.current[selected] = summaryView;
@@ -532,7 +533,7 @@ function PainelScreen({
     });
     setPageNote(pages.some((page) => page.truncated) ? EXPENSE_PAGE_CAP_NOTE : '');
     summaryCache.current[selected] = summaryView;
-    const sorted = sortMonths(monthList.map((row) => row.month));
+    const sorted = sortMonths(monthList.map((row) => row.month).filter(isValidMonth));
     setExpenses(filters.mode === 'custom' ? targets.flatMap((item) => expenseCache.current[item] ?? []) : expenseCache.current[selected] ?? []);
     setSummary(summaryView);
     setMonthTotals(monthList);

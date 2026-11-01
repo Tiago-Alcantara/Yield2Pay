@@ -737,6 +737,58 @@ describe('PainelGastos', () => {
     ]);
   });
 
+  function monthOptions() {
+    return within(screen.getByRole('listbox', { name: 'Escolher mês' }))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+  }
+
+  it('D-06: o menu de mês ignora mês inválido como 0000-05 e 2026-00', async () => {
+    stubExpenseMonths(['0000-05', '2026-00', '2026-08', '2026-10']);
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    expect(monthOptions()).toEqual([expect.stringMatching(/^Outubro/), expect.stringMatching(/^Agosto/)]);
+  });
+
+  it('D-06: depois de uma escrita, menu e setas seguem a lista nova de meses', async () => {
+    // Depois da escrita outubro some da lista, entra 2023-01 (além do limite) e um mês inválido.
+    let monthList = ['2026-09', '2026-10'];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const target = String(url);
+      if (init?.method === 'PATCH') {
+        monthList = ['2023-01', '2026-00', '2026-09'];
+        return Promise.resolve(new Response(JSON.stringify({ ...expense, category: 'groceries' }), { status: 200 }));
+      }
+      if (target.includes('/expenses/months')) {
+        return Promise.resolve(new Response(JSON.stringify(monthList.map((month) => ({ month, amountCents: 1000 }))), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload(target)), { status: 200 }));
+    }));
+    const user = userEvent.setup();
+    render(<PainelGastos />);
+    await screen.findByText('Netflix');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    expect(monthOptions()).toEqual([expect.stringMatching(/^Outubro/), expect.stringMatching(/^Setembro/)]);
+    await user.keyboard('{Escape}');
+
+    await user.selectOptions(screen.getByLabelText('Categoria de Netflix'), 'groceries');
+    await user.click(screen.getByRole('button', { name: /outubro 2026/i }));
+    // O mês aberto continua no menu mesmo sem gasto; o inválido fica de fora.
+    await waitFor(() => expect(monthOptions()).toHaveLength(3));
+    expect(monthOptions()).toEqual([
+      expect.stringMatching(/^Outubro/),
+      expect.stringMatching(/^Setembro/),
+      expect.stringMatching(/^Janeiro/),
+    ]);
+    await user.click(within(screen.getByRole('listbox', { name: 'Escolher mês' })).getByRole('option', { name: /^Janeiro/ }));
+    expect(await screen.findByRole('button', { name: /janeiro 2023/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(await screen.findByRole('button', { name: /outubro 2023/i })).toBeInTheDocument();
+  });
+
   it('D-06: um gasto depois do mês seguinte é alcançável pela seta', async () => {
     stubExpenseMonths(['2026-10', '2027-01']);
     const user = userEvent.setup();

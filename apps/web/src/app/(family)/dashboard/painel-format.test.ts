@@ -74,4 +74,10 @@ describe('monthArrowSteps', () => {
     expect(isValidMonth('2026-13')).toBe(false);
     expect(isValidMonth('2026-12')).toBe(true);
   });
+
+  it('D-06: rejeita o ano 0000', () => {
+    expect(isValidMonth('0000-01')).toBe(false);
+    expect(isValidMonth('0001-01')).toBe(true);
+    expect(monthArrowSteps(['0000-05', '2026-09'], '2026-10')).toEqual(['2026-09', '2026-10', '2026-11']);
+  });
 });
