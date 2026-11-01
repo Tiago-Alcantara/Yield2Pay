@@ -176,3 +176,81 @@ WHERE migration_name IN (
 
 6. Subir a imagem anterior e rodar `prisma migrate deploy` de novo. Sem a linha
    falha, não há P3009.
+
+---
+
+## 5. Vários grupos (F1) — `20261101120000_household_multi_group`
+
+O que a migration faz:
+
+- `households.personal` (boolean, padrão `false`). Todo grupo que já existe vira
+  `personal = true`: até aqui cada pessoa era dona de um grupo só.
+- O unique de `owner_company_id` vira o índice único parcial
+  `households_owner_company_id_personal_key` (`owner_company_id`) `WHERE personal`:
+  uma pessoa pode ser dona de vários grupos, mas de um só individual. O Prisma
+  não expressa índice parcial; ele existe só no SQL.
+- `household_members` perde o unique de `company_id` (vira índice comum) e
+  continua com o unique de (`household_id`, `company_id`).
+- CHECK `household_members_role_check`: `role` só aceita `owner` ou `member`.
+  Se o banco tiver outro valor, a migration falha; conferir antes com
+  `SELECT DISTINCT role FROM household_members;`.
+- `companies.guest_group_limit` (int, nulo vale 1).
+
+O grupo individual de quem entrou pelo aceite antigo **não** nasce na migration.
+Ele é criado no primeiro acesso dessa pessoa (`GET /account` ou qualquer rota de
+grupo), dentro de transação com `pg_advisory_xact_lock` e protegido pelo índice
+parcial.
+
+### As duas versões convivem durante o deploy
+
+O `prisma migrate deploy` roda no start do contêiner (comando de start do
+Dockerfile). Então a migration é aplicada pela primeira instância nova enquanto
+a instância antiga ainda atende. Nessa janela:
+
+- A API antiga continua funcionando com o schema novo: as colunas novas têm
+  padrão, e as buscas por `company_id` da versão antiga continuam válidas.
+- Um grupo criado pela API antiga nessa janela nasce com `personal = false`.
+  Quem fez isso ganha, no primeiro acesso à API nova, um segundo grupo
+  individual ("Meu grupo") e passa a cair nele sem o header. Na F1 nenhum
+  caminho da API nova cria grupo com `personal = false`, então toda linha desta
+  consulta veio da janela de convivência:
+
+  ```sql
+  SELECT h.id, h.owner_company_id,
+         EXISTS (
+           SELECT 1 FROM households p
+           WHERE p.owner_company_id = h.owner_company_id AND p.personal
+         ) AS dono_ja_tem_individual
+  FROM households h
+  WHERE NOT h.personal;
+  ```
+
+  Com `dono_ja_tem_individual = false`, marcar à mão:
+  `UPDATE households SET personal = true WHERE id = '<id>';`. Com `true`, o
+  dono já ganhou o "Meu grupo"; a escolha de qual fica é manual e do Tiago.
+- Sem o header `X-Household-Id`, o membro antigo cai no grupo individual dele,
+  não mais no grupo da família. O web atual ainda não manda o header (fica para
+  a F4). Até lá, o membro antigo vê o grupo individual vazio no painel.
+
+### Rollback
+
+O `down.sql` é manual e roda numa transação só:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/prisma/migrations/20261101120000_household_multi_group/down.sql
+```
+
+Ele **aborta** (`RAISE EXCEPTION`, nada é desfeito) se alguma pessoa estiver em
+dois ou mais grupos, ou for dona de dois ou mais. Isso acontece assim que um
+membro antigo acessa a API nova e ganha o grupo individual. A partir desse
+primeiro acesso o `down.sql` não roda mais: a volta exige decidir à mão, pessoa
+por pessoa, qual grupo fica. Sem ninguém em dois grupos, ele volta os uniques de
+`company_id` e `owner_company_id`, tira o CHECK, `personal` e
+`guest_group_limit`.
+
+Depois do down, apagar a linha da migration para a imagem antiga:
+
+```sql
+DELETE FROM _prisma_migrations
+WHERE migration_name = '20261101120000_household_multi_group';
+```
