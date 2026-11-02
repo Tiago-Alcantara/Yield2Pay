@@ -170,7 +170,7 @@ export default function ServiceCatalog({ bills, spendable, category, onBillsChan
                     padding: 0,
                     cursor: 'pointer',
                     fontFamily: mono,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     letterSpacing: '.04em',
                     color: 'var(--fx-silver)',
                     textDecoration: 'underline',
@@ -197,9 +197,8 @@ export default function ServiceCatalog({ bills, spendable, category, onBillsChan
         <h3
           style={{
             fontFamily: mono,
-            fontSize: 11,
-            letterSpacing: '.12em',
-            textTransform: 'uppercase',
+            fontSize: 12,
+            letterSpacing: 0,
             color: 'var(--fx-text-2)',
             margin: '0 0 18px',
           }}

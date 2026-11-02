@@ -19,10 +19,9 @@ export function BrandDiamond({ size = 13, glow = true }: { size?: number; glow?:
       style={{
         width: size,
         height: size,
-        background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)',
+        background: glow ? C.silverBright : C.silver,
         transform: 'rotate(45deg)',
         borderRadius: 2,
-        boxShadow: glow ? '0 0 12px rgba(192,194,197,.35)' : undefined,
       }}
     />
   );
@@ -41,20 +40,18 @@ export function FamilyBrand({
   const inner = (
     <>
       <BrandDiamond size={size < 17 ? 11 : 13} glow={size >= 17} />
-      <span style={{ fontSize: size, fontWeight: 700, letterSpacing: '-.01em', color: C.textStrong }}>
+      <span style={{ fontSize: size, fontWeight: 600, letterSpacing: '-.01em', color: C.textStrong }}>
         Yield2Pay
       </span>
       {tag && (
         <span
           className="fam-brand-tag"
           style={{
-            fontFamily: C.mono,
-            fontSize: 10.5,
-            letterSpacing: '.16em',
-            textTransform: 'uppercase',
+            fontSize: 13,
+            fontWeight: 400,
             color: C.text3,
             borderLeft: `1px solid ${C.border}`,
-            paddingLeft: 10,
+            paddingLeft: 12,
             marginLeft: 2,
           }}
         >
@@ -88,9 +85,9 @@ export function FamilyBrand({
  */
 export function MetalPanel({
   children,
-  radius = 20,
+  radius = 16,
   padding = 'var(--fam-metal-pad)',
-  sweep = true,
+  sweep = false,
   shadow = PANEL_SHADOW,
   style = {},
 }: {
@@ -132,9 +129,8 @@ export function CoverageBar({ percent, height = 10 }: { percent: number; height?
       aria-valuemax={100}
       style={{
         height,
-        borderRadius: 999,
+        borderRadius: 4,
         background: C.well,
-        border: `1px solid ${C.border}`,
         overflow: 'hidden',
       }}
     >
@@ -142,8 +138,8 @@ export function CoverageBar({ percent, height = 10 }: { percent: number; height?
         style={{
           width: `${v}%`,
           height: '100%',
-          background: C.fill,
-          borderRadius: 999,
+          background: C.silverBright,
+          borderRadius: 4,
           transition: 'width .4s cubic-bezier(.2,.65,.2,1)',
         }}
       />
@@ -156,15 +152,13 @@ export function StatusPill({ covered, children }: { covered: boolean; children: 
   return (
     <span
       style={{
-        fontFamily: C.mono,
-        fontSize: 11,
-        letterSpacing: '.1em',
-        textTransform: 'uppercase',
-        color: covered ? C.textStrong : C.text2,
-        border: `1px solid ${covered ? C.silver : C.border}`,
-        background: covered ? 'rgba(192,194,197,.08)' : 'transparent',
-        borderRadius: 999,
-        padding: '5px 12px',
+        fontSize: 13,
+        lineHeight: '16px',
+        fontWeight: 500,
+        color: covered ? C.textStrong : C.text3,
+        borderRadius: 6,
+        padding: '4px 8px',
+        background: covered ? 'rgba(192,194,197,.1)' : 'transparent',
         whiteSpace: 'nowrap',
         flexShrink: 0,
       }}
@@ -183,8 +177,8 @@ export function SubDot({ on }: { on: boolean }) {
         width: 10,
         height: 10,
         flexShrink: 0,
-        borderRadius: 3,
-        background: on ? C.chromeSoft : C.border,
+        borderRadius: 2,
+        background: on ? C.silverBright : C.border,
       }}
     />
   );
@@ -208,18 +202,18 @@ export function StatCard({
         flex: 1,
         background: C.card,
         border: `1px solid ${C.border}`,
-        borderRadius: 18,
-        padding: 'clamp(18px,4vw,22px)',
+        borderRadius: 16,
+        padding: 'clamp(16px,4vw,24px)',
       }}
     >
       <div style={cardLabel}>{label}</div>
       <div
         style={{
-          fontFamily: C.mono,
           fontSize: valueSize,
-          fontWeight: 600,
+          fontWeight: 500,
+          fontVariantNumeric: 'tabular-nums',
           color: C.textStrong,
-          marginTop: 10,
+          marginTop: 12,
         }}
       >
         {value}
@@ -239,16 +233,16 @@ export function NumberTile({ children, size = 44 }: { children: React.ReactNode;
         width: size,
         height: size,
         flexShrink: 0,
-        borderRadius: 12,
+        borderRadius: 8,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: C.tile,
-        border: `1px solid ${C.borderMetal}`,
+        border: `1px solid ${C.border}`,
         fontFamily: C.mono,
-        fontSize: size > 42 ? 15 : 13,
-        fontWeight: 600,
-        color: C.silverBright,
+        fontSize: 13,
+        fontWeight: 500,
+        color: 'var(--fam-on-avatar, #d4d6d9)',
       }}
     >
       {children}
@@ -284,8 +278,7 @@ export function PillGroup({
       style={{
         display: 'inline-flex',
         flexWrap: 'wrap',
-        border: `1px solid ${C.border}`,
-        borderRadius: 999,
+        borderRadius: 10,
         padding: 3,
         gap: 2,
         background: C.well,
@@ -301,16 +294,16 @@ export function PillGroup({
             onClick={() => onChange(o.value)}
             style={{
               border: 'none',
-              borderRadius: 999,
-              padding: '7px 14px',
+              borderRadius: 7,
+              padding: '6px 12px',
               fontSize: 13,
-              fontWeight: 600,
+              fontWeight: 500,
               whiteSpace: 'nowrap',
               cursor: 'pointer',
               fontFamily: mono ? C.mono : 'inherit',
               background: on ? 'var(--fam-chip-on, #2E3136)' : 'transparent',
               color: on ? 'var(--fam-on-chip, var(--fx-text-strong))' : C.text2,
-              transition: 'all .2s ease',
+              transition: 'background-color .15s cubic-bezier(0.22, 1, 0.36, 1), color .15s cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           >
             {o.label}
@@ -348,7 +341,7 @@ export function FamilySwitch({
         position: 'relative',
         flexShrink: 0,
         padding: 0,
-        transition: 'all .2s ease',
+        transition: 'background-color .15s cubic-bezier(0.22, 1, 0.36, 1), border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
       }}
     >
       <span
@@ -356,12 +349,13 @@ export function FamilySwitch({
         style={{
           position: 'absolute',
           top: 2,
-          left: checked ? 21 : 2,
+          left: 2,
           width: 19,
           height: 19,
           borderRadius: '50%',
           background: checked ? C.chromeInk : C.placeholder,
-          transition: 'left .2s ease',
+          transform: checked ? 'translateX(19px)' : 'none',
+          transition: 'transform .15s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />
     </button>
@@ -381,12 +375,12 @@ export function ChromeButton({
       style={{
         fontFamily: 'inherit',
         fontSize: 15,
-        fontWeight: 600,
+        fontWeight: 500,
         color: C.chromeInk,
         background: C.chromeSoft,
         border: 'none',
         borderRadius: 12,
-        padding: '14px 24px',
+        padding: '12px 20px',
         cursor: 'pointer',
         boxShadow: CHROME_SHADOW,
         ...style,
@@ -411,14 +405,14 @@ export function OutlineButton({
       style={{
         fontFamily: 'inherit',
         fontSize: 15,
-        fontWeight: 600,
+        fontWeight: 500,
         color: C.textStrong,
         background: 'rgba(255,255,255,.03)',
-        border: `1px solid ${C.borderMetal}`,
+        border: `1px solid ${C.borderStrong}`,
         borderRadius: 12,
-        padding: '14px 24px',
+        padding: '12px 20px',
         cursor: 'pointer',
-        transition: 'border-color .2s ease',
+        transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
         ...style,
       }}
       {...rest}
@@ -441,15 +435,15 @@ export function GhostPill({
       className="fam-outline"
       style={{
         fontFamily: mono ? C.mono : 'inherit',
-        fontSize: 12.5,
-        fontWeight: 600,
+        fontSize: 13,
+        fontWeight: 500,
         color: C.textStrong,
         background: 'rgba(255,255,255,.04)',
-        border: `1px solid ${C.borderMetal}`,
-        borderRadius: 999,
-        padding: '9px 16px',
+        border: `1px solid ${C.borderStrong}`,
+        borderRadius: 8,
+        padding: '8px 12px',
         cursor: 'pointer',
-        transition: 'border-color .2s ease',
+        transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
         ...style,
       }}
       {...rest}
@@ -478,7 +472,7 @@ export function BackHeader({ label, maxWidth = 720 }: { label: string; maxWidth?
         style={{
           maxWidth,
           margin: '0 auto',
-          padding: '14px var(--fam-gutter)',
+          padding: '12px var(--fam-gutter)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

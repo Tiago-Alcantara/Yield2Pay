@@ -67,12 +67,10 @@ export function Button({
 
   const hoveredStyles: Record<string, React.CSSProperties> = {
     primary: {
-      transform: 'translateY(-1px) scale(1.02)',
       filter: 'brightness(1.04)',
       boxShadow: 'var(--fx-elev-chrome-hover)',
     },
     secondary: {
-      transform: 'translateY(-1px)',
       borderColor: 'var(--fx-silver)',
       background: 'rgba(192,194,197,.06)',
     },

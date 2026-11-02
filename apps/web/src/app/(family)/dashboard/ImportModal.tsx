@@ -252,11 +252,11 @@ export function ImportModal({
         style={{ background: '#0E0F11', color: '#EDEFF1', border: '1px solid #2A2D31', borderRadius: 20, padding: '32px 28px', width: 'min(920px, 100%)', margin: '4vh auto' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.2em', textTransform: 'uppercase', color: '#8a8d91' }}>Passo 1 de 2</div>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: 0, color: '#8a8d91' }}>Passo 1 de 2</div>
           <button type="button" onClick={onClose} style={{ border: 'none', background: 'none', color: '#9A9DA1', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer' }}>Fechar</button>
         </div>
-        <h2 id="import-title" style={{ fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-.022em', margin: '12px 0 0' }}>Traga seus gastos</h2>
-        <p style={{ fontSize: 16.5, lineHeight: 1.6, color: '#9A9DA1', margin: '10px 0 0', maxWidth: 600 }}>Escolha um jeito. Nada fica salvo até você criar a conta.</p>
+        <h2 id="import-title" style={{ fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 600, lineHeight: 1.1, letterSpacing: '-.022em', margin: '12px 0 0' }}>Traga seus gastos</h2>
+        <p style={{ fontSize: 16, lineHeight: 1.6, color: '#9A9DA1', margin: '10px 0 0', maxWidth: 600 }}>Escolha um jeito. Nada fica salvo até você criar a conta.</p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 14, marginTop: 28 }}>
           {options.map((option) => {
@@ -271,7 +271,7 @@ export function ImportModal({
                   ? { textAlign: 'left', padding: '20px 22px', borderRadius: 16, border: '1px solid #C0C2C5', background: 'linear-gradient(135deg,#34373c,#1b1d21)', color: '#F2F3F4', fontFamily: 'inherit', cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.1)' }
                   : { textAlign: 'left', padding: '20px 22px', borderRadius: 16, border: '1px solid #2A2D31', background: '#131417', color: '#EDEFF1', fontFamily: 'inherit', cursor: 'pointer' }}
               >
-                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: on ? '#C0C2C5' : '#8a8d91' }}>{option.kicker}</div>
+                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: 0, color: on ? '#C0C2C5' : '#8a8d91' }}>{option.kicker}</div>
                 <div style={{ fontSize: 18, fontWeight: 600, marginTop: 8 }}>{option.title}</div>
                 <div style={{ fontSize: 14, color: '#9A9DA1', marginTop: 4 }}>{option.detail}</div>
               </button>
@@ -303,7 +303,7 @@ export function ImportModal({
                   />
                   Escolher arquivo
                 </label>
-                <button type="button" disabled={busy} onClick={useExampleStatement} style={{ height: 44, padding: '0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, cursor: 'pointer' }}>
+                <button type="button" disabled={busy} onClick={useExampleStatement} style={{ height: 44, padding: '0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                   Usar extrato de exemplo
                 </button>
               </div>
@@ -313,7 +313,7 @@ export function ImportModal({
 
           {mode === 'nfe' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <label htmlFor="nfe-key" style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91' }}>
+              <label htmlFor="nfe-key" style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, letterSpacing: 0, color: '#8a8d91' }}>
                 Chave de acesso da nota · {keyDigits.length} / 44
               </label>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -327,7 +327,7 @@ export function ImportModal({
                     setNote(null);
                     setNoteError('');
                   }}
-                  style={{ flex: '1 1 420px', minWidth: 0, height: 50, padding: '0 16px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none' }}
+                  style={{ flex: '1 1 420px', minWidth: 0, height: 50, padding: '0 16px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 14, outline: 'none' }}
                 />
                 <button
                   type="button"
@@ -340,10 +340,10 @@ export function ImportModal({
                   Buscar nota
                 </button>
               </div>
-              <button type="button" onClick={() => { setKeyDigits(EXAMPLE_KEY); setNote(null); setNoteError(''); }} style={{ fontSize: 13.5, color: '#C0C2C5', alignSelf: 'flex-start', textDecoration: 'underline', textUnderlineOffset: 3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button type="button" onClick={() => { setKeyDigits(EXAMPLE_KEY); setNote(null); setNoteError(''); }} style={{ fontSize: 13, color: '#C0C2C5', alignSelf: 'flex-start', textDecoration: 'underline', textUnderlineOffset: 3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Usar uma chave de exemplo
               </button>
-              {noteError && <div style={{ fontSize: 14.5, color: '#EDEFF1' }}>{noteError}</div>}
+              {noteError && <div style={{ fontSize: 14, color: '#EDEFF1' }}>{noteError}</div>}
               {note && (
                 <div style={{ marginTop: 6, padding: 18, borderRadius: 14, border: '1px solid #3a3d42', background: '#131417', display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
@@ -365,16 +365,16 @@ export function ImportModal({
           {mode === 'manual' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16 }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label htmlFor="gasto-onde" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Onde</label>
-                <input id="gasto-onde" placeholder="Ex.: Padaria da esquina" value={where} onChange={(event) => { setWhere(event.target.value); setManualError(''); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 15.5, outline: 'none' }} />
+                <label htmlFor="gasto-onde" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 13, letterSpacing: 0, color: '#8a8d91', marginBottom: 8 }}>Onde</label>
+                <input id="gasto-onde" placeholder="Ex.: Padaria da esquina" value={where} onChange={(event) => { setWhere(event.target.value); setManualError(''); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
               </div>
               <div>
-                <label htmlFor="gasto-valor" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Valor</label>
-                <input id="gasto-valor" inputMode="decimal" placeholder="R$ 0,00" value={amount} onChange={(event) => { setAmount(event.target.value); setManualError(''); setConfirmHuge(false); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 15.5, outline: 'none' }} />
+                <label htmlFor="gasto-valor" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 13, letterSpacing: 0, color: '#8a8d91', marginBottom: 8 }}>Valor</label>
+                <input id="gasto-valor" inputMode="decimal" placeholder="R$ 0,00" value={amount} onChange={(event) => { setAmount(event.target.value); setManualError(''); setConfirmHuge(false); }} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#F2F3F4', fontFamily: "'Geist Mono', monospace", fontSize: 15, outline: 'none' }} />
               </div>
               <div>
-                <label htmlFor="gasto-data" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8a8d91', marginBottom: 8 }}>Data</label>
-                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14.5, outline: 'none' }} />
+                <label htmlFor="gasto-data" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 13, letterSpacing: 0, color: '#8a8d91', marginBottom: 8 }}>Data</label>
+                <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14, outline: 'none' }} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <CategoryChips value={manualCategory} onChange={setManualCategory} />
@@ -383,7 +383,7 @@ export function ImportModal({
                 <button type="button" disabled={busy} onClick={() => void addManual()} style={{ height: 46, padding: '0 22px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
                   {confirmHuge ? 'Confirmar valor' : 'Adicionar gasto'}
                 </button>
-                {manualError && <span style={{ fontSize: 14.5, color: '#EDEFF1' }}>{manualError}</span>}
+                {manualError && <span style={{ fontSize: 14, color: '#EDEFF1' }}>{manualError}</span>}
               </div>
             </div>
           )}
@@ -407,7 +407,7 @@ export function ImportModal({
                     setFileError('Não conseguimos desfazer essa importação. Os gastos continuam no painel.');
                   });
                 }}
-                style={{ height: 40, padding: '0 14px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}
+                style={{ height: 40, padding: '0 14px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
               >
                 {'Desfazer ' + item.filename}
               </button>
@@ -417,7 +417,7 @@ export function ImportModal({
 
         {loaded > 0 && (
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', padding: '16px 20px', borderRadius: 16, border: '1px solid #2A2D31', background: '#131417' }}>
-            <span style={{ fontSize: 15.5 }}>
+            <span style={{ fontSize: 15 }}>
               <b style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>{loaded}</b>
               {loaded === 1 ? ' gasto carregado. Pode juntar outros jeitos.' : ' gastos carregados. Pode juntar outros jeitos.'}
             </span>

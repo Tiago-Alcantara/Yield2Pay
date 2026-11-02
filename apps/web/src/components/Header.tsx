@@ -69,7 +69,7 @@ export function Header({
             style={{
               fontFamily: 'var(--fx-font-display)',
               fontSize: 19,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-.01em',
               color: 'var(--fx-text)',
             }}
@@ -82,7 +82,7 @@ export function Header({
             <a
               key={i}
               href="#"
-              style={{ fontSize: 14.5, color: 'var(--fx-text-2)', textDecoration: 'none' }}
+              style={{ fontSize: 14, color: 'var(--fx-text-2)', textDecoration: 'none' }}
             >
               {n}
             </a>
@@ -102,7 +102,7 @@ export function Header({
           />
           <a
             href="#"
-            style={{ fontSize: 14.5, color: 'var(--fx-text-2)', textDecoration: 'none' }}
+            style={{ fontSize: 14, color: 'var(--fx-text-2)', textDecoration: 'none' }}
           >
             {loginLabel}
           </a>

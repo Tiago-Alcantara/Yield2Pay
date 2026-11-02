@@ -21,13 +21,12 @@ export default function FamilyConceptsPage() {
 
   const blockLabel: React.CSSProperties = {
     fontFamily: C.mono,
-    fontSize: 11,
-    letterSpacing: '.12em',
-    textTransform: 'uppercase',
+    fontSize: 12,
+    letterSpacing: 0,
     color: C.text3,
   };
   const blockBody: React.CSSProperties = {
-    fontSize: 14.5,
+    fontSize: 14,
     lineHeight: 1.65,
     color: C.textSoft,
     margin: '6px 0 0',
@@ -49,7 +48,7 @@ export default function FamilyConceptsPage() {
         <h1
           style={{
             fontSize: 'clamp(26px,6vw,42px)',
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: '-.025em',
             lineHeight: 1.1,
             margin: '14px 0 0',
@@ -107,14 +106,14 @@ export default function FamilyConceptsPage() {
                       style={{
                         display: 'block',
                         fontSize: 18,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         color: C.textStrong,
                         letterSpacing: '-.01em',
                       }}
                     >
                       {item.title}
                     </span>
-                    <span style={{ display: 'block', fontSize: 13.5, color: C.text2, marginTop: 3 }}>
+                    <span style={{ display: 'block', fontSize: 13, color: C.text2, marginTop: 3 }}>
                       {item.sub}
                     </span>
                   </span>
@@ -155,7 +154,7 @@ export default function FamilyConceptsPage() {
                     </div>
                     <Link
                       href="/dashboard"
-                      style={{ fontSize: 13.5, fontWeight: 600, color: C.silver }}
+                      style={{ fontSize: 13, fontWeight: 600, color: C.silver }}
                     >
                       {t.concepts.answered}
                     </Link>
@@ -178,7 +177,7 @@ export default function FamilyConceptsPage() {
                   padding: '18px 0',
                 }}
               >
-                <div style={{ fontSize: 15.5, fontWeight: 600, color: C.textStrong }}>{item.q}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: C.textStrong }}>{item.q}</div>
                 <p style={{ fontSize: 14, lineHeight: 1.6, color: C.text2, margin: '6px 0 0' }}>
                   {item.a}
                 </p>
@@ -209,7 +208,7 @@ export default function FamilyConceptsPage() {
         </Link>
         <div
           style={{
-            fontSize: 11.5,
+            fontSize: 12,
             lineHeight: 1.5,
             color: C.text4,
             textAlign: 'center',

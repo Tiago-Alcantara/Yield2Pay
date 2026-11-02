@@ -1,7 +1,7 @@
 /**
  * Módulo: PainelGastos
  * Criado em: 2026-10-30
- * Última atualização: 2026-10-31
+ * Última atualização: 2026-11-02
  * Intuito: A carga do painel faz no máximo duas ondas e uma /expenses por mês, e a doca só abre as ações conhecidas.
  * Sequência: opens in two waves with one expenses call; switching month does not reload the house; a failed load shows the error; ?acao=importar abre o extrato; ?acao=novo abre o manual; ?acao=convidar rola até o convite; ?conta=1 abre as configurações; uma ação desconhecida não abre nada e não aparece na tela.
  */
@@ -427,7 +427,7 @@ describe('ações da doca no painel', () => {
       }),
     );
     render(<PainelGastos />);
-    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Casa' })).toBeInTheDocument();
     expect(await findStatusAfterFrames()).toHaveTextContent('Só quem administra a casa pode convidar.');
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Convidar')).not.toBeInTheDocument();
@@ -498,7 +498,7 @@ describe('ações da doca no painel', () => {
       }),
     );
     render(<PainelGastos />);
-    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Casa' })).toBeInTheDocument();
     expect(await findStatusAfterFrames()).toHaveTextContent('A família está oculta nas configurações. Ative para convidar.');
     expect(document.getElementById('y2p-invite')).toBeNull();
     expect(screen.queryByRole('dialog', { name: 'Traga seus gastos' })).not.toBeInTheDocument();
