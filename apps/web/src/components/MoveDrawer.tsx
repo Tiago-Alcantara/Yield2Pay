@@ -75,7 +75,7 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
       <Overlay onClose={onSuccess}>
         <MetalCard padding={0} radius="var(--fx-radius-2xl)" style={{ border: '1px solid var(--fx-border-metal)' }}>
           <div style={{ padding: 28, textAlign: 'center' }}>
-            <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 700, color: 'var(--fx-text)', margin: 0 }}>
+            <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 600, color: 'var(--fx-text)', margin: 0 }}>
               {copy.success}
             </h2>
             <div
@@ -91,7 +91,7 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
                 wordBreak: 'break-all',
               }}
             >
-              <div style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-3)', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, letterSpacing: 0, color: 'var(--fx-text-3)', marginBottom: 8 }}>
                 Transaction hash
               </div>
               <span style={{ color: 'var(--fx-text)' }}>{txHash}</span>
@@ -109,7 +109,7 @@ export function MoveDrawer({ mode, maxBaseUnits, apyPercent, onClose, onSuccess 
     <Overlay onClose={onClose}>
       <MetalCard padding={0} radius="var(--fx-radius-2xl)" style={{ border: '1px solid var(--fx-border-metal)' }}>
         <div style={{ padding: 28 }}>
-          <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 700, color: 'var(--fx-text)', margin: 0 }}>
+          <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 600, color: 'var(--fx-text)', margin: 0 }}>
             {copy.title}
           </h2>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18 }}>

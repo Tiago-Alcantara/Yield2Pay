@@ -50,7 +50,7 @@ export function ProfileSection() {
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
         {t.settings.profileTitle}
       </div>
 
@@ -77,7 +77,7 @@ export function ProfileSection() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <GhostPill
             mono={false}
-            style={{ fontSize: 13.5 }}
+            style={{ fontSize: 13 }}
             onClick={() => patch({ profile: { ...state.profile, hasPhoto: true } })}
           >
             {state.profile.hasPhoto ? t.settings.photoChange : t.settings.photoUpload}
@@ -89,7 +89,7 @@ export function ProfileSection() {
               onClick={() => patch({ profile: { ...state.profile, hasPhoto: false } })}
               style={{
                 fontFamily: 'inherit',
-                fontSize: 13.5,
+                fontSize: 13,
                 color: C.text2,
                 background: 'none',
                 border: 'none',
@@ -124,7 +124,7 @@ export function ProfileSection() {
             <span style={{ ...readOnlyBox, maxWidth: 420, flex: '1 1 260px' }}>
               {state.profile.email}
             </span>
-            <span style={{ fontSize: 12.5, color: C.text4, maxWidth: 260, lineHeight: 1.5 }}>
+            <span style={{ fontSize: 13, color: C.text4, maxWidth: 260, lineHeight: 1.5 }}>
               {t.settings.emailNote}
             </span>
           </div>
@@ -142,7 +142,7 @@ export function ProfileSection() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder={t.settings.phonePlaceholder}
-            style={{ ...input, fontFamily: C.mono, fontSize: 14.5 }}
+            style={{ ...input, fontFamily: C.mono, fontSize: 14 }}
           />
         </div>
 
@@ -150,10 +150,10 @@ export function ProfileSection() {
         <div>
           <div style={{ ...cardLabel, marginBottom: 8 }}>{t.settings.cpfLabel}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ ...readOnlyBox, fontFamily: C.mono, fontSize: 14.5 }}>
+            <span style={{ ...readOnlyBox, fontFamily: C.mono, fontSize: 14 }}>
               {state.profile.cpfMask}
             </span>
-            <span style={{ fontSize: 12.5, color: C.text4 }}>{t.settings.cpfNote}</span>
+            <span style={{ fontSize: 13, color: C.text4 }}>{t.settings.cpfNote}</span>
           </div>
         </div>
         )}
@@ -179,7 +179,7 @@ export function ProfileSection() {
             disabled={status === 'saving'}
             style={{
               fontFamily: 'inherit',
-              fontSize: 14.5,
+              fontSize: 14,
               fontWeight: 600,
               color: C.chromeInk,
               background: C.chromeSoft,
@@ -193,7 +193,7 @@ export function ProfileSection() {
             {status === 'saving' ? t.settings.saving : t.settings.save}
           </button>
           {status === 'saved' && (
-            <span style={{ fontSize: 13.5, color: C.silver }}>{t.settings.saved}</span>
+            <span style={{ fontSize: 13, color: C.silver }}>{t.settings.saved}</span>
           )}
         </div>
       </div>

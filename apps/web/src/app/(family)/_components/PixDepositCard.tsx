@@ -57,7 +57,7 @@ export function PixDepositCard({
       <h1
         style={{
           fontSize: 'clamp(22px,5.6vw,26px)',
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: '-.02em',
           margin: 0,
           color: C.textStrong,
@@ -66,7 +66,7 @@ export function PixDepositCard({
       >
         {fromApp ? t.onboarding.pixTitle : t.onboarding.pixFirstTitle}
       </h1>
-      <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
+      <p style={{ fontSize: 14, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
         {t.onboarding.pixSub}
       </p>
 
@@ -123,7 +123,7 @@ export function PixDepositCard({
             justifyContent: 'center',
           }}
         >
-          <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: '.1em', color: C.text2 }}>
+          <span style={{ fontFamily: C.mono, fontSize: 10, letterSpacing: 0, color: C.text2 }}>
             {t.onboarding.pixQr}
           </span>
         </div>

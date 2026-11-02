@@ -55,9 +55,8 @@ const iconBadgeStyle: React.CSSProperties = {
 
 const kickerStyle: React.CSSProperties = {
   fontFamily: 'var(--fx-font-mono)',
-  fontSize: 11,
-  letterSpacing: '.16em',
-  textTransform: 'uppercase',
+  fontSize: 12,
+  letterSpacing: 0,
   color: 'var(--fx-text-3)',
 };
 
@@ -68,7 +67,6 @@ const valueStyle: React.CSSProperties = {
   marginTop: 18,
   letterSpacing: 'var(--fx-tracking-data)',
   lineHeight: 1.05,
-  textShadow: '0 1px 0 rgba(0,0,0,.4)',
 };
 
 /** Card de metal escovado (carteira ou vault) com sweep, ícone, valor e ação no rodapé. */
@@ -130,7 +128,7 @@ export function MoneyPanel({
         kicker="Carteira"
         value={walletAvailable ? `$${formatUsdc(walletBalance as string)}` : '—'}
         valueColor="var(--fx-text-strong)"
-        sub={<span style={{ fontSize: 13.5, color: 'var(--fx-text-3)' }}>sem render</span>}
+        sub={<span style={{ fontSize: 13, color: 'var(--fx-text-3)' }}>sem render</span>}
         action={
           <Button variant="primary" size="sm" onClick={onDeposit} disabled={!canDeposit}>
             Aportar

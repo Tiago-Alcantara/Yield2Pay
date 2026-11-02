@@ -65,10 +65,10 @@ export function PixSection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Chave PIX ─────────────────────────────────────────────────────── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.pixTitle}
         </div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 520 }}>
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 520 }}>
           {t.settings.pixSub}
         </p>
 
@@ -91,7 +91,7 @@ export function PixSection() {
             </span>
             <GhostPill
               mono={false}
-              style={{ fontSize: 13.5 }}
+              style={{ fontSize: 13 }}
               onClick={() => {
                 setMode('editing');
                 setDraft('');
@@ -131,7 +131,7 @@ export function PixSection() {
               }}
             />
             {invalid && (
-              <div role="alert" style={{ fontSize: 12.5, color: C.danger, marginTop: 8 }}>
+              <div role="alert" style={{ fontSize: 13, color: C.danger, marginTop: 8 }}>
                 {t.settings.pixInvalid}
               </div>
             )}
@@ -187,7 +187,7 @@ export function PixSection() {
               {t.settings.pixConfirmQuestion}{' '}
               <span style={{ fontFamily: C.mono, color: C.textStrong }}>{draft.trim()}</span>?
             </div>
-            <div style={{ fontSize: 12.5, color: C.text3, marginTop: 4 }}>
+            <div style={{ fontSize: 13, color: C.text3, marginTop: 4 }}>
               {t.settings.pixConfirmStep}
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -222,14 +222,14 @@ export function PixSection() {
               style={{
                 display: 'block',
                 fontSize: 18,
-                fontWeight: 700,
+                fontWeight: 600,
                 color: C.textStrong,
                 letterSpacing: '-.01em',
               }}
             >
               {t.settings.autoTitle}
             </span>
-            <span style={{ display: 'block', fontSize: 13.5, color: C.text2, marginTop: 4 }}>
+            <span style={{ display: 'block', fontSize: 13, color: C.text2, marginTop: 4 }}>
               {t.settings.autoSub}
             </span>
           </span>
@@ -269,7 +269,7 @@ export function PixSection() {
                   padding: '12px 14px',
                   color: C.textStrong,
                   fontFamily: C.mono,
-                  fontSize: 14.5,
+                  fontSize: 14,
                   outline: 'none',
                 }}
               />
@@ -319,27 +319,24 @@ export function PixSection() {
             style={{
               display: 'block',
               fontSize: 18,
-              fontWeight: 700,
+              fontWeight: 600,
               color: C.textStrong,
               letterSpacing: '-.01em',
             }}
           >
             {t.settings.cardTitle}
           </span>
-          <span style={{ display: 'block', fontSize: 13.5, color: C.text2, marginTop: 4 }}>
+          <span style={{ display: 'block', fontSize: 13, color: C.text2, marginTop: 4 }}>
             {t.settings.cardSub}
           </span>
         </span>
         <span
           style={{
-            fontFamily: C.mono,
-            fontSize: 10.5,
-            letterSpacing: '.14em',
-            textTransform: 'uppercase',
-            color: C.text2,
-            border: `1px solid ${C.border}`,
-            borderRadius: 999,
-            padding: '6px 14px',
+            fontSize: 13,
+            color: C.text3,
+            borderRadius: 6,
+            padding: '4px 8px',
+            background: C.well,
           }}
         >
           {t.settings.cardSoon}

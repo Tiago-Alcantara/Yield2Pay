@@ -25,9 +25,8 @@ export function Input({ label, prefix, suffix, hint, type = 'text', style = {}, 
           style={{
             display: 'block',
             fontFamily: mono,
-            fontSize: 11,
-            letterSpacing: '.12em',
-            textTransform: 'uppercase',
+            fontSize: 12,
+            letterSpacing: 0,
             color: 'var(--fx-text-3)',
             marginBottom: 8,
           }}
@@ -71,7 +70,7 @@ export function Input({ label, prefix, suffix, hint, type = 'text', style = {}, 
         )}
       </span>
       {hint && (
-        <span style={{ display: 'block', fontSize: 12.5, color: 'var(--fx-text-3)', marginTop: 8 }}>
+        <span style={{ display: 'block', fontSize: 13, color: 'var(--fx-text-3)', marginTop: 8 }}>
           {hint}
         </span>
       )}

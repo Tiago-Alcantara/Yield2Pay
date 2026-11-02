@@ -88,10 +88,9 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
           aria-controls={panelId}
           style={{
             fontFamily: MONO,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 500,
-            letterSpacing: '.16em',
-            textTransform: 'uppercase',
+            letterSpacing: 0,
             color: 'var(--fx-silver)',
             background: 'none',
             border: 'none',
@@ -105,7 +104,7 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
           }}
         >
           <span>Detalhes técnicos</span>
-          <span style={{ color: 'var(--fx-text-4)', letterSpacing: '.08em' }}>
+          <span style={{ color: 'var(--fx-text-4)', letterSpacing: 0 }}>
             {open ? '— ocultar' : '+ mostrar'}
           </span>
         </button>
@@ -115,9 +114,8 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
           style={{
             marginLeft: 'auto',
             fontFamily: MONO,
-            fontSize: 11,
-            letterSpacing: '.1em',
-            textTransform: 'uppercase',
+            fontSize: 12,
+            letterSpacing: 0,
             color: 'var(--fx-text-2)',
             background: 'rgba(255,255,255,.03)',
             border: '1px solid var(--fx-border)',
@@ -148,9 +146,8 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
                 <span
                   style={{
                     fontFamily: MONO,
-                    fontSize: 10.5,
-                    letterSpacing: '.12em',
-                    textTransform: 'uppercase',
+                    fontSize: 13,
+                    letterSpacing: 0,
                     color: 'var(--fx-text-3)',
                     paddingTop: 2,
                   }}
@@ -160,7 +157,7 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
                 <span
                   style={{
                     fontFamily: MONO,
-                    fontSize: 12.5,
+                    fontSize: 13,
                     lineHeight: 1.55,
                     color: 'var(--fx-text)',
                     wordBreak: 'break-word',
@@ -178,9 +175,8 @@ export function TechnicalPanel({ details, maxHeight = 300 }: TechnicalPanelProps
               <div
                 style={{
                   fontFamily: MONO,
-                  fontSize: 10.5,
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
+                  fontSize: 13,
+                  letterSpacing: 0,
                   color: 'var(--fx-text-3)',
                   margin: '20px 0 8px',
                 }}

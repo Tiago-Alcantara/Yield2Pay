@@ -141,10 +141,9 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
               flex: 1,
               minWidth: 0,
               fontFamily: MONO,
-              fontSize: 10.5,
+              fontSize: 13,
               fontWeight: 500,
-              letterSpacing: '.16em',
-              textTransform: 'uppercase',
+              letterSpacing: 0,
               color: 'var(--fx-text-2)',
               lineHeight: 1.6,
               paddingTop: 5,
@@ -184,7 +183,7 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
           tabIndex={-1}
           style={{
             fontSize: 20,
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: '-.015em',
             lineHeight: 1.25,
             color: 'var(--fx-text-strong)',
@@ -197,7 +196,7 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
         <p
           id={`dlg-desc-${details.errorId}`}
           style={{
-            fontSize: 14.5,
+            fontSize: 14,
             lineHeight: 1.6,
             color: 'var(--fx-text-2)',
             margin: '9px 0 0',
@@ -215,7 +214,7 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
             style={{
               fontFamily: 'inherit',
               fontSize: 14,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-.005em',
               color: 'var(--fx-chrome-ink)',
               background: 'var(--fx-chrome)',
@@ -281,9 +280,8 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
             onClick={copyErrorId}
             style={{
               fontFamily: MONO,
-              fontSize: 10.5,
-              letterSpacing: '.1em',
-              textTransform: 'uppercase',
+              fontSize: 13,
+              letterSpacing: 0,
               color: 'var(--fx-text-2)',
               background: 'none',
               border: '1px solid var(--fx-border)',
@@ -298,7 +296,7 @@ export function ErrorDialog({ details, onClose, onRetry, onLogin, onSupport }: E
           <span
             style={{
               fontFamily: MONO,
-              fontSize: 10.5,
+              fontSize: 12,
               color: 'var(--fx-text-4)',
               marginLeft: 'auto',
             }}

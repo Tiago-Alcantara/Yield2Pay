@@ -73,7 +73,7 @@ export default function FamilySettingsPage() {
         <h1
           style={{
             fontSize: 'clamp(23px,5vw,34px)',
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: '-.025em',
             margin: 0,
             color: C.textStrong,
@@ -81,7 +81,7 @@ export default function FamilySettingsPage() {
         >
           {t.settings.title}
         </h1>
-        <p style={{ fontSize: 14.5, color: C.text2, margin: '8px 0 28px' }}>{t.settings.sub}</p>
+        <p style={{ fontSize: 14, color: C.text2, margin: '8px 0 28px' }}>{t.settings.sub}</p>
 
         <div className="fam-cfg">
           <nav className="fam-cfg-nav" aria-label={t.settings.navAria}>

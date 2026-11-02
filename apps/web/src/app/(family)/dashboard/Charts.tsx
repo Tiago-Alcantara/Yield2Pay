@@ -80,8 +80,8 @@ export function Charts({
     <section className="y2p-charts" data-screen-label="Gráficos">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ minWidth: 0, flex: '1 1 240px' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>Seus gastos</h2>
-          <p style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '6px 0 0', lineHeight: 1.55 }}>{desc}</p>
+          <h2 className="y2p-card-h">Seus gastos</h2>
+          <p style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)', margin: '4px 0 0', lineHeight: '20px', maxWidth: '36rem' }}>{desc}</p>
         </div>
         <SegmentedControl
           size="sm"
@@ -125,13 +125,13 @@ function Donut({
   mName: string;
   onPickCat: (label: string) => void;
 }) {
-  const C = 2 * Math.PI * 80;
+  const C = 2 * Math.PI * 84;
   let acc = 0;
   return (
     <div className="y2p-donut-wrap">
       <div className="y2p-donut">
         <svg viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="80" fill="none" style={{ stroke: 'var(--fam-chart-track, #1e2024)' }} strokeWidth="26" />
+          <circle cx="100" cy="100" r="84" fill="none" style={{ stroke: 'var(--fam-chart-track, #1e2024)' }} strokeWidth="20" />
           {total > 0 &&
             cats.map(([c, v], i) => {
               const len = (v / total) * C;
@@ -140,11 +140,11 @@ function Donut({
                   key={c}
                   cx="100"
                   cy="100"
-                  r="80"
+                  r="84"
                   fill="none"
                   style={{ stroke: SHADES[i % 8] }}
-                  strokeWidth="26"
-                  strokeDasharray={Math.max(0, len - 2.5) + ' ' + C}
+                  strokeWidth="20"
+                  strokeDasharray={Math.max(0, len - 3) + ' ' + C}
                   strokeDashoffset={-acc}
                   transform="rotate(-90 100 100)"
                 />
@@ -154,10 +154,8 @@ function Donut({
             })}
         </svg>
         <div className="y2p-donut-center">
-          <div className="y2p-mono" style={{ fontSize: 20, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)' }}>
-            {brlK(reais(total))}
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--fx-text-3, #8a8d91)', marginTop: 2 }}>{mName}</div>
+          <div className="y2p-figure-sm">{brlK(reais(total))}</div>
+          <div style={{ fontSize: 13, color: 'var(--fx-text-3, #8a8d91)', marginTop: 4 }}>{mName}</div>
         </div>
       </div>
       <div className="y2p-catlist">
@@ -165,10 +163,10 @@ function Donut({
           <button key={c} type="button" className="y2p-catrow" onClick={() => onPickCat(c)}>
             <span className="y2p-swatch" style={{ background: SHADES[i % 8] }} />
             <span className="y2p-ellipsis">{c}</span>
-            <span className="y2p-mono" style={{ fontSize: 12.5, color: 'var(--fx-text-3, #8a8d91)' }}>
+            <span className="y2p-mono" style={{ fontSize: 12, color: 'var(--fx-text-3, #8a8d91)' }}>
               {total ? Math.round((v / total) * 100) : 0}%
             </span>
-            <span className="y2p-mono" style={{ color: 'var(--fx-text-strong, #F2F3F4)', minWidth: 92, textAlign: 'right' }}>
+            <span className="y2p-num" style={{ color: 'var(--fx-text-strong, #F2F3F4)', minWidth: 96, textAlign: 'right' }}>
               {brl(reais(v))}
             </span>
           </button>
@@ -225,7 +223,7 @@ function MonthBars({
         {months.map((row) => (
           <button key={row.month} type="button" onClick={() => onPickMonth(row.month)}>
             <div style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>{short(row.month)}</div>
-            <div className="y2p-mono" style={{ fontSize: 11.5, color: 'var(--fx-text-strong, #F2F3F4)', marginTop: 2 }}>
+            <div className="y2p-mono" style={{ fontSize: 12, color: 'var(--fx-text-strong, #F2F3F4)', marginTop: 4 }}>
               {brlK(reais(row.amountCents))}
             </div>
           </button>
@@ -285,8 +283,7 @@ function Ritmo({
           <path d={path(current)} fill="none" style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }} strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           {current.length > 0 && (
             <>
-              <path d={dot} stroke="rgba(230,232,234,.16)" strokeWidth="21" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              <path d={dot} style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }} strokeWidth="11" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={dot} style={{ stroke: 'var(--fam-chart-ink, #E6E8EA)' }} strokeWidth="8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
             </>
           )}
         </svg>
@@ -303,9 +300,9 @@ function Ritmo({
         <span>dia 20</span>
         <span>dia 31</span>
       </div>
-      <div className="y2p-legend" style={{ gap: 18, flexWrap: 'wrap' }}>
+      <div className="y2p-legend" style={{ gap: 16, flexWrap: 'wrap' }}>
         <span className="y2p-leg">
-          <span style={{ width: 18, height: 2.5, background: 'var(--fam-chart-ink, #E6E8EA)' }} />
+          <span style={{ width: 16, height: 2, background: 'var(--fam-chart-ink, #E6E8EA)' }} />
           {cap(mName)}
         </span>
         {previous.length > 0 && (
@@ -316,7 +313,7 @@ function Ritmo({
         )}
         {partial && (
           <span className="y2p-leg">
-            <span style={{ width: 18, borderTop: '2px dotted var(--fam-chart-ink, #E6E8EA)' }} />
+            <span style={{ width: 16, borderTop: '2px dotted var(--fam-chart-ink, #E6E8EA)' }} />
             Projeção
           </span>
         )}

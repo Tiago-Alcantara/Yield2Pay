@@ -1,7 +1,7 @@
 /**
  * Módulo: PainelGastos logout
  * Criado em: 2026-10-31
- * Última atualização: 2026-10-31
+ * Última atualização: 2026-11-02
  * Intuito: Sair da conta no painel esquece o nome mostrado na doca.
  * Sequência: a conta carregada entra na memória; confirmar Sair zera essa vista e chama o logout do Privy.
  */
@@ -107,7 +107,7 @@ beforeEach(() => {
 describe('logout no painel', () => {
   it('zera a conta vista pela doca ao confirmar Sair', async () => {
     render(<PainelGastos />);
-    expect(await screen.findByText('Olá, Marina')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Casa' })).toBeInTheDocument();
     await waitFor(() => expect(getAccountView()?.displayName).toBe('Marina'));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Configurações' })[0]);
