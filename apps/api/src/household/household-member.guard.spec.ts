@@ -230,6 +230,22 @@ describe('HouseholdMemberGuard', () => {
     expect(chooseDefaultMembership([second, first], 'co_ana')).toBe(first);
   });
 
+  it('o individual mais antigo que o grupo compartilhado não vira o padrão', () => {
+    const olderPersonal = {
+      ...personalRow,
+      createdAt: new Date('2025-01-01T00:00:00Z'),
+    };
+    expect(olderPersonal.createdAt.getTime()).toBeLessThan(
+      familyRow.createdAt.getTime(),
+    );
+    expect(chooseDefaultMembership([olderPersonal, familyRow], 'co_ana')).toBe(
+      familyRow,
+    );
+    expect(chooseDefaultMembership([familyRow, olderPersonal], 'co_ana')).toBe(
+      familyRow,
+    );
+  });
+
   it('grupo próprio com personal = false conta como não individual', () => {
     const ownShared = {
       ...otherRow,
