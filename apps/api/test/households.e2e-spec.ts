@@ -31,18 +31,23 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
     return { Authorization: `Bearer ${token}` };
   }
 
-  /** Aceite antigo: a pessoa entra na família sem ter grupo próprio. */
-  async function joinFamily(token: string) {
+  /** Convite antigo: o dono convida a pessoa e ela aceita. */
+  async function joinGroupOf(ownerToken: string, token: string) {
     const server = app.getHttpServer();
     const invite = await request(server)
       .post('/households/current/invites')
-      .set(as('dona'))
+      .set(as(ownerToken))
       .send({ email: `${token}.${stamp}@example.test` });
     expect(invite.status).toBe(201);
     const accepted = await request(server)
       .post(`/households/invites/${invite.body.id}/accept`)
       .set(as(token));
     expect(accepted.status).toBe(201);
+  }
+
+  /** Aceite antigo: a pessoa entra na família sem ter grupo próprio. */
+  async function joinFamily(token: string) {
+    await joinGroupOf('dona', token);
   }
 
   /** Quantos grupos a pessoa tem, direto no banco. */
@@ -263,6 +268,108 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
       .set(as('curioso'))
       .send({ displayName: 'Curioso' });
     expect(await memberships('curioso')).toBe(1);
+  });
+
+  describe('convite antigo e o grupo individual da própria pessoa', () => {
+    /** Conferência de quem voltou a ser convidável e entrou na Outra casa. */
+    async function expectOnlyInStrangerGroup(token: string) {
+      const { body } = await request(app.getHttpServer())
+        .get('/account')
+        .set(as(token));
+      expect(body.households).toHaveLength(2);
+      expect(body.households).not.toContainEqual(
+        expect.objectContaining({ id: familyHouseholdId }),
+      );
+      expect(body.activeHousehold).toMatchObject({
+        id: strangerHouseholdId,
+        role: 'member',
+        personal: false,
+      });
+    }
+
+    it('quem saiu de um grupo depois de ganhar o individual pode ser convidado por outro', async () => {
+      const server = app.getHttpServer();
+      await joinFamily('saiu-e-volta');
+      await request(server).get('/account').set(as('saiu-e-volta'));
+      expect(await memberships('saiu-e-volta')).toBe(2);
+      const left = await request(server)
+        .post('/households/current/leave')
+        .set(as('saiu-e-volta'));
+      expect(left.status).toBe(201);
+
+      await joinGroupOf('estranho', 'saiu-e-volta');
+
+      await expectOnlyInStrangerGroup('saiu-e-volta');
+    });
+
+    it('quem foi removido de um grupo depois de ganhar o individual pode ser convidado por outro', async () => {
+      const server = app.getHttpServer();
+      await joinFamily('removido-e-volta');
+      await request(server).get('/account').set(as('removido-e-volta'));
+      const company = await prisma.company.findUniqueOrThrow({
+        where: { privyUserId: `${stamp}-removido-e-volta` },
+        select: { id: true },
+      });
+      const removed = await request(server)
+        .delete(`/households/current/members/${company.id}`)
+        .set(as('dona'));
+      expect(removed.status).toBe(200);
+
+      await joinGroupOf('estranho', 'removido-e-volta');
+
+      await expectOnlyInStrangerGroup('removido-e-volta');
+    });
+
+    it('quem está num grupo dos outros continua barrado, no convite e no aceite', async () => {
+      const server = app.getHttpServer();
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `ocupado.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+      await joinFamily('ocupado');
+      const account = await request(server).get('/account').set(as('ocupado'));
+      expect(account.body.households).toHaveLength(2);
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('ocupado'));
+      expect(accepted.status).toBe(409);
+
+      const third = await request(server)
+        .post('/households')
+        .set(as('terceira'))
+        .send({ name: 'Terceira casa' });
+      expect(third.status).toBe(201);
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('terceira'))
+        .send({ email: `ocupado.${stamp}@example.test` });
+      expect(invited.status).toBe(409);
+      expect(await memberships('ocupado')).toBe(2);
+    });
+
+    it('quem só tem o individual próprio, mais antigo, aceita o convite e o padrão vira o grupo dos outros', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-convidado'))
+        .send({ name: 'Minha casa' });
+      expect(own.status).toBe(201);
+      await request(server).get('/account').set(as('dono-convidado'));
+
+      await joinGroupOf('estranho', 'dono-convidado');
+
+      const { body } = await request(server)
+        .get('/account')
+        .set(as('dono-convidado'));
+      expect(body.households).toHaveLength(2);
+      expect(body.activeHousehold).toMatchObject({
+        id: strangerHouseholdId,
+        role: 'member',
+        personal: false,
+      });
+    });
   });
 
   describe('contrato do /account com o web da develop', () => {

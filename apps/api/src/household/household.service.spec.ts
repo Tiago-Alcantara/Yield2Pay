@@ -409,7 +409,10 @@ describe('HouseholdService', () => {
       svc.acceptInvite('co_bia', 'inv1', 'bia@example.com'),
     ).rejects.toBeInstanceOf(HouseholdConflictError);
     expect(prisma.householdMember.findFirst).toHaveBeenCalledWith({
-      where: { companyId: 'co_bia' },
+      where: {
+        companyId: 'co_bia',
+        NOT: { household: { personal: true, ownerCompanyId: 'co_bia' } },
+      },
       select: { id: true },
     });
   });

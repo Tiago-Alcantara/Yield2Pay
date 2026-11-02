@@ -357,16 +357,8 @@ export class HouseholdService {
     const person = await this.prisma.personName.findFirst({
       where: { email: normalized },
     });
-    if (person) {
-      // Convite antigo: quem já está em algum grupo não é convidado.
-      // O convite v2 (F3) troca esta regra pelos limites de grupos.
-      const existingMember = await this.prisma.householdMember.findFirst({
-        where: { companyId: person.companyId },
-        select: { id: true },
-      });
-      if (existingMember) {
-        throw new HouseholdConflictError();
-      }
+    if (person && (await this.isInAnotherGroup(person.companyId))) {
+      throw new HouseholdConflictError();
     }
     const pending = await this.prisma.householdInvite.findFirst({
       where: { householdId, email: normalized, status: 'pending' },
@@ -397,13 +389,7 @@ export class HouseholdService {
     ) {
       throw new HouseholdConflictError();
     }
-    // Aceite antigo: só quem ainda não está em grupo nenhum. O convite v2 (F3)
-    // troca esta regra pelos limites de grupos.
-    const existing = await this.prisma.householdMember.findFirst({
-      where: { companyId },
-      select: { id: true },
-    });
-    if (existing) {
+    if (await this.isInAnotherGroup(companyId)) {
       throw new HouseholdConflictError();
     }
     await this.prisma.householdMember.create({
@@ -417,6 +403,23 @@ export class HouseholdService {
       where: { id: inviteId },
       data: { status: 'accepted' },
     });
+  }
+
+  /**
+   * Regra do convite e do aceite antigos: quem está em algum grupo além do
+   * individual próprio não entra em outro. O individual não conta, senão quem
+   * saiu de um grupo depois de ganhá-lo no GET /account nunca mais seria
+   * convidado. O convite v2 (F3) troca esta regra pelos limites de grupos.
+   */
+  private async isInAnotherGroup(companyId: string): Promise<boolean> {
+    const other = await this.prisma.householdMember.findFirst({
+      where: {
+        companyId,
+        NOT: { household: { personal: true, ownerCompanyId: companyId } },
+      },
+      select: { id: true },
+    });
+    return other !== null;
   }
 
   async revokeInvite(membership: ActiveMembership, inviteId: string) {
