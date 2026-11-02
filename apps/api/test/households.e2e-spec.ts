@@ -170,12 +170,16 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
 
   it('o primeiro /account do membro antigo cria o individual e devolve a família ativa', async () => {
     const server = app.getHttpServer();
-    expect(await memberships('antigo')).toBe(1);
+    // Token só deste teste: outro /account com o mesmo token já criaria o individual.
+    await joinFamily('primeiro-acesso');
+    expect(await memberships('primeiro-acesso')).toBe(1);
 
-    const response = await request(server).get('/account').set(as('antigo'));
+    const response = await request(server)
+      .get('/account')
+      .set(as('primeiro-acesso'));
     expect(response.status).toBe(200);
     expect(response.body.households).toHaveLength(2);
-    expect(await memberships('antigo')).toBe(2);
+    expect(await memberships('primeiro-acesso')).toBe(2);
     const personal = response.body.households.find(
       (item: { personal: boolean }) => item.personal,
     );
@@ -193,10 +197,12 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
     });
 
     // O individual só cria uma vez, e continua na família.
-    const again = await request(server).get('/account').set(as('antigo'));
+    const again = await request(server)
+      .get('/account')
+      .set(as('primeiro-acesso'));
     expect(again.body.households).toHaveLength(2);
     expect(again.body.activeHousehold.id).toBe(familyHouseholdId);
-    expect(await memberships('antigo')).toBe(2);
+    expect(await memberships('primeiro-acesso')).toBe(2);
   });
 
   it('aceite novo: a família fica ativa, com o onboardingCompleted dela', async () => {
