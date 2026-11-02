@@ -376,6 +376,94 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
         personal: false,
       });
     });
+
+    it('dono de individual com membros continua barrado no convite', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-barrado'))
+        .send({ name: 'Casa cheia' });
+      expect(own.status).toBe(201);
+      await joinGroupOf('dono-barrado', 'membro-do-barrado');
+      // Grava o e-mail do dono, que é por onde o convite acha a pessoa.
+      await request(server).get('/account').set(as('dono-barrado'));
+
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `dono-barrado.${stamp}@example.test` });
+
+      expect(invited.status).toBe(409);
+    });
+
+    it('dono de individual com membros continua barrado no aceite e fica no próprio grupo', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-aceite'))
+        .send({ name: 'Casa cheia' });
+      expect(own.status).toBe(201);
+      // O convite nasce com o grupo vazio; os membros entram antes do aceite.
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `dono-aceite.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+      await joinGroupOf('dono-aceite', 'membro-do-aceite');
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('dono-aceite'));
+
+      expect(accepted.status).toBe(409);
+      expect(await memberships('dono-aceite')).toBe(1);
+      const { body } = await request(server)
+        .get('/account')
+        .set(as('dono-aceite'));
+      expect(body.activeHousehold).toMatchObject({
+        id: own.body.id,
+        role: 'owner',
+      });
+    });
+
+    it('autoconvite para o próprio individual recebe 409 no convite', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('autoconvite'))
+        .send({ name: 'Só eu' });
+      expect(own.status).toBe(201);
+      await request(server).get('/account').set(as('autoconvite'));
+
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('autoconvite'))
+        .send({ email: `autoconvite.${stamp}@example.test` });
+
+      expect(invited.status).toBe(409);
+    });
+
+    it('aceitar o convite do grupo em que já é membro recebe 409, não 500', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('autoaceite'))
+        .send({ name: 'Só eu' });
+      expect(own.status).toBe(201);
+      // Sem /account o e-mail ainda não está gravado, então o convite passa.
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('autoaceite'))
+        .send({ email: `autoaceite.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('autoaceite'));
+
+      expect(accepted.status).toBe(409);
+      expect(await memberships('autoaceite')).toBe(1);
+    });
   });
 
   describe('contrato do /account com o web da develop', () => {

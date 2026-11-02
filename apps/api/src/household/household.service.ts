@@ -357,7 +357,11 @@ export class HouseholdService {
     const person = await this.prisma.personName.findFirst({
       where: { email: normalized },
     });
-    if (person && (await this.isInAnotherGroup(person.companyId))) {
+    if (
+      person &&
+      ((await this.isMemberOf(householdId, person.companyId)) ||
+        (await this.isInAnotherGroup(person.companyId)))
+    ) {
       throw new HouseholdConflictError();
     }
     const pending = await this.prisma.householdInvite.findFirst({
@@ -389,7 +393,10 @@ export class HouseholdService {
     ) {
       throw new HouseholdConflictError();
     }
-    if (await this.isInAnotherGroup(companyId)) {
+    if (
+      (await this.isMemberOf(invite.householdId, companyId)) ||
+      (await this.isInAnotherGroup(companyId))
+    ) {
       throw new HouseholdConflictError();
     }
     await this.prisma.householdMember.create({
@@ -405,17 +412,36 @@ export class HouseholdService {
     });
   }
 
+  private async isMemberOf(
+    householdId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const member = await this.prisma.householdMember.findUnique({
+      where: { householdId_companyId: { householdId, companyId } },
+      select: { id: true },
+    });
+    return Boolean(member);
+  }
+
   /**
-   * Regra do convite e do aceite antigos: quem está em algum grupo além do
-   * individual próprio não entra em outro. O individual não conta, senão quem
-   * saiu de um grupo depois de ganhá-lo no GET /account nunca mais seria
-   * convidado. O convite v2 (F3) troca esta regra pelos limites de grupos.
+   * Regra do convite e do aceite antigos: quem está em algum grupo não entra em
+   * outro. Só o individual próprio sem outros membros não conta, senão quem saiu
+   * de um grupo depois de ganhá-lo no GET /account nunca mais seria convidado. O
+   * individual com membros conta porque a migration marcou como individual todo
+   * grupo existente, inclusive a família. O convite v2 (F3) troca esta regra
+   * pelos limites de grupos.
    */
   private async isInAnotherGroup(companyId: string): Promise<boolean> {
     const other = await this.prisma.householdMember.findFirst({
       where: {
         companyId,
-        NOT: { household: { personal: true, ownerCompanyId: companyId } },
+        NOT: {
+          household: {
+            personal: true,
+            ownerCompanyId: companyId,
+            members: { none: { companyId: { not: companyId } } },
+          },
+        },
       },
       select: { id: true },
     });

@@ -56,6 +56,23 @@ function fakePrisma() {
   return prisma;
 }
 
+/** Consulta da regra do convite antigo: só o individual próprio vazio não conta. */
+function groupOutsideEmptyPersonal(companyId: string) {
+  return {
+    where: {
+      companyId,
+      NOT: {
+        household: {
+          personal: true,
+          ownerCompanyId: companyId,
+          members: { none: { companyId: { not: companyId } } },
+        },
+      },
+    },
+    select: { id: true },
+  };
+}
+
 /** Grupo ativo que o HouseholdMemberGuard entregaria ao controller. */
 function memberOf(
   role: 'owner' | 'member',
@@ -408,13 +425,65 @@ describe('HouseholdService', () => {
     await expect(
       svc.acceptInvite('co_bia', 'inv1', 'bia@example.com'),
     ).rejects.toBeInstanceOf(HouseholdConflictError);
-    expect(prisma.householdMember.findFirst).toHaveBeenCalledWith({
+    expect(prisma.householdMember.findFirst).toHaveBeenCalledWith(
+      groupOutsideEmptyPersonal('co_bia'),
+    );
+  });
+
+  it('o convite só ignora o individual próprio sem outros membros', async () => {
+    const prisma = fakePrisma();
+    prisma.personName.findFirst.mockResolvedValue({ companyId: 'co_bia' });
+    prisma.householdMember.findFirst.mockResolvedValue({ id: 'm_bia' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(
+      svc.invite(memberOf('owner'), 'bia@example.com'),
+    ).rejects.toBeInstanceOf(HouseholdConflictError);
+    expect(prisma.householdMember.findFirst).toHaveBeenCalledWith(
+      groupOutsideEmptyPersonal('co_bia'),
+    );
+  });
+
+  it('recusa o convite de quem já é membro do grupo, como o autoconvite', async () => {
+    const prisma = fakePrisma();
+    prisma.personName.findFirst.mockResolvedValue({ companyId: 'co_1' });
+    prisma.householdMember.findUnique.mockResolvedValue({ id: 'm_1' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(
+      svc.invite(memberOf('owner'), 'eu@example.com'),
+    ).rejects.toBeInstanceOf(HouseholdConflictError);
+    expect(prisma.householdMember.findUnique).toHaveBeenCalledWith({
       where: {
-        companyId: 'co_bia',
-        NOT: { household: { personal: true, ownerCompanyId: 'co_bia' } },
+        householdId_companyId: {
+          householdId: HOUSEHOLD_ID,
+          companyId: 'co_1',
+        },
       },
       select: { id: true },
     });
+    expect(prisma.householdInvite.create).not.toHaveBeenCalled();
+  });
+
+  it('recusa o aceite de quem já é membro do grupo do convite', async () => {
+    const prisma = fakePrisma();
+    prisma.householdInvite.findUnique.mockResolvedValue({
+      id: 'inv1',
+      householdId: 'h1',
+      email: 'eu@example.com',
+      status: 'pending',
+    });
+    prisma.householdMember.findUnique.mockResolvedValue({ id: 'm_1' });
+    const svc = new HouseholdService(prisma as never);
+    await expect(
+      svc.acceptInvite('co_1', 'inv1', 'eu@example.com'),
+    ).rejects.toBeInstanceOf(HouseholdConflictError);
+    expect(prisma.householdMember.findUnique).toHaveBeenCalledWith({
+      where: {
+        householdId_companyId: { householdId: 'h1', companyId: 'co_1' },
+      },
+      select: { id: true },
+    });
+    expect(prisma.householdMember.create).not.toHaveBeenCalled();
+    expect(prisma.householdInvite.update).not.toHaveBeenCalled();
   });
 
   it('saves the name shown on the platform', async () => {
