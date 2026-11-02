@@ -709,7 +709,7 @@ function PainelScreen({
   const pctReal = freedom && goal ? Math.round((freedom.months / goal) * 100) : null;
   const statusLabel = pctReal == null ? 'Meta em aberto' : pctReal >= 100 ? 'Meta alcançada' : 'Em andamento';
   const sentence = libertySentence(freedom, reserveCents, goal);
-  const houseName = account?.household?.name?.trim() || 'Painel da família';
+  const houseName = account?.activeHousehold?.name?.trim() || 'Painel da família';
   const initials = account?.initials || '?';
   const isOwner = account?.activeHousehold?.role === 'owner';
   const pills = months.length ? months : [month];
