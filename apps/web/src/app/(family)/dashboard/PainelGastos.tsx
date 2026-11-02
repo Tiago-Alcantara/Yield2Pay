@@ -54,22 +54,6 @@ function categoriesOf(rows: ExpenseView[]) {
     .sort((left, right) => right.amountCents - left.amountCents);
 }
 
-function IconGastos() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 7h14" />
-      <path d="M5 12h14" />
-      <path d="M5 17h9" />
-    </svg>
-  );
-}
-function IconLiberdade() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3l7 3v6c0 4.5-2.8 7.4-7 8.5C7.8 19.4 5 16.5 5 12V6l7-3z" />
-    </svg>
-  );
-}
 function IconTrash() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -104,48 +88,48 @@ const scrollToId = (id: string) => {
   window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
 };
 
-/** Mesmo card de indicador do /dashboard. */
+/** Indicador do painel: rótulo, número e com o que ele se compara. */
 function StatCard({
   title,
   value,
   label,
   sub,
-  silver = false,
-  compact = false,
+  className,
 }: {
   title: string;
   value: string;
   label: string;
   sub: string;
-  silver?: boolean;
-  compact?: boolean;
+  className?: string;
 }) {
   return (
-    <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 24 }}>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>
-        {title}
-      </div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: compact ? 26 : 32, fontWeight: 600, color: silver ? 'var(--fx-silver, #C0C2C5)' : 'var(--fx-text-strong, #F2F3F4)', marginTop: 14, letterSpacing: '.01em', lineHeight: 1.15 }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 8 }}>{label}</div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-silver, #C0C2C5)', marginTop: 6 }}>{sub}</div>
+    <div className={'y2p-stat' + (className ? ' ' + className : '')}>
+      <div className="y2p-stat-t">{title}</div>
+      <div className="y2p-stat-v">{value}</div>
+      <div className="y2p-stat-l">{label}</div>
+      <div className="y2p-stat-s">{sub}</div>
     </div>
   );
 }
 
-const iconBadgeStyle: CSSProperties = {
-  width: 38,
-  height: 38,
-  flexShrink: 0,
-  borderRadius: 11,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))',
-  border: '1px solid var(--fx-border-metal, #4a4d52)',
-  color: 'var(--fam-on-avatar, #d4d6d9)',
-};
+/**
+ * Régua de meses: a barra da liberdade dividida nos meses da meta.
+ * Metas longas viram 12 marcas, cada uma valendo mais de um mês.
+ */
+function MonthRuler({ months, goal }: { months: number; goal: number | null | undefined }) {
+  const segments = goal ? Math.min(goal, 12) : 12;
+  const perSegment = goal ? goal / segments : 1;
+  const filled = goal ? months / perSegment : 0;
+  return (
+    <div className="y2p-ruler" aria-hidden="true">
+      {Array.from({ length: segments }, (_, index) => (
+        <span key={index}>
+          <i style={{ width: Math.max(0, Math.min(1, filled - index)) * 100 + '%' }} />
+        </span>
+      ))}
+    </div>
+  );
+}
 
 type GetToken = () => Promise<string | null>;
 
@@ -723,10 +707,9 @@ function PainelScreen({
   const reserveCents = profile?.reserveCents;
   const incomeCents = profile?.monthlyIncomeCents;
   const pctReal = freedom && goal ? Math.round((freedom.months / goal) * 100) : null;
-  const barPct = pctReal == null ? 0 : Math.min(100, pctReal);
   const statusLabel = pctReal == null ? 'Meta em aberto' : pctReal >= 100 ? 'Meta alcançada' : 'Em andamento';
   const sentence = libertySentence(freedom, reserveCents, goal);
-  const userName = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0] || '';
+  const houseName = account?.household?.name?.trim() || 'Painel da família';
   const initials = account?.initials || '?';
   const isOwner = account?.household?.role === 'owner';
   const pills = months.length ? months : [month];
@@ -819,7 +802,7 @@ function PainelScreen({
         WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 130 }}>
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 128 }}>
         <header
           id="painel-header"
           className="y2p-header"
@@ -829,8 +812,8 @@ function PainelScreen({
             justifyContent: 'space-between',
             flexDirection: isMobile ? 'column' : 'row',
             flexWrap: isMobile ? 'nowrap' : 'wrap',
-            gap: isMobile ? 10 : 16,
-            padding: isMobile ? '12px 16px' : '20px 32px',
+            gap: isMobile ? 12 : 16,
+            padding: isMobile ? '12px 16px' : '16px 32px',
             borderBottom: '1px solid var(--fx-border, #2A2D31)',
             position: 'sticky',
             top: 0,
@@ -842,22 +825,18 @@ function PainelScreen({
         >
           <div className="y2p-header-greet" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)' }}>
-                {userName ? 'Olá, ' + userName : 'Painel da família'}
+              <h1 className="y2p-title y2p-ellipsis">{houseName}</h1>
+              <div className="y2p-title-sub">
+                {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
               </div>
-              {!isMobile && (
-                <div style={{ fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>
-                  {upcoming ? cap(mName) + ' ainda não começou' : partial ? cap(mName) + ' até agora' : 'Como foi ' + mName}
-                </div>
-              )}
             </div>
             {isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 36, height: 36, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border, #2A2D31)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
           </div>
-          <div className="y2p-header-actions" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
+          <div className="y2p-header-actions" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : undefined, minWidth: 0 }}>
             <div style={{ flex: isMobile ? 1 : undefined, minWidth: 0, width: isMobile ? '100%' : undefined }}>
               <FilterBar
                 month={month}
@@ -872,66 +851,49 @@ function PainelScreen({
               />
             </div>
             {!isMobile && (
-              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border-metal, #4a4d52)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
+              <button type="button" aria-label="Configurações" onClick={() => setSettingsOpen(true)} style={{ flex: 'none', width: 40, height: 40, borderRadius: '50%', background: 'var(--fam-avatar, linear-gradient(160deg,#43464b,#1b1d21))', border: '1px solid var(--fx-border, #2A2D31)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fam-on-avatar, #d4d6d9)', cursor: 'pointer', padding: 0 }}>
                 {initials}
               </button>
             )}
           </div>
         </header>
         {inviteNotice && (
-          <p role="status" style={{ margin: '16px 32px 0', fontSize: 14.5, color: 'var(--fx-text-strong, #F2F3F4)' }}>
+          <p role="status" style={{ margin: '16px 32px 0', fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>
             {inviteNotice}
           </p>
         )}
 
         <div
           id="s-topo"
-          className="y2p-dashboard__section"
-          style={{
-            padding: isMobile ? '16px 12px' : 32,
-            maxWidth: 1180,
-            width: '100%',
-            margin: '0 auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 20,
-          }}
+          className="y2p-dashboard__section y2p-page"
         >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
-          <MetalCard padding={28} radius="var(--fx-radius-xl)">
-            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 184 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                <span style={iconBadgeStyle}><IconGastos /></span>
-                <span style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--fx-text-3)' }}>{kpis[0].label}</span>
-              </div>
-              <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 34, fontWeight: 600, marginTop: 18, letterSpacing: 'var(--fx-tracking-data)', lineHeight: 1.05, color: 'var(--fx-text-strong)' }}>{kpis[0].value}</div>
-              <div role={summaryState === 'error' ? 'alert' : undefined} style={{ marginTop: 8, fontSize: 13.5, color: 'var(--fx-text-3)' }}>{kpis[0].sub}</div>
-              <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button variant="primary" size="sm" onClick={() => { setImportManual(false); setImportOpen(true); }}>Importar extrato</Button>
-                {summaryState === 'error' && (
-                  <Button variant="secondary" size="sm" onClick={() => { setSummaryState('loading'); setLoadAttempt((attempt) => attempt + 1); }}>Tentar de novo</Button>
-                )}
-              </div>
+        <div className={'y2p-top' + (liberdadeOn ? '' : ' is-single')}>
+          <div className="y2p-card-plain y2p-spend">
+            <div className="y2p-stat-t">{kpis[0].label}</div>
+            <div className="y2p-figure">{kpis[0].value}</div>
+            <div role={summaryState === 'error' ? 'alert' : undefined} className="y2p-stat-l">{kpis[0].sub}</div>
+            <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Button variant="primary" size="sm" onClick={() => { setImportManual(false); setImportOpen(true); }}>Importar extrato</Button>
+              {summaryState === 'error' && (
+                <Button variant="secondary" size="sm" onClick={() => { setSummaryState('loading'); setLoadAttempt((attempt) => attempt + 1); }}>Tentar de novo</Button>
+              )}
             </div>
-          </MetalCard>
+          </div>
           {liberdadeOn && (
-            <MetalCard id="s-liberdade" className="y2p-dashboard__section" data-screen-label="Liberdade" padding={28} radius="var(--fx-radius-xl)" aria-label="Liberdade da família">
+            <MetalCard id="s-liberdade" className="y2p-dashboard__section" data-screen-label="Liberdade" padding={24} radius="16px" sweep="none" aria-label="Liberdade da família">
               <div className="y2p-lib-card">
                 <div className="y2p-lib-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <span style={iconBadgeStyle}><IconLiberdade /></span>
-                    <span style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--fx-text-3)' }}>Liberdade</span>
-                  </div>
+                  <span className="y2p-stat-t">Liberdade</span>
                   <span className="y2p-lib-badge">{statusLabel}</span>
                 </div>
                 <div className="y2p-lib-hero">
                   <b>{pctReal == null ? '—' : pctReal + '%'}</b>
                   <span>percentual de liberdade</span>
-                  {freedom && <em>{nf(freedom.months, 1)} meses</em>}
+                  {freedom && <em>{nf(freedom.months, 1)}{goal ? ' de ' + goal : ''} meses</em>}
                 </div>
                 <p className="y2p-lib-sent">{sentence}</p>
                 <div>
-                  <div className="y2p-lib-bar" aria-hidden="true"><i style={{ width: barPct + '%' }} /></div>
+                  <MonthRuler months={freedom?.months ?? 0} goal={goal} />
                   <div className="y2p-lib-legend">
                     <span>Hoje</span>
                     <span>Meta <b className="y2p-mono">{goal ? metaLabel(goal) : '—'}</b></span>
@@ -944,27 +906,27 @@ function PainelScreen({
         </div>
 
         {summaryState === 'ready' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 16 }}>
+        <div className="y2p-stats">
           <StatCard title={kpis[1].label} value={kpis[1].value} label="Depois da renda da casa" sub={kpis[1].sub || 'Renda ainda não informada'} />
-          <StatCard title="Gasto médio" value={brl0(reais(summary.averageCents))} label="Meses já fechados" sub={partial ? 'Projeção ' + brl0(reais(summary.projectedCents)) : 'Base da reserva'} silver />
-          <StatCard title={kpis[3].label} value={kpis[3].value} label="Onde mais saiu neste mês" sub={kpis[3].sub || 'Sem gastos no mês'} compact />
+          <StatCard title="Gasto médio" value={brl0(reais(summary.averageCents))} label="Meses já fechados" sub={partial ? 'Projeção ' + brl0(reais(summary.projectedCents)) : 'Base da reserva'} />
+          <StatCard className="y2p-stat--wide" title={kpis[3].label} value={kpis[3].value} label="Onde mais saiu neste mês" sub={kpis[3].sub || 'Sem gastos no mês'} />
         </div>
         )}
 
         {summaryState === 'ready' && (
-        <div style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26 }}>
+        <div className="y2p-card-plain">
           <Charts month={month} chart={chart} summary={viewSummary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
         )}
 
-        <div id="s-gastos" className="y2p-dashboard__section" data-screen-label="Gastos" style={{ marginTop: 6 }}>
+        <div id="s-gastos" className="y2p-dashboard__section y2p-section" data-screen-label="Gastos">
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
-              {rangeNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{rangeNote}</p> : null}
-              {pageNote ? <p role="status" style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--fx-text, #E6E8EA)' }}>{pageNote}</p> : null}
+              <h2 className="y2p-section-h">{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              {rangeNote ? <p role="status" className="y2p-note">{rangeNote}</p> : null}
+              {pageNote ? <p role="status" className="y2p-note">{pageNote}</p> : null}
               {summaryState === 'ready' && (
-                <p style={{ fontSize: 14.5, color: 'var(--fx-text-2, #9A9DA1)', margin: '7px 0 0' }}>
+                <p className="y2p-section-sub">
                   {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
                 </p>
               )}
@@ -990,30 +952,30 @@ function PainelScreen({
                 })}
               </div>
             </div>
-          <div className="y2p-list" style={{ marginTop: 20, background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18 }}>
+          <div className="y2p-list y2p-card-plain">
             {rows.map((row) => (
               <div key={row.id} className="y2p-tx">
-                <span className="y2p-mono" style={{ fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
+                <span className="y2p-mono" style={{ fontSize: 12, color: 'var(--fx-text-3, #8a8d91)' }}>
                   {row.date.slice(8, 10) + '/' + row.date.slice(5, 7)}
                 </span>
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="y2p-ellipsis">{row.merchant}</span>
-                    {row.fixed && <span className="y2p-mono y2p-fixo">fixo</span>}
+                    {row.fixed && <span className="y2p-fixo">fixo</span>}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)', marginTop: 2 }}>{row.addedBy.displayName}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-3, #8a8d91)', marginTop: 2 }}>{row.addedBy.displayName}</span>
                 </span>
                 <select
                   aria-label={'Categoria de ' + row.merchant}
                   value={row.category}
                   onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
-                  style={{ background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 8, padding: '4px 6px', fontFamily: "'Geist Mono', monospace", fontSize: 12 }}
+                  className="y2p-tx-cat"
                 >
                   {(Object.entries(CATEGORY_LABEL) as [ExpenseCategory, string][]).map(([id, label]) => (
                     <option key={id} value={id}>{label}</option>
                   ))}
                 </select>
-                <span className="y2p-mono" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 92 }}>
+                <span className="y2p-num" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 96 }}>
                   {brl(reais(row.amountCents))}
                 </span>
                 <button
@@ -1028,7 +990,7 @@ function PainelScreen({
               </div>
             ))}
             {futureHidden > 0 && (
-              <p style={{ margin: 0, padding: '12px 16px', fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
+              <p style={{ margin: 0, padding: '12px 24px', fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
                 {futureHidden === 1 ? '1 lançamento com data futura ficou de fora do total de hoje.' : futureHidden + ' lançamentos com data futura ficaram de fora do total de hoje.'}
               </p>
             )}
@@ -1042,22 +1004,21 @@ function PainelScreen({
 
         <div
           id="s-aprender"
-          className="y2p-dashboard__section"
+          className="y2p-dashboard__section y2p-card-plain y2p-learn"
           data-screen-label="Aprender"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 20, padding: 26, marginTop: 6 }}
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--fx-text-strong, #F2F3F4)', margin: 0 }}>
+            <h2 className="y2p-card-h">
               {criptoOn ? (profile?.cryptoExperience === 'fund' ? 'Cripto, um passo além' : 'Cripto do zero') : 'Quando fizer sentido'}
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--fx-text-body, #C8CACD)', margin: '12px 0 0' }}>
+            <p className="y2p-card-p">
               {criptoOn
                 ? 'Aulas curtas para entender como cripto pode, ou não, entrar no plano de liberdade da família.'
                 : 'Preparamos uma trilha curta e sem jargão sobre cripto e liberdade financeira. Fica aqui para quando você quiser.'}
             </p>
             {criptoOn ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-text-2, #9A9DA1)' }}>
+                <div className="y2p-num" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   <span>{doneN} de {lessons.length} aulas</span>
                   <span>{lessons.length ? Math.round((doneN / lessons.length) * 100) : 0}%</span>
                 </div>
@@ -1065,13 +1026,13 @@ function PainelScreen({
                   <span style={{ width: (lessons.length ? (doneN / lessons.length) * 100 : 0) + '%' }} />
                 </div>
                 {lessons.length > 0 && (
-                  <button type="button" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+                  <button type="button" className="y2p-btn-quiet" onClick={() => (doneN === lessons.length ? void restartLessons() : openLesson(doneN === 0 ? 1 : nextLesson + 1))}>
                     {doneN === lessons.length ? 'Trilha concluída · recomeçar' : doneN === 0 ? 'Começar aula 1' : 'Continuar · aula ' + (nextLesson + 1)}
                   </button>
                 )}
               </>
             ) : (
-              <button type="button" onClick={() => void showInterest()} style={{ marginTop: 18, fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: 'var(--fx-text-strong, #F2F3F4)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--fx-border-strong, #3A3D41)', borderRadius: 10, padding: '11px 20px', cursor: 'pointer' }}>
+              <button type="button" className="y2p-btn-quiet" onClick={() => void showInterest()}>
                 Tenho interesse
               </button>
             )}
@@ -1079,12 +1040,12 @@ function PainelScreen({
           {criptoOn && (
             <div style={{ flex: '1 1 280px', minWidth: 240 }}>
               {lessons.map((lesson, index) => (
-                <button key={lesson.id} type="button" onClick={() => openLesson(index + 1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12, padding: '9px 0', border: 'none', borderBottom: '1px solid var(--fx-border, #2A2D31)', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <button key={lesson.id} type="button" className="y2p-lesson-row" onClick={() => openLesson(index + 1)}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                     {lessonDone(lesson.id) ? <span className="y2p-check is-done">✓</span> : <span className="y2p-check y2p-mono">{index + 1}</span>}
-                    <span style={{ fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{presented[index]?.title ?? lesson.title}</span>
+                    <span className="y2p-ellipsis" style={{ fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{presented[index]?.title ?? lesson.title}</span>
                   </span>
-                  <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>{lesson.durationMinutes} min</span>
+                  <span className="y2p-mono" style={{ flex: 'none', fontSize: 12, color: 'var(--fx-text-3, #8a8d91)' }}>{lesson.durationMinutes} min</span>
                 </button>
               ))}
             </div>
@@ -1092,14 +1053,14 @@ function PainelScreen({
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form id="s-convidar" className="y2p-dashboard__section" onSubmit={(event) => void onInvite(event)} style={{ background: 'var(--fam-card, #1A1C1F)', border: '1px solid var(--fx-border, #2A2D31)', borderRadius: 18, padding: 26, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <form id="s-convidar" className="y2p-dashboard__section y2p-card-plain y2p-invite-form" onSubmit={(event) => void onInvite(event)}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-2, #9A9DA1)' }}>Convidar</span>
+              <span className="y2p-stat-t">Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
             </label>
             <Button variant="secondary" size="sm" type="submit">Enviar convite</Button>
-            {inviteError && <span style={{ flexBasis: '100%', fontSize: 14, color: '#E6E8EA' }}>{inviteError}</span>}
-            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-silver, #C0C2C5)' }}>{inviteOk}</span>}
+            {inviteError && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{inviteError}</span>}
+            {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-text-2, #9A9DA1)' }}>{inviteOk}</span>}
           </form>
         )}
         </div>
@@ -1180,10 +1141,10 @@ const fieldStyle: CSSProperties = {
   width: '100%',
   background: 'var(--fx-surface-1, #131417)',
   border: '1px solid var(--fx-border, #2A2D31)',
-  borderRadius: 12,
-  padding: '12px 14px',
+  borderRadius: 10,
+  height: 40,
+  padding: '0 12px',
   color: 'var(--fx-text-strong, #F2F3F4)',
   fontFamily: 'inherit',
   fontSize: 14,
-  outline: 'none',
 };
