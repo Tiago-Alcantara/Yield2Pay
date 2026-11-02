@@ -119,7 +119,10 @@ export const CORS_ALLOWED_HEADERS = [
   HOUSEHOLD_ID_HEADER,
 ];
 
-/** Origens do web em dev. É o que vale quando faltam CORS_ORIGIN e APP_ENV. */
+/**
+ * Origens do web em dev. Só valem quando faltam CORS_ORIGIN e APP_ENV: com
+ * APP_ENV=development, por exemplo, a regra é outra (ver corsOptionsFor).
+ */
 export const CORS_DEV_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -127,10 +130,14 @@ export const CORS_DEV_ORIGINS = [
 
 /**
  * CORS da API. O web roda em outra origem (localhost:3000 em dev, o domínio
- * da Vercel em produção). Libera as origens de CORS_ORIGIN (separadas por
- * vírgula); sem ela, em produção só o domínio público, sem APP_ENV só o
- * localhost e nos outros ambientes qualquer origem. allowedHeaders é explícito
- * para o preflight liberar X-Household-Id.
+ * da Vercel em produção). A origem liberada, na ordem em que é decidida:
+ * - CORS_ORIGIN preenchido: só as origens dele, separadas por vírgula, em
+ *   qualquer APP_ENV;
+ * - APP_ENV=production: só https://yield2pay.com e https://www.yield2pay.com;
+ * - APP_ENV ausente ou vazio: só CORS_DEV_ORIGINS;
+ * - qualquer outro APP_ENV (development, staging, test): origin true, ou seja,
+ *   qualquer origem, com credentials.
+ * allowedHeaders é explícito para o preflight liberar X-Household-Id.
  */
 export function corsOptionsFor(
   raw: Record<string, string | undefined>,
