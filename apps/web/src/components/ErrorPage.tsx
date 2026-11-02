@@ -115,7 +115,7 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
             style={{
               fontFamily: 'var(--fx-font-display)',
               fontSize: 16,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-.01em',
               color: 'var(--fx-text-strong)',
             }}
@@ -142,26 +142,23 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
             maxWidth: 620,
             background: '#1A1C1F',
             border: '1px solid var(--fx-border)',
-            borderRadius: 24,
+            borderRadius: 16,
             overflow: 'hidden',
-            boxShadow: '0 30px 70px rgba(0,0,0,.45)',
           }}
         >
           {SHOW_TECHNICAL_DETAILS && details.technicalDetails && <StagingBanner />}
 
-          <div style={{ padding: 'clamp(26px,3.4vw,42px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ padding: 'clamp(24px,3.4vw,40px)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span
-                className="brushed"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 64,
-                  height: 52,
-                  borderRadius: 14,
-                  border: '1px solid var(--fx-border-metal)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,.12) inset,0 10px 24px rgba(0,0,0,.4)',
+                  height: 32,
+                  padding: '0 8px',
+                  borderRadius: 6,
+                  background: 'var(--fx-surface-2)',
                 }}
               >
                 <span
@@ -169,9 +166,9 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
                     position: 'relative',
                     zIndex: 2,
                     fontFamily: MONO,
-                    fontSize: 20,
+                    fontSize: 14,
                     fontWeight: 500,
-                    color: 'var(--fx-silver-bright)',
+                    color: 'var(--fx-text-strong)',
                   }}
                 >
                   {details.statusCode}
@@ -180,10 +177,9 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
               <span
                 style={{
                   fontFamily: MONO,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 500,
-                  letterSpacing: '.18em',
-                  textTransform: 'uppercase',
+                  letterSpacing: 0,
                   color: 'var(--fx-text-2)',
                   lineHeight: 1.5,
                 }}
@@ -196,12 +192,13 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
               ref={titleRef}
               tabIndex={-1}
               style={{
-                fontSize: 'clamp(25px,2.7vw,34px)',
-                fontWeight: 700,
+                outline: 'none',
+                fontSize: 'clamp(26px,2.7vw,32px)',
+                fontWeight: 500,
                 letterSpacing: '-.025em',
                 lineHeight: 1.15,
                 color: 'var(--fx-text-strong)',
-                margin: '22px 0 0',
+                margin: '20px 0 0',
                 textWrap: 'pretty',
               }}
             >
@@ -209,7 +206,7 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
             </h1>
             <p
               style={{
-                fontSize: 15.5,
+                fontSize: 15,
                 lineHeight: 1.6,
                 color: 'var(--fx-text-2)',
                 margin: '12px 0 0',
@@ -227,14 +224,13 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
                 onClick={() => runAction(copy.primary)}
                 style={{
                   fontFamily: 'inherit',
-                  fontSize: 14.5,
-                  fontWeight: 700,
-                  letterSpacing: '-.005em',
+                  fontSize: 14,
+                  fontWeight: 500,
                   color: 'var(--fx-chrome-ink)',
                   background: 'var(--fx-chrome)',
                   border: 'none',
-                  borderRadius: 'var(--fx-radius-pill)',
-                  padding: '13px 24px',
+                  borderRadius: 10,
+                  padding: '12px 20px',
                   minHeight: 44,
                   cursor: 'pointer',
                   boxShadow: '0 1px 0 rgba(255,255,255,.45) inset,0 10px 26px rgba(0,0,0,.45)',
@@ -248,13 +244,13 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
                   onClick={() => runAction(copy.secondary as ErrorAction)}
                   style={{
                     fontFamily: 'inherit',
-                    fontSize: 14.5,
-                    fontWeight: 600,
+                    fontSize: 14,
+                    fontWeight: 500,
                     color: 'var(--fx-text)',
                     background: 'rgba(255,255,255,.03)',
-                    border: '1px solid var(--fx-border-metal)',
-                    borderRadius: 'var(--fx-radius-pill)',
-                    padding: '13px 22px',
+                    border: '1px solid var(--fx-border-strong)',
+                    borderRadius: 10,
+                    padding: '12px 20px',
                     minHeight: 44,
                     cursor: 'pointer',
                   }}
@@ -275,9 +271,8 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
                 <span
                   style={{
                     fontFamily: MONO,
-                    fontSize: 10.5,
-                    letterSpacing: '.16em',
-                    textTransform: 'uppercase',
+                    fontSize: 13,
+                    letterSpacing: 0,
                     color: 'var(--fx-text-3)',
                   }}
                 >
@@ -302,9 +297,8 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
                   onClick={copyErrorId}
                   style={{
                     fontFamily: MONO,
-                    fontSize: 11,
-                    letterSpacing: '.1em',
-                    textTransform: 'uppercase',
+                    fontSize: 12,
+                    letterSpacing: 0,
                     color: 'var(--fx-text-2)',
                     background: 'none',
                     border: '1px solid var(--fx-border)',
@@ -329,7 +323,7 @@ export function ErrorPage({ details, onRetry, onHome, onLogin, onSupport }: Erro
               </div>
               <p
                 style={{
-                  fontSize: 12.5,
+                  fontSize: 13,
                   lineHeight: 1.55,
                   color: 'var(--fx-text-4)',
                   margin: '12px 0 0',
@@ -373,10 +367,9 @@ function StagingBanner() {
           position: 'relative',
           zIndex: 2,
           fontFamily: MONO,
-          fontSize: 10.5,
+          fontSize: 13,
           fontWeight: 600,
-          letterSpacing: '.2em',
-          textTransform: 'uppercase',
+          letterSpacing: 0,
           color: 'var(--fx-chrome-ink)',
           background: 'var(--fx-chrome)',
           borderRadius: 'var(--fx-radius-pill)',
@@ -389,7 +382,7 @@ function StagingBanner() {
         style={{
           position: 'relative',
           zIndex: 2,
-          fontSize: 12.5,
+          fontSize: 13,
           color: 'var(--fx-silver)',
           lineHeight: 1.5,
         }}

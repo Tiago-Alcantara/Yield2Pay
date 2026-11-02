@@ -33,7 +33,7 @@ export function NotificationsSection() {
 
   const cardTitle: React.CSSProperties = {
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 600,
     color: C.textStrong,
     letterSpacing: '-.01em',
   };
@@ -60,10 +60,10 @@ export function NotificationsSection() {
         }}
       >
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: C.text }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.text }}>
             {label}
           </span>
-          <span style={{ display: 'block', fontSize: 12.5, color: C.text3, marginTop: 2 }}>
+          <span style={{ display: 'block', fontSize: 13, color: C.text3, marginTop: 2 }}>
             {desc}
           </span>
         </span>

@@ -41,7 +41,7 @@ export function WalletSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.walletTitle}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
@@ -70,7 +70,7 @@ export function WalletSection() {
             {copied ? t.settings.walletCopied : t.settings.walletCopy}
           </GhostPill>
         </div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '12px 0 0', maxWidth: 520 }}>
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '12px 0 0', maxWidth: 520 }}>
           {t.settings.walletNote}{' '}
           <Link href="/conceitos" style={{ color: C.silver }}>
             {t.settings.walletLink}
@@ -88,7 +88,7 @@ export function WalletSection() {
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+          <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
             {t.settings.historyTitle}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -131,7 +131,7 @@ export function WalletSection() {
 
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 8 }}>
           {rows.length === 0 && (
-            <div style={{ fontSize: 13.5, color: C.text3, padding: '16px 0' }}>
+            <div style={{ fontSize: 13, color: C.text3, padding: '16px 0' }}>
               {t.settings.historyEmpty}
             </div>
           )}
@@ -157,7 +157,7 @@ export function WalletSection() {
               <span
                 style={{
                   fontFamily: C.mono,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   whiteSpace: 'nowrap',
                   color: h.v >= 0 ? C.textStrong : C.text2,
                 }}

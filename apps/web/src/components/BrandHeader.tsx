@@ -33,7 +33,7 @@ export function BrandHeader() {
         style={{
           fontFamily: 'var(--fx-font-display)',
           fontSize: 20,
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: '-.01em',
           color: 'var(--fx-text)',
         }}

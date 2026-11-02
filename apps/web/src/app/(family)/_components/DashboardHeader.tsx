@@ -82,7 +82,7 @@ export function DashboardHeader() {
           <Link
             href="/conceitos"
             className="fam-quiet"
-            style={{ fontSize: 13.5, color: C.text2, textDecoration: 'none' }}
+            style={{ fontSize: 13, color: C.text2, textDecoration: 'none' }}
           >
             {t.dash.concepts}
           </Link>
@@ -166,7 +166,7 @@ export function DashboardHeader() {
                 <Link
                   href="/configuracoes"
                   className="fam-menu-item"
-                  style={{ ...itemStyle, fontSize: 13.5, fontWeight: 600, color: C.silver }}
+                  style={{ ...itemStyle, fontSize: 13, fontWeight: 600, color: C.silver }}
                   onClick={() => setOpen(false)}
                 >
                   {t.dash.menuAll}

@@ -262,18 +262,18 @@ export function FilterBar({
                     onClick={() => chooseMonth(item)}
                     className={on ? undefined : 'y2p-quiet'}
                     style={on
-                      ? { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'var(--fam-chip-on, #2E3136)', boxShadow: 'inset 0 0 0 1px var(--fx-border-metal, #4a4d52)', color: 'var(--fam-on-chip, #F2F3F4)', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }
-                      : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, textAlign: 'left', cursor: 'pointer' }}
+                      ? { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'var(--fam-chip-on, #2E3136)', boxShadow: 'inset 0 0 0 1px var(--fx-border-metal, #4a4d52)', color: 'var(--fam-on-chip, #F2F3F4)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }
+                      : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, height: 42, padding: '0 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--fx-silver, #C0C2C5)', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, textAlign: 'left', cursor: 'pointer' }}
                   >
                     <span>{cap(mesNome(item)) + (partial ? ` · até dia ${saoPauloDay()}` : '')}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, color: on ? 'var(--fam-on-chip, #F2F3F4)' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: on ? 'var(--fam-on-chip, #F2F3F4)' : 'var(--fx-text-3, #8a8d91)' }}>{brlK(reais(totals[item] ?? 0))}</span>
                   </button>
                 );
               })}
               <div style={{ height: 1, background: 'var(--fx-border, #2A2D31)', margin: '4px 6px' }} />
               <button type="button" onClick={() => openModal('custom')} className="y2p-quiet" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, minHeight: 48, padding: '6px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--fx-text, #E6E8EA)', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>Período personalizado</span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Período personalizado</span>
                   <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: 'var(--fx-text-3, #8a8d91)' }}>{filters.mode === 'custom' ? rangeLabel(filters) : 'Escolha as datas'}</span>
                 </span>
                 <span style={{ color: 'var(--fx-text-2, #9A9DA1)' }}>›</span>
@@ -432,7 +432,7 @@ function FiltersModal({
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fx-text-2, #9A9DA1)' }}>Período</div>
             <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-2, #16181b)' }}>
               {([['mes', 'Por mês'], ['custom', 'Personalizado']] as const).map(([key, text]) => (
-                <button key={key} type="button" aria-pressed={draft.mode === key} onClick={() => patch({ mode: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13.5, cursor: 'pointer', ...(draft.mode === key ? chromeOn : chromeOff) }}>{text}</button>
+                <button key={key} type="button" aria-pressed={draft.mode === key} onClick={() => patch({ mode: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', ...(draft.mode === key ? chromeOn : chromeOff) }}>{text}</button>
               ))}
             </div>
           </div>
@@ -462,11 +462,11 @@ function FiltersModal({
                 })}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   De
                   <input type="date" aria-label="De" value={draft.from} min={minDate} max={maxDate} onChange={(event) => patch({ from: event.target.value })} style={dateStyle} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: 'var(--fx-text-2, #9A9DA1)' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--fx-text-2, #9A9DA1)' }}>
                   Até
                   <input type="date" aria-label="Até" value={draft.to} min={minDate} max={maxDate} onChange={(event) => patch({ to: event.target.value })} style={dateStyle} />
                 </label>
@@ -497,7 +497,7 @@ function FiltersModal({
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fx-text-2, #9A9DA1)' }}>Tipo de gasto</div>
           <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-2, #16181b)' }}>
             {([['todos', 'Todos'], ['fixo', 'Fixos'], ['var', 'Variáveis']] as const).map(([key, text]) => (
-              <button key={key} type="button" aria-pressed={draft.tipo === key} onClick={() => patch({ tipo: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13.5, cursor: 'pointer', ...(draft.tipo === key ? chromeOn : chromeOff) }}>{text}</button>
+              <button key={key} type="button" aria-pressed={draft.tipo === key} onClick={() => patch({ tipo: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', ...(draft.tipo === key ? chromeOn : chromeOff) }}>{text}</button>
             ))}
           </div>
         </div>
@@ -523,7 +523,7 @@ function FiltersModal({
         </div>
 
         <div style={{ position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '18px 24px', borderTop: '1px solid var(--fx-border-strong, #3a3d42)', borderRadius: '0 0 24px 24px', background: 'var(--fx-surface-2, #16181b)' }}>
-          <button type="button" onClick={() => onDraft({ ...EMPTY_FILTERS, ...monthBounds(loadedMonth, today), month: loadedMonth })} className="y2p-linkish" style={{ height: 48, padding: '0 4px', border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14.5, color: 'var(--fx-text-2, #9A9DA1)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>Limpar filtros</button>
+          <button type="button" onClick={() => onDraft({ ...EMPTY_FILTERS, ...monthBounds(loadedMonth, today), month: loadedMonth })} className="y2p-linkish" style={{ height: 48, padding: '0 4px', border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14, color: 'var(--fx-text-2, #9A9DA1)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>Limpar filtros</button>
           {canApply ? (
             <button type="button" onClick={apply} style={{ height: 48, padding: '0 26px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.25)' }}>
               {applyLabel}
@@ -554,7 +554,7 @@ const dateStyle: CSSProperties = {
   background: 'var(--fx-surface-2, #16181b)',
   color: 'var(--fx-text, #E6E8EA)',
   fontFamily: "'Geist Mono', monospace",
-  fontSize: 14.5,
+  fontSize: 14,
   outline: 'none',
   boxSizing: 'border-box',
   colorScheme: 'inherit',
@@ -569,7 +569,7 @@ const moneyField: CSSProperties = {
   borderRadius: 12,
   border: '1px solid var(--fx-border-strong, #3a3d42)',
   background: 'var(--fx-surface-2, #16181b)',
-  fontSize: 13.5,
+  fontSize: 13,
   color: 'var(--fx-text-2, #9A9DA1)',
 };
 
@@ -581,6 +581,6 @@ const moneyInput: CSSProperties = {
   background: 'transparent',
   color: 'var(--fx-text, #E6E8EA)',
   fontFamily: "'Geist Mono', monospace",
-  fontSize: 14.5,
+  fontSize: 14,
   outline: 'none',
 };

@@ -100,7 +100,7 @@ export function AppearanceSection() {
         padding: 'var(--fam-card-pad, 28px)',
       }}
     >
-      <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-0.01em' }}>{a.title}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-0.01em' }}>{a.title}</div>
       <p style={{ fontSize: 14, color: C.text2, margin: '6px 0 22px', lineHeight: 1.5 }}>{a.sub}</p>
 
       {groups.map(([label, aria, list]) => (
@@ -108,9 +108,8 @@ export function AppearanceSection() {
           <div
             style={{
               fontFamily: C.mono,
-              fontSize: 11,
-              letterSpacing: '.14em',
-              textTransform: 'uppercase',
+              fontSize: 12,
+              letterSpacing: 0,
               color: C.text3,
               margin: '4px 0 12px',
             }}
@@ -154,8 +153,8 @@ export function AppearanceSection() {
                   <Swatch theme={item} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px' }}>
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <b style={{ fontSize: 14.5, fontWeight: 600, color: C.textStrong }}>{item.name}</b>
-                      <span style={{ fontSize: 12.5, color: C.text3, lineHeight: 1.4 }}>{item.desc}</span>
+                      <b style={{ fontSize: 14, fontWeight: 600, color: C.textStrong }}>{item.name}</b>
+                      <span style={{ fontSize: 13, color: C.text3, lineHeight: 1.4 }}>{item.desc}</span>
                     </span>
                     <span
                       aria-hidden="true"
@@ -197,7 +196,7 @@ export function AppearanceSection() {
           border: `1px solid ${C.borderStrong}`,
           borderRadius: 12,
           padding: '11px 16px',
-          fontSize: 13.5,
+          fontSize: 13,
           color: C.textStrong,
           boxShadow: '0 18px 44px rgba(0,0,0,.35)',
         }}

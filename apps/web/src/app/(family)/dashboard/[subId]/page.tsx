@@ -84,7 +84,7 @@ export default function FamilySubscriptionPage({
                 <h1
                   style={{
                     fontSize: 'clamp(23px,6vw,28px)',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     letterSpacing: '-.02em',
                     margin: 0,
                     color: C.textStrong,
@@ -133,7 +133,7 @@ export default function FamilySubscriptionPage({
             >
               {fmtBRLShort(row.cumNeeded)}
             </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.text2, marginTop: 6 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: C.text2, marginTop: 6 }}>
               {t.detail.neededSub}
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function FamilySubscriptionPage({
             >
               {row.covered ? 'R$ 0' : fmtBRLShort(row.missing)}
             </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.text2, marginTop: 6 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: C.text2, marginTop: 6 }}>
               {t.detail.missingSub}
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function FamilySubscriptionPage({
         </button>
         <div
           style={{
-            fontSize: 11.5,
+            fontSize: 12,
             lineHeight: 1.5,
             color: C.text4,
             textAlign: 'center',

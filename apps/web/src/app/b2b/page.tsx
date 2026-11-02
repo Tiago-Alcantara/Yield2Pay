@@ -151,7 +151,6 @@ const DICT = {
 // ── Software logos (doubled for seamless marquee loop) ────────────────────────
 
 const SW_LOGOS = ['OpenAI', 'Anthropic', 'Notion', 'Figma', 'GitHub', 'Linear', 'Slack'];
-const SW_LOGOS_LOOP = [...SW_LOGOS, ...SW_LOGOS];
 
 // ── SVG icons (matching reference icons() method exactly) ─────────────────────
 
@@ -437,9 +436,9 @@ export default function LandingPage() {
           100% { box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 8px 24px rgba(0,0,0,.4); }
         }
         @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        .marquee-track { animation: marquee 36s linear infinite; }
-        .marquee:hover .marquee-track { animation-play-state: paused; }
+        .marquee-track { flex-wrap: wrap; justify-content: center; gap: 8px; }
         .reveal { opacity: 1; }
+        .b2b-plain { background: #1A1C1F; }
         .h-word { display: inline-block; }
         @media (prefers-reduced-motion: no-preference) {
           .reveal.is-in { animation: revealIn .85s ease both; }
@@ -449,27 +448,13 @@ export default function LandingPage() {
           .h-eyebrow { opacity: 0; animation: fadeUp .7s ease .1s both; }
           .h-sub { opacity: 0; animation: fadeUp .7s ease .5s both; }
           .h-cta { opacity: 0; animation: ctaIn .7s ease .66s both; }
-          .h-card { opacity: 0; animation: cardIn3D 1s cubic-bezier(.2,.7,.25,1) .46s both, floaty 7s ease-in-out 1.7s infinite; }
-          .h-cta-primary { animation: btnGlow 1.7s ease-out 1.05s 1; }
-          .h-title .h-word { opacity: 0; animation: wordIn .55s ease both; }
-          .h-title .h-word:nth-child(1)  { animation-delay: .18s; }
-          .h-title .h-word:nth-child(2)  { animation-delay: .24s; }
-          .h-title .h-word:nth-child(3)  { animation-delay: .30s; }
-          .h-title .h-word:nth-child(4)  { animation-delay: .36s; }
-          .h-title .h-word:nth-child(5)  { animation-delay: .42s; }
-          .h-title .h-word:nth-child(6)  { animation-delay: .48s; }
-          .h-title .h-word:nth-child(7)  { animation-delay: .54s; }
-          .h-title .h-word:nth-child(8)  { animation-delay: .60s; }
-          .h-title .h-word:nth-child(9)  { animation-delay: .66s; }
-          .h-title .h-word:nth-child(10) { animation-delay: .72s; }
-          .h-title .h-word:nth-child(11) { animation-delay: .78s; }
-          .h-title .h-word:nth-child(12) { animation-delay: .84s; }
+          .h-card { opacity: 0; animation: fadeUp .5s cubic-bezier(0.22, 1, 0.36, 1) .2s both; }
         }
         .anim-done .h-eyebrow,
         .anim-done .h-sub,
         .anim-done .h-cta,
         .anim-done .h-title .h-word { animation: none !important; opacity: 1 !important; }
-        .anim-done .h-card { animation: floaty 7s ease-in-out infinite !important; opacity: 1 !important; }
+        .anim-done .h-card { animation: none !important; opacity: 1 !important; }
         @media (prefers-reduced-motion: reduce) {
           .sweep, .h-card, .marquee-track, .reveal.is-in { animation: none; }
           html { scroll-behavior: auto; }
@@ -525,7 +510,7 @@ export default function LandingPage() {
             <span
               style={{
                 fontSize: '19px',
-                fontWeight: 700,
+                fontWeight: 600,
                 letterSpacing: '-.01em',
                 color: '#EDEFF1',
               }}
@@ -622,7 +607,7 @@ export default function LandingPage() {
         <section
           style={{
             position: 'relative',
-            minHeight: '94vh',
+            minHeight: 'auto',
             display: 'flex',
             alignItems: 'center',
             overflow: 'hidden',
@@ -636,7 +621,7 @@ export default function LandingPage() {
               zIndex: 2,
               maxWidth: '920px',
               margin: '0 auto',
-              padding: '160px 24px 96px',
+              padding: '128px 24px 96px',
               textAlign: 'center',
               width: '100%',
             }}
@@ -648,8 +633,7 @@ export default function LandingPage() {
                 fontFamily: "'Geist Mono', monospace",
                 fontSize: '12.5px',
                 fontWeight: 500,
-                letterSpacing: '.2em',
-                textTransform: 'uppercase',
+                letterSpacing: 0,
                 color: '#9A9DA1',
               }}
             >
@@ -661,7 +645,7 @@ export default function LandingPage() {
               className="h-title"
               style={{
                 fontSize: 'clamp(38px,5.6vw,66px)',
-                fontWeight: 700,
+                fontWeight: 500,
                 lineHeight: 1.06,
                 letterSpacing: '-.025em',
                 margin: '22px auto 0',
@@ -784,8 +768,7 @@ export default function LandingPage() {
                       style={{
                         fontFamily: "'Geist Mono', monospace",
                         fontSize: '11px',
-                        letterSpacing: '.16em',
-                        textTransform: 'uppercase',
+                        letterSpacing: 0,
                         color: '#9A9DA1',
                       }}
                     >
@@ -798,8 +781,7 @@ export default function LandingPage() {
                         gap: '7px',
                         fontFamily: "'Geist Mono', monospace",
                         fontSize: '10.5px',
-                        letterSpacing: '.12em',
-                        textTransform: 'uppercase',
+                        letterSpacing: 0,
                         color: '#D4D6D9',
                         border: '1px solid #4a4d52',
                         borderRadius: '999px',
@@ -825,10 +807,9 @@ export default function LandingPage() {
                       marginTop: '22px',
                       fontFamily: "'Geist Mono', monospace",
                       fontSize: 'clamp(28px,4.4vw,36px)',
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: '#F2F3F4',
                       letterSpacing: '.01em',
-                      textShadow: '0 1px 0 rgba(0,0,0,.5)',
                     }}
                   >
                     {t.cardBalance}
@@ -902,8 +883,7 @@ export default function LandingPage() {
                         style={{
                           fontFamily: "'Geist Mono', monospace",
                           fontSize: '10px',
-                          letterSpacing: '.12em',
-                          textTransform: 'uppercase',
+                          letterSpacing: 0,
                           color: '#8a8d91',
                         }}
                       >
@@ -925,8 +905,7 @@ export default function LandingPage() {
                         style={{
                           fontFamily: "'Geist Mono', monospace",
                           fontSize: '10px',
-                          letterSpacing: '.12em',
-                          textTransform: 'uppercase',
+                          letterSpacing: 0,
                           color: '#8a8d91',
                         }}
                       >
@@ -962,22 +941,10 @@ export default function LandingPage() {
         >
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
             <div className="reveal" style={{ textAlign: 'center', maxWidth: '660px', margin: '0 auto' }}>
-              <div
-                style={{
-                  fontFamily: "'Geist Mono', monospace",
-                  fontSize: '12px',
-                  letterSpacing: '.16em',
-                  textTransform: 'uppercase',
-                  color: '#C0C2C5',
-                  marginBottom: '16px',
-                }}
-              >
-                01 — 02 — 03
-              </div>
               <h2
                 style={{
                   fontSize: 'clamp(30px,3.4vw,40px)',
-                  fontWeight: 700,
+                  fontWeight: 500,
                   letterSpacing: '-.02em',
                   color: '#EDEFF1',
                   margin: 0,
@@ -1009,7 +976,7 @@ export default function LandingPage() {
               {t.steps.map((item, i) => (
                 <div
                   key={i}
-                  className="reveal mcard tilt brushed"
+                  className="reveal mcard b2b-plain"
                   style={{
                     position: 'relative',
                     borderRadius: '18px',
@@ -1033,7 +1000,6 @@ export default function LandingPage() {
                           fontSize: '34px',
                           fontWeight: 600,
                           color: '#D4D6D9',
-                          textShadow: '0 1px 0 rgba(0,0,0,.5)',
                         }}
                       >
                         {item.n}
@@ -1087,7 +1053,7 @@ export default function LandingPage() {
               <h2
                 style={{
                   fontSize: 'clamp(30px,3.4vw,40px)',
-                  fontWeight: 700,
+                  fontWeight: 500,
                   letterSpacing: '-.02em',
                   color: '#EDEFF1',
                   margin: 0,
@@ -1119,7 +1085,7 @@ export default function LandingPage() {
               {t.benefits.map((item, i) => (
                 <div
                   key={i}
-                  className="reveal mcard tilt brushed"
+                  className="reveal mcard b2b-plain"
                   style={{
                     position: 'relative',
                     borderRadius: '18px',
@@ -1197,7 +1163,7 @@ export default function LandingPage() {
               <h2
                 style={{
                   fontSize: 'clamp(30px,3.4vw,40px)',
-                  fontWeight: 700,
+                  fontWeight: 500,
                   letterSpacing: '-.02em',
                   color: '#EDEFF1',
                   margin: 0,
@@ -1220,32 +1186,24 @@ export default function LandingPage() {
             <div className="reveal" style={{ marginTop: '52px' }}>
               <div
                 className="marquee"
-                style={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  WebkitMaskImage:
-                    'linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)',
-                  maskImage:
-                    'linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)',
-                }}
+                style={{ position: 'relative' }}
               >
-                <div className="marquee-track" style={{ display: 'flex', width: 'max-content' }}>
-                  {SW_LOGOS_LOOP.map((logo, i) => (
+                <div className="marquee-track" style={{ display: 'flex' }}>
+                  {SW_LOGOS.map((logo, i) => (
                     <div
                       key={i}
-                      className="brushed mcard"
                       style={{
+                        background: '#1A1C1F',
                         position: 'relative',
                         overflow: 'hidden',
                         flex: '0 0 auto',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        height: '76px',
-                        padding: '0 40px',
-                        marginRight: '14px',
-                        border: '1px solid #3a3d42',
-                        borderRadius: '14px',
+                        height: '56px',
+                        padding: '0 24px',
+                        border: '1px solid #2A2D31',
+                        borderRadius: '12px',
                         color: '#C0C2C5',
                       }}
                     >
@@ -1290,9 +1248,8 @@ export default function LandingPage() {
                 style={{
                   fontFamily: "'Geist Mono', monospace",
                   fontSize: '12px',
-                  letterSpacing: '.1em',
+                  letterSpacing: 0,
                   color: '#9A9DA1',
-                  textTransform: 'uppercase',
                 }}
               >
                 {t.swNote}
@@ -1305,13 +1262,12 @@ export default function LandingPage() {
         <section style={{ padding: 'clamp(60px,8vw,86px) 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
             <div
-              className="reveal brushed"
+              className="reveal b2b-plain"
               style={{
                 position: 'relative',
                 overflow: 'hidden',
-                border: '1px solid #3a3d42',
-                borderRadius: '22px',
-                boxShadow: '0 22px 54px rgba(0,0,0,.42)',
+                border: '1px solid #2A2D31',
+                borderRadius: '16px',
               }}
             >
               <span className="sweep" style={{ animationDuration: '8s' }} />
@@ -1321,8 +1277,7 @@ export default function LandingPage() {
                     textAlign: 'center',
                     fontFamily: "'Geist Mono', monospace",
                     fontSize: '12px',
-                    letterSpacing: '.16em',
-                    textTransform: 'uppercase',
+                    letterSpacing: 0,
                     color: '#C0C2C5',
                     marginBottom: '34px',
                   }}
@@ -1397,16 +1352,14 @@ export default function LandingPage() {
             }}
           >
             <div
-              className="brushed"
+              className="b2b-plain"
               style={{
                 position: 'relative',
                 overflow: 'hidden',
-                border: '1px solid #4a4d52',
-                borderRadius: '26px',
-                boxShadow: '0 40px 90px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.1) inset',
+                border: '1px solid #2A2D31',
+                borderRadius: '16px',
               }}
             >
-              <span className="sweep" style={{ animationDuration: '7.5s' }} />
               <div
                 style={{
                   position: 'relative',
@@ -1418,7 +1371,7 @@ export default function LandingPage() {
                 <h2
                   style={{
                     fontSize: 'clamp(32px,4.4vw,52px)',
-                    fontWeight: 700,
+                    fontWeight: 500,
                     letterSpacing: '-.025em',
                     color: '#EDEFF1',
                     margin: 0,
@@ -1505,7 +1458,7 @@ export default function LandingPage() {
                 <span
                   style={{
                     fontSize: '19px',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     letterSpacing: '-.01em',
                     color: '#EDEFF1',
                   }}
@@ -1629,8 +1582,7 @@ export default function LandingPage() {
                 style={{
                   fontFamily: "'Geist Mono', monospace",
                   fontSize: '11px',
-                  letterSpacing: '.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: 0,
                   color: '#9A9DA1',
                   marginBottom: '16px',
                 }}
@@ -1661,8 +1613,7 @@ export default function LandingPage() {
                 style={{
                   fontFamily: "'Geist Mono', monospace",
                   fontSize: '11px',
-                  letterSpacing: '.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: 0,
                   color: '#9A9DA1',
                   marginBottom: '16px',
                 }}
@@ -1693,8 +1644,7 @@ export default function LandingPage() {
                 style={{
                   fontFamily: "'Geist Mono', monospace",
                   fontSize: '11px',
-                  letterSpacing: '.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: 0,
                   color: '#9A9DA1',
                   marginBottom: '16px',
                 }}
@@ -1738,9 +1688,8 @@ export default function LandingPage() {
               style={{
                 fontFamily: "'Geist Mono', monospace",
                 fontSize: '11px',
-                letterSpacing: '.08em',
+                letterSpacing: 0,
                 color: '#5F6266',
-                textTransform: 'uppercase',
               }}
             >
               Prototype

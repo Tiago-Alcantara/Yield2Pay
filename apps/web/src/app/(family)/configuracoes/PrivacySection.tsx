@@ -24,7 +24,7 @@ export function PrivacySection() {
 
   const cardTitle: React.CSSProperties = {
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 600,
     color: C.textStrong,
     letterSpacing: '-.01em',
   };
@@ -33,7 +33,7 @@ export function PrivacySection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
         <div style={cardTitle}>{t.settings.dataTitle}</div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
           {t.settings.dataSub}
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
@@ -61,10 +61,10 @@ export function PrivacySection() {
           </button>
         </div>
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 18 }}>
-          <a href="#termos" style={{ fontSize: 13.5, color: C.silver }}>
+          <a href="#termos" style={{ fontSize: 13, color: C.silver }}>
             {t.settings.terms}
           </a>
-          <a href="#privacidade" style={{ fontSize: 13.5, color: C.silver }}>
+          <a href="#privacidade" style={{ fontSize: 13, color: C.silver }}>
             {t.settings.privacy}
           </a>
         </div>
@@ -79,7 +79,7 @@ export function PrivacySection() {
         }}
       >
         <div style={cardTitle}>{t.settings.deleteTitle}</div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
           {t.settings.deleteSub}
         </p>
 
@@ -122,7 +122,7 @@ export function PrivacySection() {
               {t.settings.deleteBody}
             </p>
             {error && (
-              <div role="alert" style={{ fontSize: 12.5, color: C.danger, marginTop: 10 }}>
+              <div role="alert" style={{ fontSize: 13, color: C.danger, marginTop: 10 }}>
                 {t.settings.deleteError}
               </div>
             )}

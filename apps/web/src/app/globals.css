@@ -16,9 +16,6 @@
 html { scroll-behavior: smooth; }
 body { overflow-x: hidden; }
 
-h1, h2 {
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .13), 0 -1px 1px rgba(0, 0, 0, .6);
-}
 
 /* ── Brushed metal surface ─────────────────────────────────────────────────── */
 
@@ -35,46 +32,15 @@ h1, h2 {
   pointer-events: none;
 }
 
-/* ── Light sweep — loop on hero/CTA ───────────────────────────────────────── */
+/* ── Brilhos sobre o metal ─────────────────────────────────────────────────
+   O brilho em loop (.sweep), o reflexo no hover dos cards (.msheen) e o
+   reflexo do botão de cromo (.btn-shine) foram desligados: o metal já carrega
+   o destaque parado, e o movimento em loop não explicava nada. As classes
+   continuam aqui para que as telas antigas não quebrem. */
 
-.sweep {
-  position: absolute;
-  top: 0; bottom: 0; left: 0;
-  width: 42%;
-  z-index: 1;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.26), transparent);
-  transform: translateX(-130%) skewX(-12deg);
-  animation: sweepX 6.5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* ── Sheen — single pass on card hover ────────────────────────────────────── */
-
-.msheen {
-  position: absolute;
-  top: 0; bottom: 0; left: 0;
-  width: 55%;
-  z-index: 1;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
-  transform: translateX(-130%) skewX(-12deg);
-  opacity: 0;
-  pointer-events: none;
-}
-.mcard:hover .msheen { animation: sweepOnce .9s ease; opacity: 1; }
-
-/* ── Chrome button shine ──────────────────────────────────────────────────── */
-
-.btn-shine { position: relative; overflow: hidden; }
-.btn-shine::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 26%, rgba(255,255,255,.5) 48%, transparent 68%);
-  transform: translateX(-135%);
-  transition: transform .6s ease;
-  pointer-events: none;
-}
-.btn-shine:hover::before { transform: translateX(135%); }
+.sweep,
+.msheen { display: none; }
+.btn-shine { position: relative; }
 
 /* ── Keyframes ────────────────────────────────────────────────────────────── */
 
@@ -114,6 +80,5 @@ h1, h2 {
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .sweep, .msheen, .btn-shine::before { animation: none; }
   html { scroll-behavior: auto; }
 }

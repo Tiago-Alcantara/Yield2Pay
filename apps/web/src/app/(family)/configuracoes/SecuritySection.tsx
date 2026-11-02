@@ -25,9 +25,8 @@ export function SecuritySection() {
         <div
           style={{
             fontFamily: C.mono,
-            fontSize: 11,
-            letterSpacing: '.16em',
-            textTransform: 'uppercase',
+            fontSize: 12,
+            letterSpacing: 0,
             color: C.text2,
           }}
         >
@@ -36,17 +35,16 @@ export function SecuritySection() {
         <div
           style={{
             fontSize: 18,
-            fontWeight: 700,
+            fontWeight: 600,
             color: C.textStrong,
             marginTop: 12,
-            textShadow: '0 1px 0 rgba(0,0,0,.4)',
           }}
         >
           {t.settings.recoveryTitle}
         </div>
         <p
           style={{
-            fontSize: 14.5,
+            fontSize: 14,
             lineHeight: 1.65,
             color: C.textSoft,
             margin: '10px 0 0',
@@ -58,7 +56,7 @@ export function SecuritySection() {
       </MetalPanel>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
           {t.settings.accessTitle}
         </div>
 
@@ -86,17 +84,17 @@ export function SecuritySection() {
               justifyContent: 'center',
               background: C.tile,
               border: `1px solid ${C.borderMetal}`,
-              fontWeight: 800,
+              fontWeight: 600,
               color: C.silverBright,
             }}
           >
             G
           </span>
           <span style={{ flex: 1, minWidth: 180 }}>
-            <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: C.text }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.text }}>
               {t.settings.googleLogin}
             </span>
-            <span style={{ display: 'block', fontSize: 12.5, color: C.text3, marginTop: 2 }}>
+            <span style={{ display: 'block', fontSize: 13, color: C.text3, marginTop: 2 }}>
               {t.settings.lastAccess}
             </span>
           </span>
@@ -113,10 +111,10 @@ export function SecuritySection() {
           }}
         >
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: C.text }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.text }}>
               {t.settings.twoFATitle}
             </span>
-            <span style={{ display: 'block', fontSize: 12.5, color: C.text3, marginTop: 2 }}>
+            <span style={{ display: 'block', fontSize: 13, color: C.text3, marginTop: 2 }}>
               {t.settings.twoFASub}
             </span>
           </span>
@@ -144,10 +142,10 @@ export function SecuritySection() {
                 }}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: C.text }}>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.text }}>
                     {d.name}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12.5, color: C.text3, marginTop: 2 }}>
+                  <span style={{ display: 'block', fontSize: 13, color: C.text3, marginTop: 2 }}>
                     {d.ended ? t.settings.deviceEnded : d.sub}
                   </span>
                 </span>

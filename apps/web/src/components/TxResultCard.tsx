@@ -45,16 +45,15 @@ export function TxResultCard({
               style={{
                 fontFamily: 'var(--fx-font-display)',
                 fontSize: 24,
-                fontWeight: 700,
+                fontWeight: 600,
                 letterSpacing: '-.02em',
                 color: 'var(--fx-text)',
                 margin: 0,
-                textShadow: 'var(--fx-emboss)',
               }}
             >
               {title}
             </h2>
-            <p style={{ color: 'var(--fx-text-2)', fontSize: 14.5, margin: '8px 0 0', lineHeight: 1.55 }}>
+            <p style={{ color: 'var(--fx-text-2)', fontSize: 14, margin: '8px 0 0', lineHeight: 1.55 }}>
               {subtitle}
             </p>
             <div
@@ -72,9 +71,8 @@ export function TxResultCard({
             >
               <div
                 style={{
-                  fontSize: 10.5,
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
+                  fontSize: 13,
+                  letterSpacing: 0,
                   color: 'var(--fx-text-3)',
                   marginBottom: 8,
                 }}

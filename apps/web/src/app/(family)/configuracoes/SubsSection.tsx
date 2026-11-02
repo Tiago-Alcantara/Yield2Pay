@@ -64,10 +64,10 @@ export function SubsSection() {
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: 'var(--fam-card-pad)' }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: C.textStrong, letterSpacing: '-.01em' }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: C.textStrong, letterSpacing: '-.01em' }}>
         {t.settings.subsTitle}
       </div>
-      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
+      <p style={{ fontSize: 13, lineHeight: 1.6, color: C.text2, margin: '8px 0 0', maxWidth: 540 }}>
         {t.settings.subsSub}
       </p>
 
@@ -100,7 +100,7 @@ export function SubsSection() {
                 <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: C.textStrong }}>
                   {row.name}
                 </span>
-                <span style={{ display: 'block', fontSize: 12.5, color: C.text3, marginTop: 2 }}>
+                <span style={{ display: 'block', fontSize: 13, color: C.text3, marginTop: 2 }}>
                   {t.settings.subsDue(String(row.dia))}
                 </span>
               </span>
@@ -164,7 +164,7 @@ export function SubsSection() {
                 <div>
                   <label
                     htmlFor={`cfg-valor-${row.id}`}
-                    style={{ ...cardLabel, display: 'block', fontSize: 10.5, marginBottom: 6 }}
+                    style={{ ...cardLabel, display: 'block', fontSize: 12, marginBottom: 6 }}
                   >
                     {t.settings.subsValueLabel}
                   </label>
@@ -181,7 +181,7 @@ export function SubsSection() {
                 <div>
                   <label
                     htmlFor={`cfg-dia-${row.id}`}
-                    style={{ ...cardLabel, display: 'block', fontSize: 10.5, marginBottom: 6 }}
+                    style={{ ...cardLabel, display: 'block', fontSize: 12, marginBottom: 6 }}
                   >
                     {t.settings.subsDayLabel}
                   </label>
@@ -200,7 +200,7 @@ export function SubsSection() {
                   onClick={() => saveEdit(row.id, row.dia)}
                   style={{
                     fontFamily: 'inherit',
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: 600,
                     color: C.chromeInk,
                     background: C.chromeSoft,
@@ -219,7 +219,7 @@ export function SubsSection() {
                   onClick={() => setEditing(null)}
                   style={{
                     fontFamily: 'inherit',
-                    fontSize: 13.5,
+                    fontSize: 13,
                     color: C.text2,
                     background: 'none',
                     border: 'none',

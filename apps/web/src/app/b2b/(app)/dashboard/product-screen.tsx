@@ -221,9 +221,8 @@ function StatCard({
       <div
         style={{
           fontFamily: "'Geist Mono', monospace",
-          fontSize: 11,
-          letterSpacing: '.12em',
-          textTransform: 'uppercase',
+          fontSize: 12,
+          letterSpacing: 0,
           color: '#9A9DA1',
         }}
       >
@@ -241,7 +240,7 @@ function StatCard({
       >
         {value}
       </div>
-      <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 8 }}>{label}</div>
+      <div style={{ fontSize: 13, color: '#9A9DA1', marginTop: 8 }}>{label}</div>
       <div
         style={{
           fontFamily: "'Geist Mono', monospace",
@@ -322,7 +321,7 @@ export default function DashboardPage() {
     border: 'none',
     borderRadius: 999,
     padding: '5px 12px',
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
     fontFamily: 'inherit',
@@ -459,7 +458,7 @@ export default function DashboardPage() {
           <span
             style={{
               fontSize: 19,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-.01em',
               color: '#F2F3F4',
             }}
@@ -523,7 +522,7 @@ export default function DashboardPage() {
                   borderRadius: 10,
                   padding: '11px 12px',
                   fontFamily: 'inherit',
-                  fontSize: 14.5,
+                  fontSize: 14,
                   fontWeight: on ? 600 : 500,
                   color: on ? '#F2F3F4' : '#9A9DA1',
                   background: on ? '#1f2226' : 'transparent',
@@ -584,7 +583,7 @@ export default function DashboardPage() {
             <span
               style={{
                 display: 'block',
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: 600,
                 color: '#F2F3F4',
                 whiteSpace: 'nowrap',
@@ -598,7 +597,7 @@ export default function DashboardPage() {
               style={{
                 display: 'block',
                 fontFamily: "'Geist Mono', monospace",
-                fontSize: 10.5,
+                fontSize: 12,
                 color: '#9A9DA1',
               }}
             >
@@ -647,7 +646,7 @@ export default function DashboardPage() {
             <div
               style={{
                 fontSize: isMobile ? 16 : 20,
-                fontWeight: 700,
+                fontWeight: 600,
                 letterSpacing: '-.015em',
                 color: '#F2F3F4',
               }}
@@ -655,7 +654,7 @@ export default function DashboardPage() {
               {t.greeting}
             </div>
             {!isMobile && (
-              <div style={{ fontSize: 13.5, color: '#9A9DA1', marginTop: 2 }}>{t.greetingSub}</div>
+              <div style={{ fontSize: 13, color: '#9A9DA1', marginTop: 2 }}>{t.greetingSub}</div>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -842,7 +841,7 @@ export default function DashboardPage() {
                 <span
                   style={{
                     fontFamily: "'Geist Mono', monospace",
-                    fontSize: 12.5,
+                    fontSize: 13,
                     color: '#9A9DA1',
                   }}
                 >
@@ -855,7 +854,7 @@ export default function DashboardPage() {
                     alignItems: 'center',
                     gap: 6,
                     fontFamily: "'Geist Mono', monospace",
-                    fontSize: 12.5,
+                    fontSize: 13,
                     color: '#C0C2C5',
                     border: '1px solid #2A2D31',
                     borderRadius: 999,
@@ -952,17 +951,16 @@ export default function DashboardPage() {
                 <h2
                   style={{
                     fontSize: 19,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     color: '#F2F3F4',
                     margin: 0,
-                    textShadow: '0 1px 0 rgba(0,0,0,.4)',
                   }}
                 >
                   {t.depositTitle}
                 </h2>
                 <p
                   style={{
-                    fontSize: 14.5,
+                    fontSize: 14,
                     lineHeight: 1.55,
                     color: '#9A9DA1',
                     margin: '8px 0 0',
@@ -995,7 +993,7 @@ export default function DashboardPage() {
                 <div
                   style={{
                     fontFamily: "'Geist Mono', monospace",
-                    fontSize: 12.5,
+                    fontSize: 13,
                     color: '#C0C2C5',
                     marginTop: 14,
                   }}
@@ -1064,7 +1062,7 @@ export default function DashboardPage() {
                 </button>
                 <div
                   style={{
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: '#7E8186',
                     textAlign: 'center',
                     lineHeight: 1.4,
@@ -1091,7 +1089,7 @@ export default function DashboardPage() {
                 <h2
                   style={{
                     fontSize: 22,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     letterSpacing: '-.015em',
                     color: '#F2F3F4',
                     margin: 0,
@@ -1099,7 +1097,7 @@ export default function DashboardPage() {
                 >
                   {t.servicesTitle}
                 </h2>
-                <p style={{ fontSize: 14.5, color: '#9A9DA1', margin: '7px 0 0' }}>
+                <p style={{ fontSize: 14, color: '#9A9DA1', margin: '7px 0 0' }}>
                   {t.servicesSub}
                 </p>
               </div>
@@ -1181,7 +1179,7 @@ export default function DashboardPage() {
                     style={{
                       fontFamily: "'Geist Mono', monospace",
                       fontSize: 12,
-                      letterSpacing: '.18em',
+                      letterSpacing: 0,
                       color: '#D4D6D9',
                     }}
                   >
@@ -1204,9 +1202,8 @@ export default function DashboardPage() {
                   zIndex: 2,
                   fontFamily: "'Geist Mono', monospace",
                   fontSize: 18,
-                  letterSpacing: '.18em',
+                  letterSpacing: 0,
                   color: '#EDEFF1',
-                  textShadow: '0 1px 0 rgba(0,0,0,.5)',
                 }}
               >
                 •••• •••• •••• 4291
@@ -1224,7 +1221,7 @@ export default function DashboardPage() {
                   style={{
                     fontFamily: "'Geist Mono', monospace",
                     fontSize: 12,
-                    letterSpacing: '.1em',
+                    letterSpacing: 0,
                     color: '#C0C2C5',
                   }}
                 >
@@ -1233,7 +1230,7 @@ export default function DashboardPage() {
                 <span
                   style={{
                     fontStyle: 'italic',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     fontSize: 17,
                     color: '#EDEFF1',
                     letterSpacing: '-.02em',

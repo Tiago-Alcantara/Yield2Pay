@@ -86,7 +86,7 @@
   align-items: center;
   gap: 10px;
   color: var(--tx);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 18px;
   padding: 0 12px;
 }
@@ -138,7 +138,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
 }
 .conta-avatar { background: linear-gradient(135deg, #f2f3f4, #8a8d91); color: #0e0f11; }
@@ -146,12 +146,12 @@
 .conta-me span,
 .conta-person span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .conta-me strong,
-.conta-person strong { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conta-person strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conta-me em,
 .conta-person em {
   font-style: normal;
   font-family: 'Geist Mono', monospace;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--mut2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,13 +171,12 @@
 .conta-kicker {
   font-family: 'Geist Mono', monospace;
   font-size: 12px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--mut2);
 }
 .conta h1 {
   font-size: clamp(30px, 4vw, 44px);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.05;
   margin: 10px 0 0;
@@ -195,9 +194,8 @@
 .conta-label {
   padding: 20px 24px 4px;
   font-family: 'Geist Mono', monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0;
   color: var(--mut);
 }
 .conta-row {
@@ -222,7 +220,7 @@
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--txs);
-  font-size: 15.5px;
+  font-size: 15px;
   outline: none;
 }
 .conta input:focus { border-color: #8a8d91; }
@@ -241,7 +239,7 @@
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.conta-save { flex: none; height: 48px; padding: 0 20px; border-radius: 999px; font-size: 14.5px; }
+.conta-save { flex: none; height: 48px; padding: 0 20px; border-radius: 999px; font-size: 14px; }
 .conta-primary { height: 48px; padding: 0 24px; border-radius: 999px; font-size: 15px; }
 
 .conta-themes {
@@ -299,8 +297,8 @@
   align-items: center;
   padding: 0 24px 18px;
 }
-.conta-levels span { font-size: 13.5px; color: var(--mut); margin-right: 4px; }
-.conta-level { height: 36px; border: 1px solid var(--line); background: var(--field); color: var(--tx); font-size: 13.5px; }
+.conta-levels span { font-size: 13px; color: var(--mut); margin-right: 4px; }
+.conta-level { height: 36px; border: 1px solid var(--line); background: var(--field); color: var(--tx); font-size: 13px; }
 .conta-level[aria-pressed='true'] { border-color: var(--tx); }
 
 .conta-head {
@@ -318,12 +316,12 @@
   padding: 0 18px;
   border: 1px solid var(--line);
   color: var(--tx);
-  font-size: 14.5px;
+  font-size: 14px;
 }
 .conta-ghost:hover { border-color: #8a8d91; }
 .conta-danger { border-color: var(--danger); color: var(--danger); background: transparent; }
 .conta-danger:hover { background: var(--danger-bg); }
-.conta-count { font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--mut2); }
+.conta-count { font-family: 'Geist Mono', monospace; font-size: 13px; color: var(--mut2); }
 .conta-subhead {
   display: flex;
   justify-content: space-between;
@@ -341,9 +339,8 @@
 .conta-role {
   flex: none;
   font-family: 'Geist Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0;
   color: var(--mut);
   padding: 4px 8px;
   border-radius: 5px;
@@ -364,7 +361,7 @@
 .conta-invite { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 24px 20px; }
 .conta-invite input { font-family: 'Geist Mono', monospace; font-size: 14px; background: var(--well); height: 46px; }
 .conta-invite button { height: 46px; }
-.conta-err { flex: 1 1 100%; font-size: 13.5px; color: var(--danger); }
+.conta-err { flex: 1 1 100%; font-size: 13px; color: var(--danger); }
 .conta-static { font-size: 17px; font-weight: 600; color: var(--txs); }
 
 .conta-modal {
@@ -393,7 +390,7 @@
   flex-direction: column;
   gap: 18px;
 }
-.conta-dialog h2 { margin: 6px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--txs); }
+.conta-dialog h2 { margin: 6px 0 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--txs); }
 .conta-dialog p { margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: var(--mut); }
 .conta-choice,
 .conta-option {
@@ -413,12 +410,12 @@
 .conta-choice[aria-pressed='true'] { border-color: var(--tx); background: var(--on); color: var(--on-tx); }
 .conta-option[aria-pressed='true'] { border-color: var(--tx); box-shadow: inset 0 0 0 1px var(--tx); background: var(--well); }
 .conta-option { flex-direction: column; align-items: flex-start; }
-.conta-option small { color: var(--mut); font-size: 13.5px; line-height: 1.45; margin-top: 3px; }
+.conta-option small { color: var(--mut); font-size: 13px; line-height: 1.45; margin-top: 3px; }
 .conta-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .conta-code { display: flex; gap: 8px; }
-.conta-code input { text-transform: uppercase; font-family: 'Geist Mono', monospace; font-size: 14px; background: var(--well); height: 46px; }
-.conta label { display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; color: var(--mut); }
-.conta-warn { color: var(--danger); letter-spacing: 0.16em; text-transform: uppercase; font-family: 'Geist Mono', monospace; font-size: 11.5px; }
+.conta-code input { font-family: 'Geist Mono', monospace; font-size: 14px; background: var(--well); height: 46px; }
+.conta label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--mut); }
+.conta-warn { color: var(--danger); letter-spacing: 0; font-family: 'Geist Mono', monospace; font-size: 12px; }
 .conta-primary.is-danger { background: var(--danger); color: var(--danger-tx); box-shadow: none; }
 .conta-primary:disabled { background: transparent; color: var(--mut2); border: 1px solid var(--line2); box-shadow: none; cursor: default; }
 
@@ -437,7 +434,7 @@
   border: 1px solid var(--line);
   background: var(--modal);
   color: var(--txs);
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -496,7 +493,7 @@
 }
 .conta.is-modal h1 {
   font-size: 26px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin: 6px 0 0;
@@ -585,7 +582,7 @@
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--txs);
-  font-size: 15.5px;
+  font-size: 15px;
   outline: none;
 }
 .conta-wait { margin: 0; padding: 24px; color: var(--mut); }
@@ -599,7 +596,7 @@
 .conta-who strong {
   display: block;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--txs);
 }
@@ -608,7 +605,7 @@
   margin-top: 4px;
   font-style: normal;
   font-family: 'Geist Mono', monospace;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--mut2);
 }
 .conta-stack {

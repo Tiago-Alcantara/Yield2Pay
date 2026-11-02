@@ -66,34 +66,40 @@ export const PANEL_SHADOW =
 export const PANEL_SHADOW_LG =
   '0 24px 56px rgba(0,0,0,.5),0 2px 0 rgba(255,255,255,.1) inset';
 
-/** Eyebrow em mono maiúsculo — usado no topo de cada seção. */
-export const eyebrow = (size = 12, tracking = '.2em'): CSSProperties => ({
-  fontFamily: C.mono,
-  fontSize: size,
-  letterSpacing: tracking,
-  textTransform: 'uppercase',
-  color: C.silver,
+/**
+ * Rótulo de seção em caixa normal. Os parâmetros antigos (tamanho e
+ * espaçamento) ficam na assinatura para não quebrar chamadas, mas o rótulo
+ * tem um tamanho só e espaçamento zero.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const eyebrow = (_size = 13, _tracking = '0'): CSSProperties => ({
+  fontFamily: C.sans,
+  fontSize: 13,
+  lineHeight: '16px',
+  fontWeight: 500,
+  letterSpacing: 0,
+  color: C.text2,
 });
 
-/** Label pequeno em mono (dentro de cards). */
+/** Rótulo pequeno dentro de cards, em caixa normal. */
 export const cardLabel: CSSProperties = {
-  fontFamily: C.mono,
-  fontSize: 11,
-  letterSpacing: '.12em',
-  textTransform: 'uppercase',
-  color: C.text3,
+  fontFamily: C.sans,
+  fontSize: 13,
+  lineHeight: '16px',
+  fontWeight: 500,
+  color: C.text2,
 };
 
 /** Botão de cromo (ação primária). */
 export const chromeButton: CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 15,
-  fontWeight: 600,
+  fontWeight: 500,
   color: C.chromeInk,
   background: C.chromeSoft,
   border: 'none',
   borderRadius: 12,
-  padding: '14px 24px',
+  padding: '12px 20px',
   cursor: 'pointer',
   boxShadow: CHROME_SHADOW,
 };
@@ -102,14 +108,14 @@ export const chromeButton: CSSProperties = {
 export const outlineButton: CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 15,
-  fontWeight: 600,
+  fontWeight: 500,
   color: C.textStrong,
   background: 'rgba(255,255,255,.03)',
-  border: `1px solid ${C.borderMetal}`,
+  border: `1px solid ${C.borderStrong}`,
   borderRadius: 12,
-  padding: '14px 24px',
+  padding: '12px 20px',
   cursor: 'pointer',
-  transition: 'border-color .2s ease',
+  transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
 /** Campo de texto padrão das telas de família. */
@@ -117,17 +123,16 @@ export const fieldStyle = (opts: { error?: boolean; mono?: boolean } = {}): CSSP
   width: '100%',
   background: C.well,
   border: `1px solid ${opts.error ? C.inputError : C.border}`,
-  borderRadius: 12,
-  padding: '13px 14px',
+  borderRadius: 10,
+  padding: '12px',
   color: C.textStrong,
   fontFamily: opts.mono === false ? 'inherit' : C.mono,
   fontSize: 15,
-  outline: 'none',
-  transition: 'border-color .2s ease',
+  transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
 });
 
 /** Card padrão (superfície #1A1C1F com hairline). */
-export const cardStyle = (radius = 18, padding = 26): CSSProperties => ({
+export const cardStyle = (radius = 16, padding = 24): CSSProperties => ({
   background: C.card,
   border: `1px solid ${C.border}`,
   borderRadius: radius,

@@ -140,7 +140,7 @@ function LoginScreen() {
     border: 'none',
     borderRadius: 999,
     padding: '5px 12px',
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
     fontFamily: 'inherit',
@@ -209,17 +209,16 @@ function LoginScreen() {
           style={{ position: 'relative', overflow: 'hidden', flex: '1 1 420px', minHeight: 240, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 'clamp(32px,4vw,56px)', borderRight: '1px solid #1A1C1F' }}
         >
           <span className="fx-grain" aria-hidden="true" />
-          <span className="fx-sweep" aria-hidden="true" />
 
           {/* Logo */}
           <Link href="/" style={{ position: 'relative', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', width: 'max-content' }}>
             <span style={{ width: 13, height: 13, background: 'linear-gradient(135deg,#E6E8EA,#9A9DA1)', transform: 'rotate(45deg)', borderRadius: 2, boxShadow: '0 0 12px rgba(192,194,197,.35)' }} />
-            <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-.01em', color: '#EDEFF1' }}>Yield2Pay</span>
+            <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.01em', color: '#EDEFF1' }}>Yield2Pay</span>
           </Link>
 
           {/* Brand copy */}
           <div style={{ position: 'relative', zIndex: 2, padding: '48px 0' }}>
-            <h2 style={{ fontSize: 'clamp(30px,3.6vw,46px)', fontWeight: 700, lineHeight: 1.08, letterSpacing: '-.025em', color: '#EDEFF1', margin: 0, maxWidth: 420, textShadow: '0 1px 0 rgba(255,255,255,.13),0 -1px 1px rgba(0,0,0,.6)' }}>
+            <h2 style={{ fontSize: 'clamp(30px,3.6vw,46px)', fontWeight: 500, lineHeight: 1.08, letterSpacing: '-.025em', color: '#EDEFF1', margin: 0, maxWidth: 420 }}>
               {t.brandTitle}
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.6, color: '#9A9DA1', margin: '20px 0 0', maxWidth: 400 }}>
@@ -243,7 +242,7 @@ function LoginScreen() {
         <section style={{ flex: '1.15 1 480px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '24px 16px' : 'clamp(32px,5vw,64px) 24px', background: '#0c0d0f', minHeight: isMobile ? '100vh' : undefined }}>
           <div className="fx-form" style={{ width: '100%', maxWidth: 404, textAlign: 'center' }}>
 
-            <h1 style={{ fontSize: 'clamp(26px,3vw,32px)', fontWeight: 700, letterSpacing: '-.02em', color: '#EDEFF1', margin: 0, textShadow: '0 1px 0 rgba(255,255,255,.1)' }}>
+            <h1 style={{ fontSize: 'clamp(26px,3vw,32px)', fontWeight: 500, letterSpacing: '-.02em', color: '#EDEFF1', margin: 0 }}>
               {t.title}
             </h1>
             <p style={{ fontSize: 15, lineHeight: 1.55, color: '#9A9DA1', margin: '9px 0 28px' }}>
@@ -273,7 +272,7 @@ function LoginScreen() {
               </div>
             )}
 
-            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: '#7E8186', margin: '20px 0 0' }}>
+            <p style={{ fontSize: 13, lineHeight: 1.5, color: '#7E8186', margin: '20px 0 0' }}>
               {t.legal}
             </p>
           </div>

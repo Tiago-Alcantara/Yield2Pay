@@ -17,8 +17,8 @@ import Link from 'next/link';
 import {
   C,
   CHROME_SHADOW,
-  PANEL_SHADOW_LG,
   cardLabel,
+  cardStyle,
   eyebrow,
 } from './_lib/familyTheme';
 import { FAM, type FamilyLang } from './_lib/familyI18n';
@@ -97,11 +97,11 @@ export default function FamilyLandingPage() {
     borderTop: `1px solid ${C.border}`,
   };
   const h2Style: React.CSSProperties = {
-    fontSize: 'clamp(25px,5.4vw,40px)',
-    fontWeight: 700,
-    letterSpacing: '-.025em',
+    fontSize: 'clamp(26px,5.4vw,40px)',
+    fontWeight: 500,
+    letterSpacing: '-.02em',
     lineHeight: 1.1,
-    margin: '14px 0 0',
+    margin: '12px 0 0',
     maxWidth: 640,
     textWrap: 'balance',
   };
@@ -146,14 +146,14 @@ export default function FamilyLandingPage() {
             <a
               href="#calculadora"
               className="fam-quiet fam-hide-sm"
-              style={{ fontSize: 14.5, color: C.text2 }}
+              style={{ fontSize: 14, color: C.text2 }}
             >
               {t.navCalc}
             </a>
             <a
               href="#como-funciona"
               className="fam-quiet fam-hide-sm"
-              style={{ fontSize: 14.5, color: C.text2 }}
+              style={{ fontSize: 14, color: C.text2 }}
             >
               {t.navHow}
             </a>
@@ -171,12 +171,12 @@ export default function FamilyLandingPage() {
               href="#comecar"
               className="btn-shine"
               style={{
-                fontSize: 14.5,
-                fontWeight: 600,
+                fontSize: 14,
+                fontWeight: 500,
                 color: C.chromeInk,
                 background: C.chromeSoft,
-                borderRadius: 12,
-                padding: '11px clamp(14px,3vw,20px)',
+                borderRadius: 10,
+                padding: '10px clamp(12px,3vw,16px)',
                 boxShadow: CHROME_SHADOW,
               }}
             >
@@ -200,11 +200,11 @@ export default function FamilyLandingPage() {
           <div style={eyebrow()}>{t.heroEyebrow}</div>
           <h1
             style={{
-              fontSize: 'clamp(31px,7.4vw,62px)',
-              fontWeight: 700,
+              fontSize: 'clamp(36px,7.4vw,64px)',
+              fontWeight: 500,
               letterSpacing: '-.03em',
               lineHeight: 1.04,
-              margin: '22px 0 0',
+              margin: '20px 0 0',
               maxWidth: 600,
               textWrap: 'balance',
             }}
@@ -228,11 +228,11 @@ export default function FamilyLandingPage() {
               className="btn-shine"
               style={{
                 fontSize: 15,
-                fontWeight: 600,
+                fontWeight: 500,
                 color: C.chromeInk,
                 background: C.chromeSoft,
                 borderRadius: 12,
-                padding: '14px 24px',
+                padding: '14px 20px',
                 boxShadow: CHROME_SHADOW,
               }}
             >
@@ -243,30 +243,25 @@ export default function FamilyLandingPage() {
               className="fam-outline"
               style={{
                 fontSize: 15,
-                fontWeight: 600,
+                fontWeight: 500,
                 color: C.textStrong,
                 background: 'rgba(255,255,255,.03)',
-                border: `1px solid ${C.borderMetal}`,
+                border: `1px solid ${C.borderStrong}`,
                 borderRadius: 12,
-                padding: '14px 24px',
-                boxShadow: '0 1px 0 rgba(255,255,255,.08) inset',
+                padding: '14px 20px',
               }}
             >
               {t.heroCta2}
             </a>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginTop: 30 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', marginTop: 32 }}>
             {t.heroSeals.map((seal) => (
               <span
                 key={seal}
-                style={{
-                  fontFamily: C.mono,
-                  fontSize: 12,
-                  letterSpacing: '.04em',
-                  color: C.silver,
-                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.text2 }}
               >
-                ◆ {seal}
+                <span aria-hidden="true" style={{ width: 4, height: 4, borderRadius: 1, background: C.text3 }} />
+                {seal}
               </span>
             ))}
           </div>
@@ -278,23 +273,22 @@ export default function FamilyLandingPage() {
             shadow={'0 30px 70px rgba(0,0,0,.6),0 2px 0 rgba(255,255,255,.12) inset'}
             style={{ width: '100%', maxWidth: 360 }}
           >
-            <div style={{ ...cardLabel, letterSpacing: '.16em', color: C.text2 }}>
+            <div style={{ ...cardLabel, letterSpacing: 0, color: C.text2 }}>
               {t.heroCardLabel}
             </div>
             <div
               style={{
-                fontFamily: C.mono,
-                fontSize: 'clamp(28px,8vw,34px)',
-                fontWeight: 600,
+                fontSize: 'clamp(32px,8vw,40px)',
+                fontWeight: 500,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '-.02em',
                 color: C.textStrong,
                 marginTop: 16,
-                letterSpacing: '.01em',
-                textShadow: '0 1px 0 rgba(0,0,0,.4)',
               }}
             >
               {fmtBRL(HERO_COVERED)}
             </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: C.text2, marginTop: 8 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: C.text2, marginTop: 8 }}>
               {t.heroCardSub}
             </div>
             <div style={{ marginTop: 20 }}>
@@ -323,7 +317,7 @@ export default function FamilyLandingPage() {
             <div
               style={{
                 ...cardLabel,
-                letterSpacing: '.14em',
+                letterSpacing: 0,
                 marginTop: 18,
               }}
             >
@@ -388,7 +382,7 @@ export default function FamilyLandingPage() {
                       }}
                     />
                     <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>{s.name}</span>
-                    <span style={{ fontFamily: C.mono, fontSize: 12.5, color: C.silver }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 13, color: C.silver }}>
                       {fmtBRLShort(s.price)}
                     </span>
                   </button>
@@ -491,19 +485,18 @@ export default function FamilyLandingPage() {
 
           <MetalPanel radius={20}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div style={{ ...cardLabel, letterSpacing: '.16em', color: C.text2 }}>
+              <div style={{ ...cardLabel, letterSpacing: 0, color: C.text2 }}>
                 {t.freedomLabel}
               </div>
               <div
                 style={{
-                  fontFamily: C.mono,
-                  fontSize: 'clamp(42px,13vw,56px)',
-                  fontWeight: 600,
+                  fontSize: 'clamp(44px,13vw,64px)',
+                  fontWeight: 500,
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '-.03em',
                   color: C.textStrong,
                   marginTop: 12,
-                  letterSpacing: '-.01em',
                   lineHeight: 1,
-                  textShadow: '0 1px 0 rgba(0,0,0,.4)',
                 }}
               >
                 {calc.pct}%
@@ -532,7 +525,7 @@ export default function FamilyLandingPage() {
                       borderBottom: i === 2 ? 'none' : `1px solid ${C.borderHairline}`,
                     }}
                   >
-                    <span style={{ fontSize: 13.5, color: C.text2 }}>{row.label}</span>
+                    <span style={{ fontSize: 13, color: C.text2 }}>{row.label}</span>
                     <span
                       style={{
                         fontFamily: C.mono,
@@ -565,7 +558,7 @@ export default function FamilyLandingPage() {
               </a>
               <div
                 style={{
-                  fontSize: 11.5,
+                  fontSize: 12,
                   lineHeight: 1.5,
                   color: C.text4,
                   textAlign: 'center',
@@ -607,7 +600,7 @@ export default function FamilyLandingPage() {
               >
                 {step.title}
               </div>
-              <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
                 {step.desc}
               </p>
             </div>
@@ -621,25 +614,15 @@ export default function FamilyLandingPage() {
         <h2 style={{ ...h2Style, maxWidth: 620 }}>{t.behindTitle}</h2>
         <div className="fam-cards-3" style={{ marginTop: 28 }}>
           {t.behindCards.map((card) => (
-            <MetalPanel key={card.kicker} radius={20}>
-              <div style={{ ...cardLabel, letterSpacing: '.16em', color: C.text2 }}>
-                {card.kicker}
-              </div>
-              <div
-                style={{
-                  fontSize: 19,
-                  fontWeight: 700,
-                  color: C.textStrong,
-                  marginTop: 14,
-                  textShadow: '0 1px 0 rgba(0,0,0,.4)',
-                }}
-              >
+            <div key={card.kicker} style={cardStyle()}>
+              <div style={cardLabel}>{card.kicker}</div>
+              <div style={{ fontSize: 18, lineHeight: 1.35, fontWeight: 500, color: C.textStrong, marginTop: 12 }}>
                 {card.title}
               </div>
-              <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.textSoft, margin: '10px 0 0' }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: C.text2, margin: '8px 0 0' }}>
                 {card.desc}
               </p>
-            </MetalPanel>
+            </div>
           ))}
         </div>
       </section>
@@ -649,10 +632,10 @@ export default function FamilyLandingPage() {
         id="comecar"
         style={{ ...sectionStyle, paddingBottom: 'clamp(72px,8vw,104px)' }}
       >
-        <MetalPanel radius={26} padding={0} shadow={PANEL_SHADOW_LG}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16 }}>
           <div
             style={{
-              padding: 'clamp(22px,4.5vw,52px)',
+              padding: 'clamp(24px,4.5vw,48px)',
               display: 'flex',
               flexWrap: 'wrap',
               gap: 32,
@@ -663,13 +646,12 @@ export default function FamilyLandingPage() {
             <div style={{ flex: '1 1 380px' }}>
               <h2
                 style={{
-                  fontSize: 'clamp(23px,4.6vw,36px)',
-                  fontWeight: 700,
-                  letterSpacing: '-.025em',
+                  fontSize: 'clamp(24px,4.6vw,36px)',
+                  fontWeight: 500,
+                  letterSpacing: '-.02em',
                   lineHeight: 1.1,
                   margin: 0,
                   maxWidth: 460,
-                  textShadow: '0 1px 0 rgba(0,0,0,.4)',
                   textWrap: 'balance',
                 }}
               >
@@ -677,10 +659,10 @@ export default function FamilyLandingPage() {
               </h2>
               <p
                 style={{
-                  fontSize: 15.5,
+                  fontSize: 15,
                   lineHeight: 1.6,
-                  color: C.textSoft,
-                  margin: '14px 0 0',
+                  color: C.text2,
+                  margin: '12px 0 0',
                   maxWidth: 420,
                 }}
               >
@@ -722,7 +704,7 @@ export default function FamilyLandingPage() {
                   }}
                 />
                 {emailError && (
-                  <div role="alert" style={{ fontSize: 12.5, color: C.danger }}>
+                  <div role="alert" style={{ fontSize: 13, color: C.danger }}>
                     {t.emailError}
                   </div>
                 )}
@@ -747,7 +729,7 @@ export default function FamilyLandingPage() {
                 </button>
                 <div
                   style={{
-                    fontSize: 11.5,
+                    fontSize: 12,
                     lineHeight: 1.5,
                     color: C.text4,
                     textAlign: 'center',
@@ -758,7 +740,7 @@ export default function FamilyLandingPage() {
               </form>
             </div>
           </div>
-        </MetalPanel>
+        </div>
       </section>
 
       {/* ── Rodapé ────────────────────────────────────────────────────────── */}
@@ -777,7 +759,7 @@ export default function FamilyLandingPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BrandDiamond size={11} glow={false} />
-            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: C.text }}>
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-.01em', color: C.text }}>
               Yield2Pay
             </span>
           </div>
@@ -795,9 +777,8 @@ export default function FamilyLandingPage() {
           <span
             style={{
               fontFamily: C.mono,
-              fontSize: 11,
-              letterSpacing: '.12em',
-              textTransform: 'uppercase',
+              fontSize: 12,
+              letterSpacing: 0,
               color: C.text4,
             }}
           >

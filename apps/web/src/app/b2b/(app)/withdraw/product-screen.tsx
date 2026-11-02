@@ -52,10 +52,10 @@ export default function WithdrawPage() {
 
             {(state === 'idle') && (
               <>
-                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--fx-text)', margin: 0, textShadow: 'var(--fx-emboss)' }}>
+                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-.02em', color: 'var(--fx-text)', margin: 0 }}>
                   Sacar via Pix
                 </h2>
-                <p style={{ color: 'var(--fx-text-2)', fontSize: 14.5, margin: '8px 0 0', lineHeight: 1.55 }}>
+                <p style={{ color: 'var(--fx-text-2)', fontSize: 14, margin: '8px 0 0', lineHeight: 1.55 }}>
                   Retire do seu cofre e receba em BRL na sua conta, via Pix.
                 </p>
 
@@ -72,7 +72,7 @@ export default function WithdrawPage() {
                 </div>
 
                 <div style={{ marginTop: 20, padding: '14px 16px', background: 'var(--fx-surface-2)', borderRadius: 'var(--fx-radius-md)', border: '1px solid var(--fx-border)' }}>
-                  <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--fx-text-3)', marginBottom: 6 }}>Você recebe (aprox.)</div>
+                  <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 12, letterSpacing: 0, color: 'var(--fx-text-3)', marginBottom: 6 }}>Você recebe (aprox.)</div>
                   <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 24, color: 'var(--fx-text-strong)' }}>~{fmtBrl(approxBrl)}</div>
                   <div style={{ fontSize: 12, color: 'var(--fx-text-3)', marginTop: 4 }}>Via Pix · câmbio ≈ R$5,34 / USDC</div>
                 </div>
@@ -88,17 +88,17 @@ export default function WithdrawPage() {
             {state === 'processing' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <div style={{ fontSize: 34, marginBottom: 14 }}>⏳</div>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 700, color: 'var(--fx-text)' }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 600, color: 'var(--fx-text)' }}>
                   Processando seu saque…
                 </div>
-                <p style={{ color: 'var(--fx-text-2)', fontSize: 13.5, marginTop: 8 }}>Enviando o Pix. Isso leva alguns segundos.</p>
+                <p style={{ color: 'var(--fx-text-2)', fontSize: 13, marginTop: 8 }}>Enviando o Pix. Isso leva alguns segundos.</p>
               </div>
             )}
 
             {state === 'done' && (
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <div style={{ fontSize: 42, marginBottom: 12 }}>✓</div>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 700, color: 'var(--fx-text)', marginBottom: 8 }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 600, color: 'var(--fx-text)', marginBottom: 8 }}>
                   Saque enviado!
                 </div>
                 <p style={{ color: 'var(--fx-text-2)', fontSize: 14 }}>
@@ -110,7 +110,7 @@ export default function WithdrawPage() {
 
             {state === 'error' && (
               <div style={{ textAlign: 'center', padding: '28px 0' }}>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 700, color: 'var(--fx-text)', marginBottom: 10 }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 600, color: 'var(--fx-text)', marginBottom: 10 }}>
                   Não deu pra concluir
                 </div>
                 {error && <TxErrorBox message={error} />}

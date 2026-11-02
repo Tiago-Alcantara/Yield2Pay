@@ -54,7 +54,7 @@ export default function FamilyWithdrawPage() {
           <h1
             style={{
               fontSize: 'clamp(22px,5.6vw,26px)',
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-.02em',
               margin: 0,
               color: C.textStrong,
@@ -63,7 +63,7 @@ export default function FamilyWithdrawPage() {
           >
             {t.withdraw.title}
           </h1>
-          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: C.text2, margin: '10px 0 0' }}>
             {t.withdraw.sub}
           </p>
 
@@ -88,7 +88,7 @@ export default function FamilyWithdrawPage() {
               }}
               style={{
                 fontFamily: C.mono,
-                fontSize: 11.5,
+                fontSize: 12,
                 color: C.silver,
                 background: 'none',
                 border: 'none',
@@ -124,7 +124,7 @@ export default function FamilyWithdrawPage() {
             }}
           />
           {error && (
-            <div role="alert" style={{ fontSize: 12.5, color: C.danger, marginTop: 8 }}>
+            <div role="alert" style={{ fontSize: 13, color: C.danger, marginTop: 8 }}>
               {t.withdraw.errorAmount}
             </div>
           )}
@@ -135,7 +135,7 @@ export default function FamilyWithdrawPage() {
               gap: 12,
               marginTop: 10,
               fontFamily: C.mono,
-              fontSize: 11.5,
+              fontSize: 12,
               color: C.text4,
             }}
           >
@@ -206,7 +206,7 @@ export default function FamilyWithdrawPage() {
           </button>
           <div
             style={{
-              fontSize: 11.5,
+              fontSize: 12,
               lineHeight: 1.5,
               color: C.text4,
               textAlign: 'center',

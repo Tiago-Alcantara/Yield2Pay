@@ -58,10 +58,10 @@ export default function DepositPage() {
             {/* ── Valor ─────────────────────────────────────────────── */}
             {(state === 'idle' || state === 'quoting') && (
               <>
-                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--fx-text)', margin: 0, textShadow: 'var(--fx-emboss)' }}>
+                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-.02em', color: 'var(--fx-text)', margin: 0 }}>
                   Quanto quer depositar?
                 </h2>
-                <p style={{ color: 'var(--fx-text-2)', fontSize: 14.5, margin: '8px 0 0', lineHeight: 1.55 }}>
+                <p style={{ color: 'var(--fx-text-2)', fontSize: 14, margin: '8px 0 0', lineHeight: 1.55 }}>
                   Deposite via Pix. Seu dinheiro fica seu e rende — só o rendimento paga suas ferramentas.
                 </p>
 
@@ -88,7 +88,7 @@ export default function DepositPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--fx-border)' }}>
                   <div>
-                    <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--fx-text-3)' }}>Rende por mês</div>
+                    <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 13, letterSpacing: 0, color: 'var(--fx-text-3)' }}>Rende por mês</div>
                     <div style={{ fontFamily: 'var(--fx-font-mono)', fontSize: 20, color: 'var(--fx-text-strong)', marginTop: 5 }}>
                       {fmtBrl(monthly)}<span style={{ fontSize: 13, color: 'var(--fx-silver)' }}> / mês</span>
                     </div>
@@ -109,7 +109,7 @@ export default function DepositPage() {
             {/* ── Pix (aguardando pagamento) ────────────────────────── */}
             {state === 'awaiting_pix' && order && (
               <>
-                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 700, color: 'var(--fx-text)', margin: '0 0 8px' }}>
+                <h2 style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 600, color: 'var(--fx-text)', margin: '0 0 8px' }}>
                   Pague com Pix
                 </h2>
                 <p style={{ color: 'var(--fx-text-2)', fontSize: 14, margin: '0 0 20px', lineHeight: 1.55 }}>
@@ -134,7 +134,7 @@ export default function DepositPage() {
             {state === 'funded' && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ fontSize: 34, marginBottom: 10 }}>💸</div>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 700, color: 'var(--fx-text)', marginBottom: 8 }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 22, fontWeight: 600, color: 'var(--fx-text)', marginBottom: 8 }}>
                   Pix recebido!
                 </div>
                 <p style={{ color: 'var(--fx-text-2)', fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.55 }}>
@@ -149,10 +149,10 @@ export default function DepositPage() {
             {state === 'applying' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <div style={{ fontSize: 34, marginBottom: 14 }}>⏳</div>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 700, color: 'var(--fx-text)' }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 600, color: 'var(--fx-text)' }}>
                   Aplicando no seu cofre…
                 </div>
-                <p style={{ color: 'var(--fx-text-2)', fontSize: 13.5, marginTop: 8 }}>
+                <p style={{ color: 'var(--fx-text-2)', fontSize: 13, marginTop: 8 }}>
                   Isso leva alguns segundos.
                 </p>
               </div>
@@ -162,7 +162,7 @@ export default function DepositPage() {
             {state === 'done' && (
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <div style={{ fontSize: 42, marginBottom: 12 }}>✓</div>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 700, color: 'var(--fx-text)', marginBottom: 8 }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 24, fontWeight: 600, color: 'var(--fx-text)', marginBottom: 8 }}>
                   Seu dinheiro está rendendo
                 </div>
                 <p style={{ color: 'var(--fx-text-2)', fontSize: 14 }}>
@@ -177,7 +177,7 @@ export default function DepositPage() {
             {/* ── Erro fatal (fora dos fluxos) ──────────────────────── */}
             {state === 'error' && (
               <div style={{ textAlign: 'center', padding: '28px 0' }}>
-                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 700, color: 'var(--fx-text)', marginBottom: 10 }}>
+                <div style={{ fontFamily: 'var(--fx-font-display)', fontSize: 20, fontWeight: 600, color: 'var(--fx-text)', marginBottom: 10 }}>
                   Não deu pra concluir
                 </div>
                 {error && <TxErrorBox message={error} />}
