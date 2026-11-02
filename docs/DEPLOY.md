@@ -214,6 +214,8 @@ família continua na família, igual à versão anterior, mesmo depois de ganhar
 individual. Com mais de um, vale a membership mais antiga (`created_at`, depois
 `id`). O individual só vale se não houver outro grupo.
 
+No convite e no aceite antigos, o individual próprio com membros bloqueia como antes; o individual vazio não bloqueia.
+
 O `GET /account` continua devolvendo `household`, igual a `activeHousehold`, até
 a F4. O campo está marcado como deprecated.
 
