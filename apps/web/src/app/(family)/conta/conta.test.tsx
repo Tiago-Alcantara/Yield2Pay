@@ -24,7 +24,8 @@ const account = {
   email: 'marina.souza@gmail.com',
   initials: 'MS',
   accountType: 'family',
-  household: { id: 'h1', name: 'Família Souza', role: 'owner', onboardingCompleted: true },
+  households: [{ id: 'h1', name: 'Família Souza', role: 'owner', personal: true }],
+  activeHousehold: { id: 'h1', name: 'Família Souza', role: 'owner', personal: true, onboardingCompleted: true },
 };
 
 function json(body: unknown, status = 200) {

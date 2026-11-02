@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import type { ActiveMembership } from '../auth/authenticated-request';
 import { applyKeyChanges, previewHouseholdBackfill } from './backfill-preview';
 import { ExpensesService } from './expenses.service';
 import { StatementsService } from '../statements/statements.service';
@@ -90,13 +91,13 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
     await prisma.$disconnect();
   });
 
+  // Grupo ativo que o HouseholdMemberGuard entregaria ao controller.
+  function ownerMembership(): ActiveMembership {
+    return { householdId, companyId, role: 'owner', personal: true };
+  }
+
   function expenses() {
-    return new ExpensesService(
-      prisma as never,
-      {
-        requireMembership: async () => ({ householdId, role: 'owner' }),
-      } as never,
-    );
+    return new ExpensesService(prisma as never);
   }
 
   it('marca a Netflix nova como fixa quando o histórico antigo não tem chave', async () => {
@@ -114,7 +115,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
         sharedMerchantKey: '',
       },
     });
-    const created = await expenses().create(companyId, {
+    const created = await expenses().create(ownerMembership(), {
       merchant: 'Netflix',
       amountCents: 5590,
       spentOn: '2026-10-02',
@@ -146,7 +147,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
         sharedMerchantKey: 'netflix premium',
       },
     });
-    const created = await expenses().create(companyId, {
+    const created = await expenses().create(ownerMembership(), {
       merchant: 'Netflix',
       amountCents: 5590,
       spentOn: '2026-10-03',
@@ -192,11 +193,11 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
         sharedMerchantKey: 'aluguel',
       },
     });
-    const patched = await expenses().patch(companyId, hand.id, {
+    const patched = await expenses().patch(ownerMembership(), hand.id, {
       fixed: false,
     });
     expect(patched.fixed).toBe(false);
-    const created = await expenses().create(companyId, {
+    const created = await expenses().create(ownerMembership(), {
       merchant: 'Aluguel',
       amountCents: 250000,
       spentOn: '2026-10-04',
@@ -218,13 +219,13 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
     for (let round = 0; round < 5; round += 1) {
       const merchant = `Spotify ${round}`;
       const [first, second] = await Promise.all([
-        svc.create(companyId, {
+        svc.create(ownerMembership(), {
           merchant,
           amountCents: 2190,
           spentOn: '2026-09-06',
           category: 'subscriptions',
         }),
-        svc.create(companyId, {
+        svc.create(ownerMembership(), {
           merchant,
           amountCents: 2190,
           spentOn: '2026-10-06',
@@ -244,20 +245,15 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
   });
 
   it('dois imports simultâneos do mesmo grupo concordam no fixo', async () => {
-    const statements = new StatementsService(
-      prisma as never,
-      {
-        requireMembership: async () => ({ householdId, role: 'owner' }),
-      } as never,
-    );
+    const statements = new StatementsService(prisma as never);
     await Promise.all([
       statements.importFile(
-        companyId,
+        ownerMembership(),
         'set.csv',
         Buffer.from('data,descricao,valor\n01/09/2026,Disney Plus,33.90\n'),
       ),
       statements.importFile(
-        companyId,
+        ownerMembership(),
         'out.csv',
         Buffer.from('data,descricao,valor\n01/10/2026,Disney Plus,33.90\n'),
       ),
@@ -333,7 +329,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
         sharedMerchantKey: '',
       },
     });
-    const created = await expenses().create(companyId, {
+    const created = await expenses().create(ownerMembership(), {
       merchant: 'Netflix',
       amountCents: 5590,
       spentOn: '2026-10-11',
@@ -365,7 +361,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
         sharedMerchantKey: '',
       })),
     });
-    const page = await expenses().list(companyId, '2026-10');
+    const page = await expenses().list(ownerMembership(), '2026-10');
     const shown = page.items.find((item) => item.merchant === 'Spotify');
     expect(shown?.fixed).toBe(true);
     const stored = await prisma.expense.findMany({
@@ -387,7 +383,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
       await Promise.all(
         Array.from({ length: 10 }, async (_, index) => {
           const started = performance.now();
-          await svc.create(companyId, {
+          await svc.create(ownerMembership(), {
             merchant: `Bench ${round}-${index}`,
             amountCents: 1000 + index,
             spentOn: '2026-10-15',
@@ -409,7 +405,7 @@ describe.skipIf(!DATABASE_URL)('postgres real', () => {
       Array.from({ length: 10 }, async (_, index) => {
         const month = String(index + 1).padStart(2, '0');
         const started = performance.now();
-        await svc.create(companyId, {
+        await svc.create(ownerMembership(), {
           merchant: 'Hbo Max',
           amountCents: 3490,
           spentOn: `2026-${month}-02`,

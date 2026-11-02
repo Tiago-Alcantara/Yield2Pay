@@ -97,6 +97,8 @@ jobs:
         run: pnpm --filter @yield2pay/api exec prisma migrate deploy
 
       - name: Testes da API
+        env:
+          RUN_DB_TESTS: "1"
         run: pnpm --filter @yield2pay/api test
 
       - name: Testes e2e da API

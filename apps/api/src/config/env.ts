@@ -1,5 +1,6 @@
+import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { z } from 'zod';
-import type { AppEnv } from '@yield2pay/shared';
+import { HOUSEHOLD_ID_HEADER, type AppEnv } from '@yield2pay/shared';
 import { isFinancialProductEnabled } from './financial-product';
 
 const schema = z.object({
@@ -13,9 +14,9 @@ const schema = z.object({
   // requestId), sem stack. Não derivamos de NODE_ENV porque o build de homologação também
   // roda como production.
   APP_ENV: z
-    .enum(['production', 'staging', 'development'])
+    .enum(['production', 'staging', 'development', 'test'])
     .default('development'),
-  // Sessão fixa do painel local, sem Privy. Fica desligada fora desta máquina.
+  // Sessão fixa do painel local, sem Privy. Só vale com APP_ENV development ou test.
   DEV_LOCAL_SESSION: z.enum(['true', 'false']).default('false'),
   DEMO_YIELD_BPS: z.coerce.number().int().nonnegative().default(0),
   DEMO_RETURNS_CHANGE_PERCENT: z.string().default('3.2'),
@@ -65,7 +66,20 @@ export type Env = {
   financialProductEnabled: boolean;
 };
 
+/** A sessão fixa sem Privy só sobe em dev e teste. A mensagem não traz valores. */
+export const LOCAL_SESSION_NOT_ALLOWED_MESSAGE =
+  'DEV_LOCAL_SESSION=true só é permitido com APP_ENV=development ou APP_ENV=test';
+
+/** Lista fechada: qualquer outro APP_ENV, inclusive ausente, recusa a sessão fixa. */
+export function isLocalSessionAllowed(appEnv: string | undefined): boolean {
+  return appEnv === 'development' || appEnv === 'test';
+}
+
 export function loadEnv(raw: Record<string, string | undefined>): Env {
+  // Lê o valor cru: depois do parse, APP_ENV ausente já virou 'development'.
+  if (raw.DEV_LOCAL_SESSION === 'true' && !isLocalSessionAllowed(raw.APP_ENV)) {
+    throw new Error(LOCAL_SESSION_NOT_ALLOWED_MESSAGE);
+  }
   const parsed = schema.parse(raw);
   const financialProductEnabled = isFinancialProductEnabled({
     FINANCIAL_PRODUCT_ENABLED: parsed.FINANCIAL_PRODUCT_ENABLED,
@@ -95,4 +109,56 @@ export function loadEnv(raw: Record<string, string | undefined>): Env {
     etherfuseFiatCurrency: parsed.ETHERFUSE_FIAT_CURRENCY,
     financialProductEnabled,
   };
+}
+
+/** Headers que o navegador pode mandar. privy-id-token leva o e-mail do Privy. */
+export const CORS_ALLOWED_HEADERS = [
+  'Authorization',
+  'Content-Type',
+  'privy-id-token',
+  HOUSEHOLD_ID_HEADER,
+];
+
+/**
+ * Origens do web em dev. Só valem quando faltam CORS_ORIGIN e APP_ENV: com
+ * APP_ENV=development, por exemplo, a regra é outra (ver corsOptionsFor).
+ */
+export const CORS_DEV_ORIGINS = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
+/**
+ * CORS da API. O web roda em outra origem (localhost:3000 em dev, o domínio
+ * da Vercel em produção). A origem liberada, na ordem em que é decidida:
+ * - CORS_ORIGIN preenchido: só as origens dele, separadas por vírgula, em
+ *   qualquer APP_ENV;
+ * - APP_ENV=production: só https://yield2pay.com e https://www.yield2pay.com;
+ * - APP_ENV ausente ou vazio: só CORS_DEV_ORIGINS;
+ * - qualquer outro APP_ENV (development, staging, test): origin true, ou seja,
+ *   qualquer origem, com credentials.
+ * allowedHeaders é explícito para o preflight liberar X-Household-Id.
+ */
+export function corsOptionsFor(
+  raw: Record<string, string | undefined>,
+): CorsOptions {
+  return {
+    origin: corsOriginFor(raw),
+    credentials: true,
+    allowedHeaders: CORS_ALLOWED_HEADERS,
+  };
+}
+
+function corsOriginFor(
+  raw: Record<string, string | undefined>,
+): CorsOptions['origin'] {
+  if (raw.CORS_ORIGIN) {
+    return raw.CORS_ORIGIN.split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (raw.APP_ENV === 'production') {
+    return ['https://yield2pay.com', 'https://www.yield2pay.com'];
+  }
+  return raw.APP_ENV ? true : CORS_DEV_ORIGINS;
 }

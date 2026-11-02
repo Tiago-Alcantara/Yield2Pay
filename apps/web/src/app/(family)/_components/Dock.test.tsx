@@ -54,7 +54,9 @@ beforeEach(() => {
     email: 'marina@email.com',
     initials: 'MA',
     accountType: 'family',
-    household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+    households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
+    activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
+    household: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
   });
 });
 
@@ -169,7 +171,9 @@ describe('doca', () => {
       email: 'marina@email.com',
       initials: 'MA',
       accountType: 'family',
-      household: { id: 'h1', name: 'Casa', role: 'member', onboardingCompleted: true },
+      households: [{ id: 'h1', name: 'Casa', role: 'member', personal: false }],
+      activeHousehold: { id: 'h1', name: 'Casa', role: 'member', personal: false, onboardingCompleted: true },
+      household: { id: 'h1', name: 'Casa', role: 'member', personal: false, onboardingCompleted: true },
     });
     renderDock('/dashboard');
     expect(screen.queryByRole('button', { name: 'Convidar família' })).not.toBeInTheDocument();

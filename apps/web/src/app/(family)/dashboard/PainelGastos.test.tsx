@@ -73,7 +73,8 @@ function payload(url: string) {
       email: 'familia@localhost',
       initials: 'A',
       accountType: 'family',
-      household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+      households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
+      activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
     };
   }
   if (url.includes('/household/profile')) {
@@ -161,7 +162,8 @@ function installFetch() {
                       email: 'marina@email.com',
                       initials: 'MA',
                       accountType: 'family',
-                      household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+                      households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
+                      activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
                     }
                   : url.includes('/lesson-progress')
                     ? []
@@ -379,7 +381,8 @@ describe('ações da doca no painel', () => {
               email: 'marina@email.com',
               initials: 'MA',
               accountType: 'family',
-              household: { id: 'h1', name: 'Casa', role: 'member', onboardingCompleted: true },
+              households: [{ id: 'h1', name: 'Casa', role: 'member', personal: false }],
+              activeHousehold: { id: 'h1', name: 'Casa', role: 'member', personal: false, onboardingCompleted: true },
             }
           : url.includes('/household/profile')
             ? {
@@ -453,7 +456,8 @@ describe('ações da doca no painel', () => {
               email: 'marina@email.com',
               initials: 'MA',
               accountType: 'family',
-              household: { id: 'h1', name: 'Casa', role: 'owner', onboardingCompleted: true },
+              households: [{ id: 'h1', name: 'Casa', role: 'owner', personal: true }],
+              activeHousehold: { id: 'h1', name: 'Casa', role: 'owner', personal: true, onboardingCompleted: true },
             }
           : url.includes('/household/profile')
             ? {

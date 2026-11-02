@@ -4,7 +4,8 @@ import type {
   ExpensePage,
   ExpenseView,
 } from '@yield2pay/shared';
-import { HouseholdService, initialsOf } from '../household/household.service';
+import type { ActiveMembership } from '../auth/authenticated-request';
+import { initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { saoPauloToday } from '../summary/summary.math';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
@@ -38,20 +39,17 @@ const CATEGORIES: ExpenseCategory[] = [
 
 @Injectable()
 export class ExpensesService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly household: HouseholdService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async list(
-    companyId: string,
+    membership: ActiveMembership,
     month: string,
     category?: ExpenseCategory,
     page?: ExpensePageQuery,
     range?: { from: string; to: string },
   ): Promise<ExpensePage> {
     const { limit, offset, cursor } = readPage(page);
-    const { householdId } = await this.household.requireMembership(companyId);
+    const { householdId } = membership;
     const { gte, lt } = range
       ? utcDayRange(range.from, range.to)
       : utcMonthRange(requireMonth(month));
@@ -88,8 +86,8 @@ export class ExpensesService {
     };
   }
 
-  async months(companyId: string) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async months(membership: ActiveMembership) {
+    const { householdId } = membership;
     const rows = await this.prisma.$queryRaw<
       Array<{ month: string; amountCents: number }>
     >`
@@ -107,7 +105,7 @@ export class ExpensesService {
   }
 
   async create(
-    companyId: string,
+    membership: ActiveMembership,
     body: {
       merchant?: string;
       amountCents?: number;
@@ -115,7 +113,7 @@ export class ExpensesService {
       category?: ExpenseCategory;
     },
   ) {
-    const { householdId } = await this.household.requireMembership(companyId);
+    const { householdId, companyId } = membership;
     const merchant = body.merchant?.trim() ?? '';
     if (
       !merchant ||
@@ -164,8 +162,8 @@ export class ExpensesService {
     return toExpenseView(created, names, created.fixed);
   }
 
-  async patch(companyId: string, id: string, body: PatchExpense) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async patch(membership: ActiveMembership, id: string, body: PatchExpense) {
+    const { householdId } = membership;
     const updated = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.expense.findFirst({
         where: { id, householdId },
@@ -211,8 +209,8 @@ export class ExpensesService {
     return toExpenseView(updated, names, updated.fixed);
   }
 
-  async remove(companyId: string, id: string) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async remove(membership: ActiveMembership, id: string) {
+    const { householdId } = membership;
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.expense.findFirst({
         where: { id, householdId },

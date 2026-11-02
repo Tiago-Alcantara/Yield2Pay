@@ -152,10 +152,14 @@ describe('painel /dashboard', () => {
                             fullName: 'Marina A.',
                             initials: 'MA',
                             accountType: 'family',
-                            household: {
+                            households: [
+                              { id: 'h1', name: 'Casa', role: 'owner', personal: true },
+                            ],
+                            activeHousehold: {
                               id: 'h1',
                               name: 'Casa',
                               role: 'owner',
+                              personal: true,
                               onboardingCompleted: true,
                             },
                           }
@@ -238,10 +242,14 @@ describe('painel /dashboard', () => {
                             fullName: 'Marina A.',
                             initials: 'MA',
                             accountType: 'family',
-                            household: {
+                            households: [
+                              { id: 'h1', name: 'Casa', role: 'owner', personal: true },
+                            ],
+                            activeHousehold: {
                               id: 'h1',
                               name: 'Casa',
                               role: 'owner',
+                              personal: true,
                               onboardingCompleted: true,
                             },
                           }

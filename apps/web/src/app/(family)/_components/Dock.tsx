@@ -101,7 +101,7 @@ export function Dock() {
   if (!visible || !pathname) return loader;
 
   const active = activeDockItem(pathname);
-  const canInvite = account?.household?.role === 'owner';
+  const canInvite = account?.activeHousehold?.role === 'owner';
   const fromApi = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0];
   const firstName = fromApi || state.profile.name.trim().split(/\s+/)[0] || d.account;
   const initial = (account?.initials && account.initials !== '?' ? account.initials : firstName).charAt(0).toUpperCase();
@@ -113,7 +113,7 @@ export function Dock() {
   return (
     <nav id="y2p-dock" aria-label={d.aria}>
       {loader}
-      <GroupMenu name={firstName} initial={initial} householdName={account?.household?.name} />
+      <GroupMenu name={firstName} initial={initial} householdName={account?.activeHousehold?.name} />
       <span className="dk-sep" />
       {NAV.filter((i) => i.id !== 'liberdade' || liberdadeOn).map((item) => (
         <Link

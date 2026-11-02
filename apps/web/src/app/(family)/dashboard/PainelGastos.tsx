@@ -282,7 +282,7 @@ function PainelScreen({
         return;
       }
       if (!account || !profile) return;
-      if (account.household?.role !== 'owner') {
+      if (account.activeHousehold?.role !== 'owner') {
         pendingAcao.current = null;
         setInviteNotice('Só quem administra a casa pode convidar.');
         return;
@@ -369,7 +369,7 @@ function PainelScreen({
       try {
         const accountView = await client.getAccount();
         if (cancelled) return;
-        if (!accountView.household) {
+        if (!accountView.activeHousehold) {
           setAccount(accountView);
           setPhase('onboarding');
           return;
@@ -393,8 +393,8 @@ function PainelScreen({
         setPageNote(expenseRows.truncated ? EXPENSE_PAGE_CAP_NOTE : '');
         setAccount({
           ...accountView,
-          household: {
-            ...accountView.household,
+          activeHousehold: {
+            ...accountView.activeHousehold,
             role: current.role,
             onboardingCompleted: current.onboardingCompleted,
           },
@@ -622,7 +622,7 @@ function PainelScreen({
 
   async function saveOnboarding(body: CompleteOnboarding) {
     const client = api();
-    if (!account?.household) {
+    if (!account?.activeHousehold) {
       const houseName = (body.displayName || body.fullName || 'Minha casa').trim().slice(0, 32) || 'Minha casa';
       try {
         await client.createHousehold(houseName);
@@ -728,7 +728,7 @@ function PainelScreen({
   const sentence = libertySentence(freedom, reserveCents, goal);
   const userName = account?.displayName?.trim() || account?.fullName?.trim().split(/\s+/)[0] || '';
   const initials = account?.initials || '?';
-  const isOwner = account?.household?.role === 'owner';
+  const isOwner = account?.activeHousehold?.role === 'owner';
   const pills = months.length ? months : [month];
   const totals: Record<string, number> = {};
   for (const row of monthTotals) totals[row.month] = row.amountCents;
@@ -1127,8 +1127,8 @@ function PainelScreen({
         getIdentityToken={getIdentityToken}
         onLogout={onLogout}
         onAccount={(next) => setAccount((prev) => (
-          prev?.household && next.household
-            ? { ...next, household: { ...next.household, role: prev.household.role, onboardingCompleted: prev.household.onboardingCompleted } }
+          prev?.activeHousehold && next.activeHousehold
+            ? { ...next, activeHousehold: { ...next.activeHousehold, role: prev.activeHousehold.role, onboardingCompleted: prev.activeHousehold.onboardingCompleted } }
             : next
         ))}
         onProfile={(next) => {
@@ -1141,7 +1141,7 @@ function PainelScreen({
           void api().getLessons(nextTrack).then(setLessons).catch(() => undefined);
         }}
         onLeft={() => {
-          setAccount((prev) => (prev ? { ...prev, household: null } : prev));
+          setAccount((prev) => (prev ? { ...prev, activeHousehold: null } : prev));
           setPhase('name');
         }}
         onExpensesCleared={() => { void refresh(month); }}

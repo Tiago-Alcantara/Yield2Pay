@@ -45,7 +45,9 @@ describe("FamilySessionGate", () => {
       email: "marina@email.com",
       initials: "MA",
       accountType: "family",
-      household: { id: "h1", name: "Casa", role: "owner", onboardingCompleted: true },
+      households: [{ id: "h1", name: "Casa", role: "owner", personal: true }],
+      activeHousehold: { id: "h1", name: "Casa", role: "owner", personal: true, onboardingCompleted: true },
+      household: { id: "h1", name: "Casa", role: "owner", personal: true, onboardingCompleted: true },
     });
     auth.ready = true;
     auth.authenticated = false;

@@ -9,6 +9,13 @@ export type GoalMonths = 6 | 12 | 24 | 60;
 export type CryptoExperience = 'beginner' | 'fund' | 'declined';
 export type HouseholdRole = 'owner' | 'member';
 
+/** Máximo de grupos por pessoa, contando o individual. */
+export const MAX_GROUPS = 5;
+/** Grupos alheios que a pessoa pode ter quando companies.guest_group_limit é nulo. */
+export const DEFAULT_GUEST_LIMIT = 1;
+/** Header com o id do grupo ativo. Sem ele a API usa o grupo padrão da pessoa. */
+export const HOUSEHOLD_ID_HEADER = 'X-Household-Id';
+
 export interface AddedBy { displayName: string; initials: string; }
 
 /** Iniciais do nome que a pessoa vê: apelido, senão o nome completo. */
@@ -34,18 +41,33 @@ function firstGrapheme(value: string): string {
   return Array.from(value)[0] ?? '';
 }
 
+/** Um grupo da pessoa. personal = o grupo individual dela. */
+export interface AccountHouseholdView {
+  id: string;
+  name: string;
+  role: HouseholdRole;
+  personal: boolean;
+}
+
+export interface ActiveHouseholdView extends AccountHouseholdView {
+  onboardingCompleted: boolean;
+}
+
 export interface AccountView {
   displayName: string | null;
   fullName: string | null;
   email: string | null;
   initials: string;
   accountType: 'family';
-  household: null | {
-    id: string;
-    name: string;
-    role: HouseholdRole;
-    onboardingCompleted: boolean;
-  };
+  /** Todos os grupos da pessoa. Vazio só antes de ela criar o primeiro. */
+  households: AccountHouseholdView[];
+  /** Grupo do header X-Household-Id ou o padrão. Nulo só com households vazio. */
+  activeHousehold: ActiveHouseholdView | null;
+  /**
+   * Mesmo valor de activeHousehold, para o web publicado que ainda lê este campo.
+   * @deprecated Use activeHousehold. Sai na F4.
+   */
+  household: ActiveHouseholdView | null;
 }
 
 export interface HouseholdProfile {

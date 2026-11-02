@@ -1,0 +1,545 @@
+import { Test } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { PrivyService } from '../src/auth/privy.service';
+import { corsOptionsFor } from '../src/config/env';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+/**
+ * Vários grupos com o AppModule inteiro e o Postgres descartável.
+ * O Privy é simulado: o token "dona" vira o usuário `${stamp}-dona`.
+ * Só roda com RUN_DB_TESTS=1.
+ */
+describe.skipIf(process.env.RUN_DB_TESTS !== '1')('households (e2e)', () => {
+  const stamp = `e2e-grupos-${Date.now()}`;
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let familyHouseholdId = '';
+  let strangerHouseholdId = '';
+
+  const fakePrivy = {
+    verify: async (token: string) => ({
+      privyUserId: `${stamp}-${token}`,
+      email: `${token}.${stamp}@example.test`,
+    }),
+    emailFromIdentity: async () => null,
+    getEmail: async () => null,
+  };
+
+  function as(token: string) {
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  /** Convite antigo: o dono convida a pessoa e ela aceita. */
+  async function joinGroupOf(ownerToken: string, token: string) {
+    const server = app.getHttpServer();
+    const invite = await request(server)
+      .post('/households/current/invites')
+      .set(as(ownerToken))
+      .send({ email: `${token}.${stamp}@example.test` });
+    expect(invite.status).toBe(201);
+    const accepted = await request(server)
+      .post(`/households/invites/${invite.body.id}/accept`)
+      .set(as(token));
+    expect(accepted.status).toBe(201);
+  }
+
+  /** Aceite antigo: a pessoa entra na família sem ter grupo próprio. */
+  async function joinFamily(token: string) {
+    await joinGroupOf('dona', token);
+  }
+
+  /** Quantos grupos a pessoa tem, direto no banco. */
+  async function memberships(token: string) {
+    return prisma.householdMember.count({
+      where: { company: { privyUserId: `${stamp}-${token}` } },
+    });
+  }
+
+  beforeAll(async () => {
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrivyService)
+      .useValue(fakePrivy)
+      .compile();
+    app = mod.createNestApplication();
+    app.enableCors(corsOptionsFor(process.env));
+    await app.init();
+    prisma = app.get(PrismaService);
+    const server = app.getHttpServer();
+
+    const family = await request(server)
+      .post('/households')
+      .set(as('dona'))
+      .send({ name: 'Família' });
+    expect(family.status).toBe(201);
+    familyHouseholdId = family.body.id;
+    const skipped = await request(server)
+      .post('/household/profile/skip')
+      .set(as('dona'));
+    expect(skipped.status).toBe(201);
+
+    await joinFamily('antigo');
+
+    const stranger = await request(server)
+      .post('/households')
+      .set(as('estranho'))
+      .send({ name: 'Outra casa' });
+    expect(stranger.status).toBe(201);
+    strangerHouseholdId = stranger.body.id;
+  }, 60_000);
+
+  afterAll(async () => {
+    if (prisma) {
+      const companies = await prisma.company.findMany({
+        where: { privyUserId: { startsWith: stamp } },
+        select: { id: true },
+      });
+      const companyIds = companies.map((company) => company.id);
+      const households = await prisma.household.findMany({
+        where: { ownerCompanyId: { in: companyIds } },
+        select: { id: true },
+      });
+      const householdIds = households.map((household) => household.id);
+      await prisma.householdInvite.deleteMany({
+        where: { householdId: { in: householdIds } },
+      });
+      await prisma.householdMember.deleteMany({
+        where: { householdId: { in: householdIds } },
+      });
+      await prisma.household.deleteMany({
+        where: { id: { in: householdIds } },
+      });
+      await prisma.personName.deleteMany({
+        where: { companyId: { in: companyIds } },
+      });
+      await prisma.company.deleteMany({ where: { id: { in: companyIds } } });
+    }
+    await app?.close();
+  });
+
+  it('responde 404 com o header de um grupo alheio e com id malformado', async () => {
+    const server = app.getHttpServer();
+    const foreign = await request(server)
+      .get('/expenses/months')
+      .set(as('antigo'))
+      .set('X-Household-Id', strangerHouseholdId);
+    expect(foreign.status).toBe(404);
+    const malformed = await request(server)
+      .get('/household/summary?month=2026-10')
+      .set(as('dona'))
+      .set('X-Household-Id', 'nao-e-um-id');
+    expect(malformed.status).toBe(404);
+    const account = await request(server)
+      .get('/account')
+      .set(as('estranho'))
+      .set('X-Household-Id', familyHouseholdId);
+    expect(account.status).toBe(404);
+  });
+
+  it('sem header usa o grupo padrão; com header de grupo próprio usa o pedido', async () => {
+    const server = app.getHttpServer();
+    const ownerCurrent = await request(server)
+      .get('/households/current')
+      .set(as('dona'));
+    expect(ownerCurrent.status).toBe(200);
+    expect(ownerCurrent.body.id).toBe(familyHouseholdId);
+
+    const summary = await request(server)
+      .get('/household/summary?month=2026-10')
+      .set(as('dona'));
+    expect(summary.status).toBe(200);
+
+    const memberDefault = await request(server)
+      .get('/households/current')
+      .set(as('antigo'));
+    expect(memberDefault.status).toBe(200);
+    expect(memberDefault.body).toMatchObject({
+      id: familyHouseholdId,
+      role: 'member',
+      personal: false,
+    });
+
+    const memberFamily = await request(server)
+      .get('/households/current')
+      .set(as('antigo'))
+      .set('X-Household-Id', familyHouseholdId);
+    expect(memberFamily.status).toBe(200);
+    expect(memberFamily.body.id).toBe(familyHouseholdId);
+  });
+
+  it('o primeiro /account do membro antigo cria o individual e devolve a família ativa', async () => {
+    const server = app.getHttpServer();
+    // Token só deste teste: outro /account com o mesmo token já criaria o individual.
+    await joinFamily('primeiro-acesso');
+    expect(await memberships('primeiro-acesso')).toBe(1);
+
+    const response = await request(server)
+      .get('/account')
+      .set(as('primeiro-acesso'));
+    expect(response.status).toBe(200);
+    expect(response.body.households).toHaveLength(2);
+    expect(await memberships('primeiro-acesso')).toBe(2);
+    const personal = response.body.households.find(
+      (item: { personal: boolean }) => item.personal,
+    );
+    expect(personal).toMatchObject({ role: 'owner', personal: true });
+    expect(response.body.households).toContainEqual({
+      id: familyHouseholdId,
+      name: 'Família',
+      role: 'member',
+      personal: false,
+    });
+    expect(response.body.activeHousehold).toMatchObject({
+      id: familyHouseholdId,
+      role: 'member',
+      personal: false,
+    });
+
+    // O individual só cria uma vez, e continua na família.
+    const again = await request(server)
+      .get('/account')
+      .set(as('primeiro-acesso'));
+    expect(again.body.households).toHaveLength(2);
+    expect(again.body.activeHousehold.id).toBe(familyHouseholdId);
+    expect(await memberships('primeiro-acesso')).toBe(2);
+  });
+
+  it('aceite novo: a família fica ativa, com o onboardingCompleted dela', async () => {
+    const server = app.getHttpServer();
+    await joinFamily('novo');
+    const response = await request(server).get('/account').set(as('novo'));
+    expect(response.status).toBe(200);
+    expect(response.body.activeHousehold).toEqual({
+      id: familyHouseholdId,
+      name: 'Família',
+      role: 'member',
+      personal: false,
+      onboardingCompleted: true,
+    });
+    // O individual recém-criado nasce sem onboarding: não pode ser ele a decidir.
+    const personalId = response.body.households.find(
+      (item: { personal: boolean }) => item.personal,
+    ).id;
+    const personal = await request(server)
+      .get('/households/current')
+      .set(as('novo'))
+      .set('X-Household-Id', personalId);
+    expect(personal.body.onboardingCompleted).toBe(false);
+  });
+
+  it('leave sem header sai da família e mantém o individual', async () => {
+    const server = app.getHttpServer();
+    await joinFamily('saindo');
+    await request(server).get('/account').set(as('saindo'));
+    expect(await memberships('saindo')).toBe(2);
+
+    const left = await request(server)
+      .post('/households/current/leave')
+      .set(as('saindo'));
+    expect(left.status).toBe(201);
+
+    const after = await request(server).get('/account').set(as('saindo'));
+    expect(after.body.households).toHaveLength(1);
+    expect(after.body.activeHousehold).toMatchObject({
+      role: 'owner',
+      personal: true,
+    });
+    expect(after.body.activeHousehold.id).not.toBe(familyHouseholdId);
+  });
+
+  it('pedido com header nunca cria grupo individual, nem de grupo alheio', async () => {
+    const server = app.getHttpServer();
+    await joinFamily('curioso');
+    const foreignAccount = await request(server)
+      .get('/account')
+      .set(as('curioso'))
+      .set('X-Household-Id', strangerHouseholdId);
+    expect(foreignAccount.status).toBe(404);
+    const foreignGuard = await request(server)
+      .get('/households/current')
+      .set(as('curioso'))
+      .set('X-Household-Id', strangerHouseholdId);
+    expect(foreignGuard.status).toBe(404);
+    const ownHeader = await request(server)
+      .get('/account')
+      .set(as('curioso'))
+      .set('X-Household-Id', familyHouseholdId);
+    expect(ownHeader.status).toBe(200);
+    expect(ownHeader.body.households).toHaveLength(1);
+    // Rota com guard e PATCH /account sem header também não criam.
+    await request(server).get('/households/current').set(as('curioso'));
+    await request(server)
+      .patch('/account')
+      .set(as('curioso'))
+      .send({ displayName: 'Curioso' });
+    expect(await memberships('curioso')).toBe(1);
+  });
+
+  describe('convite antigo e o grupo individual da própria pessoa', () => {
+    /** Conferência de quem voltou a ser convidável e entrou na Outra casa. */
+    async function expectOnlyInStrangerGroup(token: string) {
+      const { body } = await request(app.getHttpServer())
+        .get('/account')
+        .set(as(token));
+      expect(body.households).toHaveLength(2);
+      expect(body.households).not.toContainEqual(
+        expect.objectContaining({ id: familyHouseholdId }),
+      );
+      expect(body.activeHousehold).toMatchObject({
+        id: strangerHouseholdId,
+        role: 'member',
+        personal: false,
+      });
+    }
+
+    it('quem saiu de um grupo depois de ganhar o individual pode ser convidado por outro', async () => {
+      const server = app.getHttpServer();
+      await joinFamily('saiu-e-volta');
+      await request(server).get('/account').set(as('saiu-e-volta'));
+      expect(await memberships('saiu-e-volta')).toBe(2);
+      const left = await request(server)
+        .post('/households/current/leave')
+        .set(as('saiu-e-volta'));
+      expect(left.status).toBe(201);
+
+      await joinGroupOf('estranho', 'saiu-e-volta');
+
+      await expectOnlyInStrangerGroup('saiu-e-volta');
+    });
+
+    it('quem foi removido de um grupo depois de ganhar o individual pode ser convidado por outro', async () => {
+      const server = app.getHttpServer();
+      await joinFamily('removido-e-volta');
+      await request(server).get('/account').set(as('removido-e-volta'));
+      const company = await prisma.company.findUniqueOrThrow({
+        where: { privyUserId: `${stamp}-removido-e-volta` },
+        select: { id: true },
+      });
+      const removed = await request(server)
+        .delete(`/households/current/members/${company.id}`)
+        .set(as('dona'));
+      expect(removed.status).toBe(200);
+
+      await joinGroupOf('estranho', 'removido-e-volta');
+
+      await expectOnlyInStrangerGroup('removido-e-volta');
+    });
+
+    it('quem está num grupo dos outros continua barrado, no convite e no aceite', async () => {
+      const server = app.getHttpServer();
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `ocupado.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+      await joinFamily('ocupado');
+      const account = await request(server).get('/account').set(as('ocupado'));
+      expect(account.body.households).toHaveLength(2);
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('ocupado'));
+      expect(accepted.status).toBe(409);
+
+      const third = await request(server)
+        .post('/households')
+        .set(as('terceira'))
+        .send({ name: 'Terceira casa' });
+      expect(third.status).toBe(201);
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('terceira'))
+        .send({ email: `ocupado.${stamp}@example.test` });
+      expect(invited.status).toBe(409);
+      expect(await memberships('ocupado')).toBe(2);
+    });
+
+    it('quem só tem o individual próprio, mais antigo, aceita o convite e o padrão vira o grupo dos outros', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-convidado'))
+        .send({ name: 'Minha casa' });
+      expect(own.status).toBe(201);
+      await request(server).get('/account').set(as('dono-convidado'));
+
+      await joinGroupOf('estranho', 'dono-convidado');
+
+      const { body } = await request(server)
+        .get('/account')
+        .set(as('dono-convidado'));
+      expect(body.households).toHaveLength(2);
+      expect(body.activeHousehold).toMatchObject({
+        id: strangerHouseholdId,
+        role: 'member',
+        personal: false,
+      });
+    });
+
+    it('dono de individual com membros continua barrado no convite', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-barrado'))
+        .send({ name: 'Casa cheia' });
+      expect(own.status).toBe(201);
+      await joinGroupOf('dono-barrado', 'membro-do-barrado');
+      // Grava o e-mail do dono, que é por onde o convite acha a pessoa.
+      await request(server).get('/account').set(as('dono-barrado'));
+
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `dono-barrado.${stamp}@example.test` });
+
+      expect(invited.status).toBe(409);
+    });
+
+    it('dono de individual com membros continua barrado no aceite e fica no próprio grupo', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('dono-aceite'))
+        .send({ name: 'Casa cheia' });
+      expect(own.status).toBe(201);
+      // O convite nasce com o grupo vazio; os membros entram antes do aceite.
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('estranho'))
+        .send({ email: `dono-aceite.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+      await joinGroupOf('dono-aceite', 'membro-do-aceite');
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('dono-aceite'));
+
+      expect(accepted.status).toBe(409);
+      expect(await memberships('dono-aceite')).toBe(1);
+      const { body } = await request(server)
+        .get('/account')
+        .set(as('dono-aceite'));
+      expect(body.activeHousehold).toMatchObject({
+        id: own.body.id,
+        role: 'owner',
+      });
+    });
+
+    it('autoconvite para o próprio individual recebe 409 no convite', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('autoconvite'))
+        .send({ name: 'Só eu' });
+      expect(own.status).toBe(201);
+      await request(server).get('/account').set(as('autoconvite'));
+
+      const invited = await request(server)
+        .post('/households/current/invites')
+        .set(as('autoconvite'))
+        .send({ email: `autoconvite.${stamp}@example.test` });
+
+      expect(invited.status).toBe(409);
+    });
+
+    it('aceitar o convite do grupo em que já é membro recebe 409, não 500', async () => {
+      const server = app.getHttpServer();
+      const own = await request(server)
+        .post('/households')
+        .set(as('autoaceite'))
+        .send({ name: 'Só eu' });
+      expect(own.status).toBe(201);
+      // Sem /account o e-mail ainda não está gravado, então o convite passa.
+      const pending = await request(server)
+        .post('/households/current/invites')
+        .set(as('autoaceite'))
+        .send({ email: `autoaceite.${stamp}@example.test` });
+      expect(pending.status).toBe(201);
+
+      const accepted = await request(server)
+        .post(`/households/invites/${pending.body.id}/accept`)
+        .set(as('autoaceite'));
+
+      expect(accepted.status).toBe(409);
+      expect(await memberships('autoaceite')).toBe(1);
+    });
+  });
+
+  describe('contrato do /account com o web da develop', () => {
+    /**
+     * A regra do web publicado (develop 5511db9), que lê account.household:
+     * apps/web/src/app/(family)/dashboard/PainelGastos.tsx:372 manda para o
+     * onboarding quem não tem household;
+     * apps/web/src/app/(family)/dashboard/PainelGastos.tsx:412 abre o modal de
+     * onboarding quando o grupo atual não completou.
+     */
+    async function developPhase(token: string) {
+      const server = app.getHttpServer();
+      const account = await request(server).get('/account').set(as(token));
+      expect(account.status).toBe(200);
+      if (!account.body.household) return 'onboarding';
+      const current = await request(server)
+        .get('/households/current')
+        .set(as(token));
+      expect(current.status).toBe(200);
+      return current.body.onboardingCompleted ? 'panel' : 'panel+onboarding';
+    }
+
+    it('household é igual a activeHousehold e tem os campos da develop', async () => {
+      for (const token of ['dona', 'antigo']) {
+        const { body } = await request(app.getHttpServer())
+          .get('/account')
+          .set(as(token));
+        expect(body.household).toEqual(body.activeHousehold);
+        expect(body.household).toEqual(
+          expect.objectContaining({
+            id: familyHouseholdId,
+            name: 'Família',
+            role: token === 'dona' ? 'owner' : 'member',
+            onboardingCompleted: true,
+          }),
+        );
+      }
+    });
+
+    it('dono e membro da família não caem no onboarding', async () => {
+      await expect(developPhase('dona')).resolves.toBe('panel');
+      await expect(developPhase('antigo')).resolves.toBe('panel');
+      await joinFamily('primeira-vez');
+      await expect(developPhase('primeira-vez')).resolves.toBe('panel');
+    });
+
+    it('quem não tem grupo continua com household nulo e cai no onboarding', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get('/account')
+        .set(as('sem-grupo'));
+      expect(body.household).toBeNull();
+      expect(body.activeHousehold).toBeNull();
+      await expect(developPhase('sem-grupo')).resolves.toBe('onboarding');
+    });
+  });
+
+  it('o preflight OPTIONS libera X-Household-Id', async () => {
+    const response = await request(app.getHttpServer())
+      .options('/account')
+      .set('Origin', 'http://localhost:3000')
+      .set('Access-Control-Request-Method', 'GET')
+      .set(
+        'Access-Control-Request-Headers',
+        'authorization,content-type,privy-id-token,x-household-id',
+      );
+    expect(response.status).toBe(204);
+    const allowed = String(response.headers['access-control-allow-headers'])
+      .split(',')
+      .map((item) => item.trim().toLowerCase());
+    expect(allowed).toEqual(
+      expect.arrayContaining([
+        'authorization',
+        'content-type',
+        'privy-id-token',
+        'x-household-id',
+      ]),
+    );
+  });
+});

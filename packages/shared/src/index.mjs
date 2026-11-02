@@ -18,4 +18,10 @@ export {
 
 export { LESSON_QUIZ_ANSWERS, gradeQuiz } from './lesson-quiz.ts';
 
-export { accountInitials, personInitials } from './household.ts';
+export {
+  DEFAULT_GUEST_LIMIT,
+  HOUSEHOLD_ID_HEADER,
+  MAX_GROUPS,
+  accountInitials,
+  personInitials,
+} from './household.ts';

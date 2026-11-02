@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ExpenseCategory } from '@yield2pay/shared';
-import { HouseholdService } from '../household/household.service';
+import type { ActiveMembership } from '../auth/authenticated-request';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { fixedForRead, loadLegacyFixedIds } from '../expenses/fixed-flags';
@@ -8,13 +8,10 @@ import { saoPauloToday, summarize } from './summary.math';
 
 @Injectable()
 export class SummaryService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly household: HouseholdService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async summary(companyId: string, month: string) {
-    const { householdId } = await this.household.requireMembership(companyId);
+  async summary(membership: ActiveMembership, month: string) {
+    const { householdId } = membership;
     const profile = await this.prisma.household.findUnique({
       where: { id: householdId },
     });

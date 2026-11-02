@@ -71,10 +71,11 @@ Subida, nesta ordem:
 
 1. Migrations (`prisma migrate deploy` na API). O índice de
    `shared_merchant_key` nasce em `20261030120000` com `CREATE INDEX` normal.
-   `20261030150000` só faz `CREATE INDEX IF NOT EXISTS`, também dentro da
-   transação do Prisma. Não use `COMMIT`/`BEGIN` no meio do arquivo: o migrate
-   deixa `finished_at` nulo e o próximo deploy (o restart do contêiner) cai em
-   **P3009**, inclusive com a imagem antiga.
+   `20261030150000` só faz `CREATE INDEX IF NOT EXISTS`. O Prisma não abre
+   transação em volta do arquivo (ver "Transação" na seção 5). Não use
+   `COMMIT`/`BEGIN` no meio do arquivo para fugir de uma transação: se algo
+   falhar, o migrate deixa `finished_at` nulo e o próximo deploy (o restart do
+   contêiner) cai em **P3009**, inclusive com a imagem antiga.
 2. API.
 3. Conferir `GET /health` (responde `{ "status": "ok" }`, sem consultar o banco)
    e um `GET /expenses?month=YYYY-MM`.
@@ -176,3 +177,225 @@ WHERE migration_name IN (
 
 6. Subir a imagem anterior e rodar `prisma migrate deploy` de novo. Sem a linha
    falha, não há P3009.
+
+---
+
+## 5. Vários grupos (F1) — `20261101120000_household_multi_group`
+
+O que a migration faz:
+
+- `households.personal` (boolean, padrão `false`). Todo grupo que já existe vira
+  `personal = true`: até aqui cada pessoa era dona de um grupo só. O grupo atual
+  de cada dono vira o individual dele, com a família dentro: **o individual pode
+  ter membros**. `personal` diz que é o individual do dono; para o membro, o
+  mesmo grupo é um grupo dos outros. Por isso o limite de convidado da F3 conta
+  só os grupos dos outros.
+- O unique de `owner_company_id` vira o índice único parcial
+  `households_owner_company_id_personal_key` (`owner_company_id`) `WHERE personal`:
+  uma pessoa pode ser dona de vários grupos, mas de um só individual. O Prisma
+  não expressa índice parcial; ele existe só no SQL.
+- `household_members` perde o unique de `company_id` (vira índice comum) e
+  continua com o unique de (`household_id`, `company_id`).
+- `household_members.created_at`: desempata o grupo padrão de quem está em mais
+  de um grupo não individual. As linhas antigas recebem a data da migration.
+- CHECK `household_members_role_check` (`NOT VALID` seguido de
+  `VALIDATE CONSTRAINT`): `role` só aceita `owner` ou `member`. Se o banco tiver
+  outro valor, um bloco `DO` aborta a migration antes de qualquer DDL.
+- `companies.guest_group_limit` (int, nulo vale 1). Esta coluna e `MAX_GROUPS` só
+  passam a ser usados na F3; na F1 nenhum código os aplica.
+
+O grupo individual de quem entrou pelo aceite antigo **não** nasce na migration.
+Ele é criado só no `GET /account` **sem** o header `X-Household-Id`, dentro de
+transação com `pg_advisory_xact_lock` e protegido pelo índice parcial. Nenhuma
+outra rota cria grupo, nem um pedido com header.
+
+Sem o header, o grupo ativo é o grupo **não individual** da pessoa: o membro da
+família continua na família, igual à versão anterior, mesmo depois de ganhar o
+individual. Com mais de um, vale a membership mais antiga (`created_at`, depois
+`id`). O individual só vale se não houver outro grupo.
+
+No convite e no aceite antigos, o individual próprio com membros bloqueia como antes; o individual vazio não bloqueia.
+
+O `GET /account` continua devolvendo `household`, igual a `activeHousehold`, até
+a F4. O campo está marcado como deprecated.
+
+Quando a F4 passar a mandar o header, o web precisa limpar um `X-Household-Id`
+velho ao receber 404 (a pessoa saiu do grupo ou foi removida) e voltar ao padrão.
+
+### Transação
+
+O `prisma migrate deploy` (Prisma 7.8) não abre transação própria em volta do
+arquivo. Provado com `log_statement = 'all'` num Postgres local: nenhum `BEGIN`
+sai do engine.
+
+**Neste arquivo, uma falha não deixa estado parcial, com ou sem o `BEGIN`.** Ele
+tem `$$`, então o engine o envia numa consulta só, com várias instruções, e o
+Postgres desfaz a mensagem inteira quando uma delas falha. Testado também sem o
+`BEGIN`/`COMMIT`: nada ficou aplicado.
+
+O `BEGIN`/`COMMIT` fica como defesa: a forma de envio é do engine e não é
+documentada. Um arquivo **sem** `$$` foi enviado comando a comando e deixou o que
+já tinha rodado, então essa conclusão não vale para outras migrations.
+
+Como cada falha aparece:
+
+- **Role inválida** (o `DO`, antes do `BEGIN`): `P3018` com a mensagem
+  `household_multi_group: há role fora de (owner, member)...`.
+- **Lock preso em `household_members`** (o `DO` esperando): `P3018` com o código
+  `55P03`.
+- **Falha dentro do `BEGIN`** (lock preso em `households`, por exemplo): nada fica
+  aplicado, mas o `BEGIN` mascara o erro: o deploy mostra só `current transaction
+  is aborted`, porque o Prisma tenta gravar o log da falha na mesma conexão.
+  Olhe o **primeiro** erro no log do Postgres; é ele que diz a causa.
+
+Em todos os casos a linha de `_prisma_migrations` fica com `finished_at` nulo e o
+próximo deploy cai em **P3009** até a recuperação abaixo.
+
+`SET lock_timeout` fica de propósito antes do `BEGIN`, para valer também no `DO`.
+Testado com ele só dentro do `BEGIN`: o `DO` ficou esperando até o lock preso em
+`household_members` ser solto, sem falhar nos 4 s. Por ser `SET` sem `LOCAL`, o valor dura até a conexão do
+deploy fechar, então pode alcançar uma migration seguinte no mesmo deploy.
+
+O `VALIDATE CONSTRAINT` na mesma transação do `NOT VALID` não ganha nada: o lock
+do `ADD CONSTRAINT` só é solto no `COMMIT`, então a tabela fica bloqueada durante
+a validação de qualquer jeito. Para ganhar algo, o `VALIDATE` precisaria rodar em
+outra transação. Isto só está registrado aqui; a migration não mudou nesse ponto.
+
+### Antes do deploy
+
+1. **Backup** do banco. Depois do primeiro `GET /account` de um membro antigo, é
+   o único caminho de volta.
+2. Confirmar no painel do Render **de qual branch o deploy sobe**. Só depois
+   fazer o merge ou mudar a branch.
+3. Nenhuma linha fora de `owner` e `member`:
+
+   ```sql
+   SELECT DISTINCT role FROM household_members;
+   ```
+
+4. Nenhuma transação longa nem lock nas tabelas da migration. Ela usa
+   `lock_timeout` de 4 s e falha se não conseguir o lock:
+
+   ```sql
+   SELECT pid, state, now() - xact_start AS duracao, left(query, 80) AS consulta
+   FROM pg_stat_activity
+   WHERE xact_start IS NOT NULL
+     AND pid <> pg_backend_pid()
+     AND now() - xact_start > interval '30 seconds'
+   ORDER BY xact_start;
+
+   SELECT c.relname, l.pid, l.mode, l.granted, a.state,
+          now() - a.xact_start AS duracao
+   FROM pg_locks l
+   JOIN pg_class c ON c.oid = l.relation
+   LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+   WHERE c.relname IN ('households', 'household_members', 'companies')
+     AND l.pid <> pg_backend_pid();
+   ```
+
+### Ordem do deploy
+
+1. **API primeiro** (a migration roda no start). O web publicado continua
+   funcionando, porque lê `household`.
+2. Conferir `GET /health` e um `GET /account`.
+3. **Web depois.** O web desta versão lê `activeHousehold`, que a API antiga não
+   manda. Com o web novo na API antiga, todo mundo cairia no onboarding.
+
+Para voltar, a ordem é a inversa: web primeiro, depois a API.
+
+### Se a migration falhar no boot
+
+O contêiner não sobe e reinicia em `P3009`. Nada da migration fica aplicado. Rode
+contra o banco do deploy:
+
+```bash
+pnpm --filter @yield2pay/api exec prisma migrate status
+```
+
+Corrija a causa: o dado (`UPDATE household_members SET role = '...' WHERE ...;`)
+ou o lock preso. Depois marque a falha e faça um novo deploy:
+
+```bash
+pnpm --filter @yield2pay/api exec prisma migrate resolve --rolled-back 20261101120000_household_multi_group
+pnpm --filter @yield2pay/api exec prisma migrate deploy
+```
+
+Toda linha nova de `_prisma_migrations` precisa terminar com `finished_at`
+preenchido.
+
+### As duas versões convivem durante o deploy
+
+O `prisma migrate deploy` roda no start do contêiner (comando de start do
+Dockerfile). Então a migration é aplicada pela primeira instância nova enquanto
+a instância antiga ainda atende. Nessa janela:
+
+- A API antiga continua subindo com o schema novo, porque as colunas novas têm
+  padrão. Mas as buscas por `company_id` dela **deixam de ser unívocas**: o
+  unique saiu. Assim que alguém ganha o individual pela API nova, a API antiga
+  pode ler qualquer uma das duas memberships dessa pessoa, e um `delete` por
+  `company_id` (sair do grupo, remover membro) pode atingir as duas. Mantenha a
+  janela curta.
+- Um grupo criado pela API antiga nessa janela nasce com `personal = false`.
+  Quem fez isso ganha, no primeiro `GET /account` da API nova, um grupo
+  individual ("Meu grupo") e continua no grupo que criou, que é o não individual.
+  Na F1 nenhum caminho da API nova cria grupo com `personal = false`, então toda
+  linha desta consulta veio da janela de convivência:
+
+  ```sql
+  SELECT h.id, h.owner_company_id,
+         EXISTS (
+           SELECT 1 FROM households p
+           WHERE p.owner_company_id = h.owner_company_id AND p.personal
+         ) AS dono_ja_tem_individual
+  FROM households h
+  WHERE NOT h.personal;
+  ```
+
+  Com `dono_ja_tem_individual = false`, marcar à mão:
+  `UPDATE households SET personal = true WHERE id = '<id>';`. Com `true`, o
+  dono já ganhou o "Meu grupo"; a escolha de qual fica é manual e do Tiago.
+
+### Rollback
+
+**Limite:** o `down.sql` só vale antes do primeiro `GET /account` de um membro
+antigo. Depois disso, a volta é **só com o backup**.
+
+O `down.sql` é manual e roda numa transação só:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/prisma/migrations/20261101120000_household_multi_group/down.sql
+```
+
+Ele **aborta** (`RAISE EXCEPTION`, nada é desfeito) se alguma pessoa estiver em
+dois ou mais grupos, ou for dona de dois ou mais. Isso acontece assim que um
+membro antigo faz o primeiro `GET /account` na API nova e ganha o grupo
+individual. Sem ninguém em dois grupos, ele volta os uniques de `company_id` e
+`owner_company_id`, tira o CHECK, `personal`, `created_at` de `household_members`
+e `guest_group_limit`.
+
+Depois do down, apagar a linha da migration para a imagem antiga:
+
+```sql
+DELETE FROM _prisma_migrations
+WHERE migration_name = '20261101120000_household_multi_group';
+```
+
+**Não confie no `prisma migrate status` entre os dois passos.** Depois do
+`down.sql` e antes do `DELETE`, ele diz `up to date`, porque só lê
+`_prisma_migrations` e não confere o schema. O banco já voltou, e o `status` só
+fica certo depois do `DELETE`.
+
+`prisma migrate resolve --rolled-back` **não** serve aqui: o Prisma só aceita em
+migration que falhou. Numa migration aplicada ele recusa com `cannot be rolled
+back because it is not in a failed state` (coberto em
+`household-migration.spec.ts`). Ele é o comando de "Se a migration falhar no
+boot", acima.
+
+### Variáveis que mudaram de regra
+
+Nenhuma variável nova. Duas regras ficaram mais fechadas:
+
+- `DEV_LOCAL_SESSION=true` só é aceito com `APP_ENV` igual a `development` ou
+  `test`. Qualquer outro valor, ou `APP_ENV` ausente, impede a API de subir.
+- Sem `CORS_ORIGIN` e sem `APP_ENV`, o CORS só libera o localhost do web em dev,
+  em vez de qualquer origem.
