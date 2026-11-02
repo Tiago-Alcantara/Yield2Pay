@@ -222,24 +222,42 @@ velho ao receber 404 (a pessoa saiu do grupo ou foi removida) e voltar ao padrã
 
 ### Transação
 
-O `prisma migrate deploy` (Prisma 7.8) **não** abre transação em volta do
+O `prisma migrate deploy` (Prisma 7.8) não abre transação própria em volta do
 arquivo. Provado com `log_statement = 'all'` num Postgres local: nenhum `BEGIN`
-sai do engine. Um arquivo sem `$$` é enviado comando a comando e uma falha deixa
-o que já rodou; um arquivo com `$$` foi enviado inteiro, e aí o que protege é a
-transação implícita do Postgres. Essa diferença é do engine e não é documentada,
-então a migration não depende dela: o `DO` de checagem vem antes de um
-`BEGIN`/`COMMIT` explícito que cerca todo o DDL.
+sai do engine.
+
+**Neste arquivo, uma falha não deixa estado parcial, com ou sem o `BEGIN`.** Ele
+tem `$$`, então o engine o envia numa consulta só, com várias instruções, e o
+Postgres desfaz a mensagem inteira quando uma delas falha. Testado também sem o
+`BEGIN`/`COMMIT`: nada ficou aplicado.
+
+O `BEGIN`/`COMMIT` fica como defesa: a forma de envio é do engine e não é
+documentada. Um arquivo **sem** `$$` foi enviado comando a comando e deixou o que
+já tinha rodado, então essa conclusão não vale para outras migrations.
 
 Como cada falha aparece:
 
 - **Role inválida** (o `DO`, antes do `BEGIN`): `P3018` com a mensagem
   `household_multi_group: há role fora de (owner, member)...`.
-- **Falha dentro do `BEGIN`** (lock timeout, por exemplo): nada fica aplicado,
-  mas o deploy mostra só `current transaction is aborted`, porque o Prisma tenta
-  gravar o log da falha na mesma conexão. O erro real está no log do Postgres.
+- **Lock preso em `household_members`** (o `DO` esperando): `P3018` com o código
+  `55P03`.
+- **Falha dentro do `BEGIN`** (lock preso em `households`, por exemplo): nada fica
+  aplicado, mas o `BEGIN` mascara o erro: o deploy mostra só `current transaction
+  is aborted`, porque o Prisma tenta gravar o log da falha na mesma conexão.
+  Olhe o **primeiro** erro no log do Postgres; é ele que diz a causa.
 
-Nos dois casos a linha de `_prisma_migrations` fica com `finished_at` nulo e o
+Em todos os casos a linha de `_prisma_migrations` fica com `finished_at` nulo e o
 próximo deploy cai em **P3009** até a recuperação abaixo.
+
+`SET lock_timeout` fica de propósito antes do `BEGIN`, para valer também no `DO`.
+Testado com ele só dentro do `BEGIN`: o `DO` ficou esperando até o lock preso em
+`household_members` ser solto, sem falhar nos 4 s. Por ser `SET` sem `LOCAL`, o valor dura até a conexão do
+deploy fechar, então pode alcançar uma migration seguinte no mesmo deploy.
+
+O `VALIDATE CONSTRAINT` na mesma transação do `NOT VALID` não ganha nada: o lock
+do `ADD CONSTRAINT` só é solto no `COMMIT`, então a tabela fica bloqueada durante
+a validação de qualquer jeito. Para ganhar algo, o `VALIDATE` precisaria rodar em
+outra transação. Isto só está registrado aqui; a migration não mudou nesse ponto.
 
 ### Antes do deploy
 
@@ -359,6 +377,11 @@ Depois do down, apagar a linha da migration para a imagem antiga:
 DELETE FROM _prisma_migrations
 WHERE migration_name = '20261101120000_household_multi_group';
 ```
+
+**Não confie no `prisma migrate status` entre os dois passos.** Depois do
+`down.sql` e antes do `DELETE`, ele diz `up to date`, porque só lê
+`_prisma_migrations` e não confere o schema. O banco já voltou, e o `status` só
+fica certo depois do `DELETE`.
 
 `prisma migrate resolve --rolled-back` **não** serve aqui: o Prisma só aceita em
 migration que falhou. Numa migration aplicada ele recusa com `cannot be rolled

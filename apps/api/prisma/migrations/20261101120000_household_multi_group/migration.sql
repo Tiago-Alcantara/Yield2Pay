@@ -1,3 +1,5 @@
+-- Fica antes do BEGIN para valer também no DO abaixo. Com o SET só dentro do BEGIN,
+-- o DO esperaria sem limite por um lock preso em household_members.
 SET lock_timeout = '4s';
 
 -- Aborta antes de qualquer DDL, com a mensagem certa no erro do deploy. Fica fora
@@ -12,8 +14,11 @@ BEGIN
   END IF;
 END $$;
 
--- O Prisma não abre transação em volta da migration: sem este BEGIN uma falha no
--- meio deixa estado parcial. Ver docs/DEPLOY.md, seção 5.
+-- Redundante neste arquivo: por ter $$, ele chega ao Postgres numa consulta só, e o
+-- Postgres já desfaz a mensagem inteira se algo falhar. O BEGIN é defensivo, porque
+-- essa forma de envio não é documentada. O custo: uma falha aqui dentro pode
+-- esconder o erro original atrás de "current transaction is aborted". Olhe o
+-- PRIMEIRO erro no log do Postgres. Ver docs/DEPLOY.md, seção 5.
 BEGIN;
 
 -- Grupo individual: cada pessoa tem exatamente um.

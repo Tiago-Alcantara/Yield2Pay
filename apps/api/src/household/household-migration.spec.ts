@@ -3,7 +3,7 @@
  * Criado em: 2026-11-01
  * Última atualização: 2026-11-01
  * Intuito: A migration household_multi_group e o down.sql rodam sobre dados que já existem, num banco descartável, sem deixar estado parcial.
- * Sequência: com dados da versão anterior, todo grupo vira individual e nada muda nas linhas; role inválida aborta sem estado parcial e, depois de corrigir o dado, aplica limpo; falha no meio da migration desfaz tudo; o down.sql aborta com alguém em dois grupos; o down.sql aborta com alguém dono de dois grupos; o down.sql desfaz tudo quando ninguém está em dois grupos, e a linha apagada de _prisma_migrations deixa a migration aplicar de novo; resolve --rolled-back recusa a migration aplicada.
+ * Sequência: com dados da versão anterior, todo grupo vira individual e nada muda nas linhas; role inválida aborta sem estado parcial e, depois de corrigir o dado, aplica limpo; falha no meio da migration desfaz tudo; lock preso esgota o lock_timeout, no DO e no DDL, sem estado parcial; o down.sql aborta com alguém em dois grupos; o down.sql aborta com alguém dono de dois grupos; o down.sql desfaz tudo quando ninguém está em dois grupos, o migrate status engana até apagar a linha de _prisma_migrations, e a linha apagada deixa a migration aplicar de novo; resolve --rolled-back recusa a migration aplicada.
  * Só roda com RUN_DB_TESTS=1 e PG_TEST_URL. Cada teste cria o próprio database no mesmo container e apaga no fim.
  */
 import { execFileSync } from 'node:child_process';
@@ -354,6 +354,40 @@ describe.skipIf(!DATABASE_URL)('migration household_multi_group', () => {
     TIMEOUT,
   );
 
+  // O DO roda antes do BEGIN e dá o erro real; o DDL roda dentro e o mascara.
+  it.each([
+    ['household_members', 'no DO', /55P03|lock timeout/],
+    ['households', 'no DDL', /current transaction is aborted/],
+  ])(
+    'lock preso em %s esgota o lock_timeout %s, sem estado parcial',
+    async (table, _where, expectedError) => {
+      await withPreviousSchema(async (client, url) => {
+        await seed(client);
+        const holder = new Client({ connectionString: url });
+        await holder.connect();
+        try {
+          await holder.query('BEGIN');
+          // Se o lock_timeout sumir, o servidor solta o lock e o deploy passa,
+          // o que falha o teste em vez de travar a suíte.
+          await holder.query(
+            `SET LOCAL idle_in_transaction_session_timeout = '20s'`,
+          );
+          await holder.query(`LOCK TABLE "${table}" IN ACCESS EXCLUSIVE MODE`);
+
+          const output = runExpectingFailure(['migrate', 'deploy'], url);
+          expect(output).toMatch(expectedError);
+        } finally {
+          await holder.end().catch(() => undefined);
+        }
+
+        await expectNoPartialState(client);
+        const failed = await migrationRow(client);
+        expect(failed[0]?.finished_at).toBeNull();
+      });
+    },
+    TIMEOUT,
+  );
+
   it(
     'o down.sql aborta com alguém em dois grupos, sem desfazer nada',
     async () => {
@@ -412,6 +446,10 @@ describe.skipIf(!DATABASE_URL)('migration household_multi_group', () => {
 
         await expectNoPartialState(client);
         expect(await snapshot(client, columns)).toEqual(before);
+
+        // O aviso do docs/DEPLOY.md: o schema já voltou e o status ainda diz
+        // que está tudo aplicado, porque só lê _prisma_migrations.
+        expect(run(['migrate', 'status'], url)).toMatch(/up to date/i);
 
         // O Prisma só aceita --rolled-back em migration que falhou.
         expect(
