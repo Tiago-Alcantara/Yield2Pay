@@ -3,6 +3,7 @@ import './family.css';
 import './themes.css';
 import './_components/loading/loading.css';
 import { FamilySessionGate } from './_components/FamilySessionGate';
+import { TopProgressProvider } from './_components/loading/TopProgress';
 import { FamilyProvider } from './_lib/FamilyProvider';
 import { Dock } from './_components/Dock';
 import { ThemeProvider } from './_lib/ThemeProvider';
@@ -24,10 +25,12 @@ export default function FamilyLayout({ children }: { children: React.ReactNode }
     <ThemeProvider>
       <div className="fam-shell">
         <FamilyProvider>
-          <FamilySessionGate>
-            {children}
-            <Dock />
-          </FamilySessionGate>
+          <TopProgressProvider>
+            <FamilySessionGate>
+              {children}
+              <Dock />
+            </FamilySessionGate>
+          </TopProgressProvider>
         </FamilyProvider>
       </div>
     </ThemeProvider>

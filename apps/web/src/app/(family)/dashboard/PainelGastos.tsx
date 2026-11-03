@@ -11,6 +11,7 @@ import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
 import { setAccountView } from '../_lib/accountStore';
+import { useTopProgress } from '../_components/loading/TopProgress';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -215,6 +216,7 @@ function PainelScreen({
   const [pageNote, setPageNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
+  const topProgress = useTopProgress();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryKey = searchParams.toString();
@@ -349,6 +351,13 @@ function PainelScreen({
       getIdentityToken: getIdentityRef.current,
     });
     let cancelled = false;
+    let finished = false;
+    const finishProgress = () => {
+      if (finished) return;
+      finished = true;
+      topProgress.done();
+    };
+    topProgress.start();
     (async () => {
       try {
         const accountView = await client.getAccount();
@@ -399,14 +408,17 @@ function PainelScreen({
           setSummaryState('error');
           setPhase('panel');
         }
+      } finally {
+        finishProgress();
       }
     })();
     return () => {
       cancelled = true;
       clearTimeout(timer);
       cancel.abort();
+      finishProgress();
     };
-  }, [loadAttempt]);
+  }, [loadAttempt, topProgress]);
 
   function forgetCachedMonths() {
     expenseCache.current = {};
@@ -632,7 +644,9 @@ function PainelScreen({
   }
 
   function openLesson(lessonNumber: number) {
-    router.push(aprenderPath(lessonNumber));
+    const href = aprenderPath(lessonNumber);
+    topProgress.startNavigation(href);
+    router.push(href);
   }
 
   async function restartLessons() {

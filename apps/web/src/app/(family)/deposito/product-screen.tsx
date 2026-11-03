@@ -13,14 +13,21 @@ import { C } from '../_lib/familyTheme';
 import { useFamily } from '../_lib/FamilyProvider';
 import { FamilyBrand } from '../_components/FamilyUI';
 import { PixDepositCard } from '../_components/PixDepositCard';
+import { useTopProgress } from '../_components/loading/TopProgress';
 
 export default function FamilyDepositPage() {
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { t, addDeposit } = useFamily();
+
+  function backToDashboard() {
+    topProgress.startNavigation('/dashboard');
+    router.push('/dashboard');
+  }
 
   function handleConfirm(amount: number) {
     if (amount > 0) addDeposit(amount);
-    router.push('/dashboard');
+    backToDashboard();
   }
 
   return (
@@ -32,7 +39,7 @@ export default function FamilyDepositPage() {
         <PixDepositCard
           fromApp
           onConfirm={handleConfirm}
-          onBack={() => router.push('/dashboard')}
+          onBack={backToDashboard}
         />
       </div>
     </div>
