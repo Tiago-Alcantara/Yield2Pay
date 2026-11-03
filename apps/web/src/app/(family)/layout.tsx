@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './family.css';
 import './themes.css';
+import './_components/loading/loading.css';
 import { FamilySessionGate } from './_components/FamilySessionGate';
 import { FamilyProvider } from './_lib/FamilyProvider';
 import { Dock } from './_components/Dock';
