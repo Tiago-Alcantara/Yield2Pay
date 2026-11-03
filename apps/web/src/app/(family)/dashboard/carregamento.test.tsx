@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Dock } from '../_components/Dock';
+import { resetAppSplash } from '../_components/loading/AppSplash';
 import { setAccountView } from '../_lib/accountStore';
 import { FamilyProvider } from '../_lib/FamilyProvider';
 import { resetFamilyStore } from '../_lib/familyStore';
@@ -353,6 +354,23 @@ describe('carregamento do painel', () => {
       await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     }
     expect(field).toHaveFocus();
+  });
+
+  it('o splash cobre a primeira carga e não volta na mesma sessão', async () => {
+    sessionStorage.clear();
+    resetAppSplash();
+    const gate = deferred();
+    installFetch({ hold: gate.promise });
+    const first = renderShell();
+    expect(screen.getByText('Preparando seu painel')).toBeInTheDocument();
+    gate.release();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
+    first.unmount();
+    sessionStorage.setItem('y2p-splash-visto', '1');
+    installFetch();
+    renderShell();
+    expect(screen.queryByText('Preparando seu painel')).not.toBeInTheDocument();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
   });
 
   it('o CSS deriva as cores do skeleton em .fam-shell, onde os temas trocam --fx-text', () => {

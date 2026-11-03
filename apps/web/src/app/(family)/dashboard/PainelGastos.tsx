@@ -11,6 +11,7 @@ import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
 import { setAccountView } from '../_lib/accountStore';
+import { AppSplash } from '../_components/loading/AppSplash';
 import { PainelSkeleton } from '../_components/loading/PainelSkeleton';
 import { useTopProgress } from '../_components/loading/TopProgress';
 import { WaveReveal } from '../_components/loading/WaveReveal';
@@ -833,6 +834,7 @@ function PainelScreen({
         WebkitFontSmoothing: 'antialiased',
       }}
     >
+      <AppSplash loading={summaryState === 'loading'} />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 128 }}>
         <header
           id="painel-header"

@@ -190,7 +190,8 @@ async function flushFrames() {
 async function findStatusAfterFrames() {
   for (let attempt = 0; attempt < 50; attempt++) {
     await flushFrames();
-    const status = screen.queryByRole('status');
+    // O splash e o skeleton também são role="status": o aviso é o que sobra.
+    const status = screen.queryAllByRole('status').find((item) => !item.matches('.y2p-ld-splash, .y2p-ld-sr'));
     if (status) return status;
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
   }
