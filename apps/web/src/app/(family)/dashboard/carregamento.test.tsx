@@ -373,6 +373,40 @@ describe('carregamento do painel', () => {
     await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
   });
 
+  it('no desktop, cabeçalho e conteúdo usam a mesma margem, sem teto de largura', async () => {
+    installFetch();
+    renderShell();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
+    const header = document.getElementById('painel-header')?.getAttribute('style') ?? '';
+    const topo = document.getElementById('s-topo')?.getAttribute('style') ?? '';
+    expect(header).toContain('padding: 16px var(--y2p-gutter)');
+    expect(topo).toContain('padding: 32px var(--y2p-gutter)');
+    expect(topo).toContain('max-width: none');
+  });
+
+  it('no celular, cabeçalho e conteúdo ficam como antes', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    installFetch();
+    renderShell();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
+    expect(document.getElementById('painel-header')?.getAttribute('style') ?? '').toContain('padding: 12px 16px');
+    const topo = document.getElementById('s-topo') as HTMLElement;
+    expect(topo.hasAttribute('style')).toBe(false);
+    expect(topo).toHaveClass('y2p-page');
+  });
+
+  it('o CSS define a margem de 24px a 120px', () => {
+    const relative = 'src/app/(family)/_components/loading/loading.css';
+    const cssPath = join(process.cwd(), relative);
+    const css = readFileSync(existsSync(cssPath) ? cssPath : join(process.cwd(), 'apps/web', relative), 'utf8');
+    expect(css).toContain('--y2p-gutter: clamp(24px, 6vw, 120px);');
+  });
+
   it('o CSS deriva as cores do skeleton em .fam-shell, onde os temas trocam --fx-text', () => {
     const relative = 'src/app/(family)/_components/loading/loading.css';
     const cssPath = join(process.cwd(), relative);

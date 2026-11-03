@@ -846,7 +846,7 @@ function PainelScreen({
             flexDirection: isMobile ? 'column' : 'row',
             flexWrap: isMobile ? 'nowrap' : 'wrap',
             gap: isMobile ? 12 : 16,
-            padding: isMobile ? '12px 16px' : '16px 32px',
+            padding: isMobile ? '12px 16px' : '16px var(--y2p-gutter)',
             borderBottom: '1px solid var(--fx-border, #2A2D31)',
             position: 'sticky',
             top: 0,
@@ -900,6 +900,8 @@ function PainelScreen({
           id="s-topo"
           className="y2p-dashboard__section y2p-page"
           aria-busy={summaryState === 'loading'}
+          // Só no desktop. No celular, o padding e a largura seguem .y2p-page.
+          style={isMobile ? undefined : { padding: '32px var(--y2p-gutter)', maxWidth: 'none' }}
         >
         {summaryState === 'loading' ? (
         <PainelSkeleton liberdadeOn={liberdadeOn} />
