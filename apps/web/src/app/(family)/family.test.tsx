@@ -275,7 +275,7 @@ describe('painel /dashboard', () => {
 
   it('mostra o painel de gastos e não chama a carteira', async () => {
     renderInFamily(<FamilyDashboardPage />);
-    expect(screen.getByRole('button', { name: 'Importar extrato' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Importar extrato' })).toBeInTheDocument();
     expect(await screen.findByLabelText('Convidar')).toBeInTheDocument();
     expect(ensureWallet).not.toHaveBeenCalled();
   });
@@ -302,7 +302,7 @@ describe('painel /dashboard', () => {
 
   it('abre o modal de extrato com as três formas de trazer gastos', async () => {
     renderInFamily(<FamilyDashboardPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Importar extrato' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Importar extrato' }));
     expect(await screen.findByRole('dialog', { name: 'Traga seus gastos' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Extrato do banco/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /Nota fiscal/ })).toBeInTheDocument();

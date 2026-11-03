@@ -529,6 +529,7 @@ describe('ações da doca no painel', () => {
     window.history.pushState(null, '', '/dashboard');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
     const root = document.getElementById('painel-header')?.closest('.y2p');
     expect(root).toBeInstanceOf(HTMLElement);
     expect((root as HTMLElement).style.getPropertyValue('--y2p-header-height')).toBe('141px');
@@ -542,7 +543,7 @@ describe('ações da doca no painel', () => {
     window.history.pushState(null, '', '/dashboard#s-liberdade');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
-    expect(document.getElementById('s-liberdade')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById('s-liberdade')).not.toBeNull());
     await flushFrames();
     expect(scrollTo).toHaveBeenCalled();
   });
