@@ -11,6 +11,10 @@ import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
 import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
 import { setAccountView } from '../_lib/accountStore';
+import { AppSplash } from '../_components/loading/AppSplash';
+import { PainelSkeleton } from '../_components/loading/PainelSkeleton';
+import { useTopProgress } from '../_components/loading/TopProgress';
+import { WaveReveal } from '../_components/loading/WaveReveal';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -211,10 +215,12 @@ function PainelScreen({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
   const pendingConta = useRef(false);
+  const settledHash = useRef<string | null>(null);
   const [rangeNote, setRangeNote] = useState('');
   const [pageNote, setPageNote] = useState('');
   const isMobile = useIsMobile();
   const router = useRouter();
+  const topProgress = useTopProgress();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryKey = searchParams.toString();
@@ -284,7 +290,8 @@ function PainelScreen({
       field.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [account, profile, queryKey]);
+    // summaryState: com o skeleton na tela, #y2p-invite só volta a existir no fim da carga.
+  }, [account, profile, queryKey, summaryState]);
 
   useEffect(() => {
     if (!profile) {
@@ -307,11 +314,24 @@ function PainelScreen({
   // No acesso direto a /dashboard#s-..., a seção só existe depois da carga.
   // Com o painel montado, o Link da doca faz pushState (sem hashchange) e o
   // Next rola com scrollIntoView, que usa o scroll-margin-top da seção.
+  // Com o skeleton, a seção some durante a carga de outro mês. No fim dessa carga
+  // só rola se o hash mudou nesse meio-tempo (clique na doca que o Next não
+  // conseguiu rolar): trocar de mês com #s-gastos na URL não move a página.
   useEffect(() => {
-    if (phase !== 'panel') return;
-    const id = window.location.hash.replace('#', '');
+    if (phase !== 'panel') {
+      settledHash.current = null;
+      return;
+    }
+    const hash = window.location.hash;
+    if (summaryState === 'loading') {
+      if (settledHash.current !== null) settledHash.current = hash;
+      return;
+    }
+    if (summaryState !== 'ready' || hash === settledHash.current) return;
+    settledHash.current = hash;
+    const id = hash.replace('#', '');
     if (id.startsWith('s-')) requestAnimationFrame(() => scrollToId(id));
-  }, [phase]);
+  }, [phase, summaryState]);
 
   // A altura do cabeçalho fixo muda com a largura e com os filtros ativos.
   // O valor medido vira --y2p-header-height, a folga das seções em painel.css.
@@ -349,6 +369,13 @@ function PainelScreen({
       getIdentityToken: getIdentityRef.current,
     });
     let cancelled = false;
+    let finished = false;
+    const finishProgress = () => {
+      if (finished) return;
+      finished = true;
+      topProgress.done();
+    };
+    topProgress.start();
     (async () => {
       try {
         const accountView = await client.getAccount();
@@ -399,14 +426,17 @@ function PainelScreen({
           setSummaryState('error');
           setPhase('panel');
         }
+      } finally {
+        finishProgress();
       }
     })();
     return () => {
       cancelled = true;
       clearTimeout(timer);
       cancel.abort();
+      finishProgress();
     };
-  }, [loadAttempt]);
+  }, [loadAttempt, topProgress]);
 
   function forgetCachedMonths() {
     expenseCache.current = {};
@@ -632,7 +662,9 @@ function PainelScreen({
   }
 
   function openLesson(lessonNumber: number) {
-    router.push(aprenderPath(lessonNumber));
+    const href = aprenderPath(lessonNumber);
+    topProgress.startNavigation(href);
+    router.push(href);
   }
 
   async function restartLessons() {
@@ -802,6 +834,7 @@ function PainelScreen({
         WebkitFontSmoothing: 'antialiased',
       }}
     >
+      <AppSplash loading={summaryState === 'loading'} />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: 128 }}>
         <header
           id="painel-header"
@@ -813,7 +846,7 @@ function PainelScreen({
             flexDirection: isMobile ? 'column' : 'row',
             flexWrap: isMobile ? 'nowrap' : 'wrap',
             gap: isMobile ? 12 : 16,
-            padding: isMobile ? '12px 16px' : '16px 32px',
+            padding: isMobile ? '12px 16px' : '16px var(--y2p-gutter)',
             borderBottom: '1px solid var(--fx-border, #2A2D31)',
             position: 'sticky',
             top: 0,
@@ -866,8 +899,15 @@ function PainelScreen({
         <div
           id="s-topo"
           className="y2p-dashboard__section y2p-page"
+          aria-busy={summaryState === 'loading'}
+          // Só no desktop. No celular, o padding e a largura seguem .y2p-page.
+          style={isMobile ? undefined : { padding: '32px var(--y2p-gutter)', maxWidth: 'none' }}
         >
-        <div className={'y2p-top' + (liberdadeOn ? '' : ' is-single')}>
+        {summaryState === 'loading' ? (
+        <PainelSkeleton liberdadeOn={liberdadeOn} />
+        ) : (
+        <WaveReveal runKey={loadAttempt}>
+        <div data-reveal className={'y2p-top' + (liberdadeOn ? '' : ' is-single')}>
           <div className="y2p-card-plain y2p-spend">
             <div className="y2p-stat-t">{kpis[0].label}</div>
             <div className="y2p-figure">{kpis[0].value}</div>
@@ -906,7 +946,7 @@ function PainelScreen({
         </div>
 
         {summaryState === 'ready' && (
-        <div className="y2p-stats">
+        <div data-reveal className="y2p-stats">
           <StatCard title={kpis[1].label} value={kpis[1].value} label="Depois da renda da casa" sub={kpis[1].sub || 'Renda ainda não informada'} />
           <StatCard title="Gasto médio" value={brl0(reais(summary.averageCents))} label="Meses já fechados" sub={partial ? 'Projeção ' + brl0(reais(summary.projectedCents)) : 'Base da reserva'} />
           <StatCard className="y2p-stat--wide" title={kpis[3].label} value={kpis[3].value} label="Onde mais saiu neste mês" sub={kpis[3].sub || 'Sem gastos no mês'} />
@@ -914,12 +954,12 @@ function PainelScreen({
         )}
 
         {summaryState === 'ready' && (
-        <div className="y2p-card-plain">
+        <div data-reveal className="y2p-card-plain">
           <Charts month={month} chart={chart} summary={viewSummary} onChart={setChart} onPickMonth={pickMonth} onPickCat={pickCat} />
         </div>
         )}
 
-        <div id="s-gastos" className="y2p-dashboard__section y2p-section" data-screen-label="Gastos">
+        <div id="s-gastos" data-reveal className="y2p-dashboard__section y2p-section" data-screen-label="Gastos">
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 className="y2p-section-h">{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
@@ -1004,6 +1044,7 @@ function PainelScreen({
 
         <div
           id="s-aprender"
+          data-reveal
           className="y2p-dashboard__section y2p-card-plain y2p-learn"
           data-screen-label="Aprender"
         >
@@ -1053,7 +1094,7 @@ function PainelScreen({
         </div>
 
         {isOwner && profile?.showFamily !== false && (
-          <form id="s-convidar" className="y2p-dashboard__section y2p-card-plain y2p-invite-form" onSubmit={(event) => void onInvite(event)}>
+          <form id="s-convidar" data-reveal className="y2p-dashboard__section y2p-card-plain y2p-invite-form" onSubmit={(event) => void onInvite(event)}>
             <label htmlFor="y2p-invite" style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <span className="y2p-stat-t">Convidar</span>
               <input id="y2p-invite" type="email" value={inviteEmail} placeholder="email@familia.com" onChange={(event) => { setInviteEmail(event.target.value); setInviteError(''); setInviteOk(''); }} style={fieldStyle} />
@@ -1062,6 +1103,8 @@ function PainelScreen({
             {inviteError && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-text-strong, #F2F3F4)' }}>{inviteError}</span>}
             {inviteOk && <span style={{ flexBasis: '100%', fontSize: 14, color: 'var(--fx-text-2, #9A9DA1)' }}>{inviteOk}</span>}
           </form>
+        )}
+        </WaveReveal>
         )}
         </div>
       </main>

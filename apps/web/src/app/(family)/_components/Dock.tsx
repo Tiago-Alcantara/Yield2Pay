@@ -12,6 +12,7 @@ import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { onLiberdadeChange, readLiberdade } from '../_lib/liberdadePref';
 import { DockIcon, type DockIconName } from './dockIcons';
 import { GroupMenu } from './GroupMenu';
+import { useTopProgress } from './loading/TopProgress';
 
 /** Telas logadas da família que mostram a doca. */
 const DOCK_PREFIXES = ['/dashboard', '/aprender', '/conceitos', '/configuracoes', '/conta'];
@@ -82,6 +83,7 @@ function LocalAccountLoader({ enabled }: { enabled: boolean }) {
 export function Dock() {
   const pathname = usePathname();
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { state, t } = useFamily();
   const visible = showsDock(pathname);
   const d = t.dock;
@@ -107,8 +109,11 @@ export function Dock() {
   const initial = (account?.initials && account.initials !== '?' ? account.initials : firstName).charAt(0).toUpperCase();
 
   /** Ação do painel (?acao=…): navega e o painel abre o modal/seção. */
-  const quick = (acao: 'importar' | 'novo' | 'convidar') => () =>
-    router.push(`/dashboard?acao=${acao}`);
+  const quick = (acao: 'importar' | 'novo' | 'convidar') => () => {
+    const href = `/dashboard?acao=${acao}`;
+    topProgress.startNavigation(href);
+    router.push(href);
+  };
 
   return (
     <nav id="y2p-dock" aria-label={d.aria}>

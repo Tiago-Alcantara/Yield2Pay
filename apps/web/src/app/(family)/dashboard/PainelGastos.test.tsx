@@ -190,7 +190,8 @@ async function flushFrames() {
 async function findStatusAfterFrames() {
   for (let attempt = 0; attempt < 50; attempt++) {
     await flushFrames();
-    const status = screen.queryByRole('status');
+    // O splash e o skeleton também são role="status": o aviso é o que sobra.
+    const status = screen.queryAllByRole('status').find((item) => !item.matches('.y2p-ld-splash, .y2p-ld-sr'));
     if (status) return status;
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
   }
@@ -529,6 +530,7 @@ describe('ações da doca no painel', () => {
     window.history.pushState(null, '', '/dashboard');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
+    await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
     const root = document.getElementById('painel-header')?.closest('.y2p');
     expect(root).toBeInstanceOf(HTMLElement);
     expect((root as HTMLElement).style.getPropertyValue('--y2p-header-height')).toBe('141px');
@@ -542,7 +544,7 @@ describe('ações da doca no painel', () => {
     window.history.pushState(null, '', '/dashboard#s-liberdade');
     render(<PainelGastos />);
     expect(await screen.findByRole('button', { name: 'Filtros' })).toBeInTheDocument();
-    expect(document.getElementById('s-liberdade')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById('s-liberdade')).not.toBeNull());
     await flushFrames();
     expect(scrollTo).toHaveBeenCalled();
   });

@@ -15,6 +15,7 @@ import { useFamily } from '../../_lib/FamilyProvider';
 import { fmtBRL, fmtBRLShort } from '../../_lib/familyFormat';
 import { coverageRows } from '../../_lib/familyMath';
 import { CoverageBar, MetalPanel, StatusPill } from '../../_components/FamilyUI';
+import { useTopProgress } from '../../_components/loading/TopProgress';
 
 export default function FamilySubscriptionPage({
   params,
@@ -23,6 +24,7 @@ export default function FamilySubscriptionPage({
 }) {
   const { subId } = use(params);
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { t, state } = useFamily();
   const { deposit, rate, subs } = state;
 
@@ -166,7 +168,10 @@ export default function FamilySubscriptionPage({
         <button
           type="button"
           className="btn-shine"
-          onClick={() => router.push('/deposito')}
+          onClick={() => {
+            topProgress.startNavigation('/deposito');
+            router.push('/deposito');
+          }}
           style={{
             width: '100%',
             fontFamily: 'inherit',

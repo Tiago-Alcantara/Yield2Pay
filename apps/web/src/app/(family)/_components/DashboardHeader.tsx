@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { C } from '../_lib/familyTheme';
 import { useFamily } from '../_lib/FamilyProvider';
 import { FamilyBrand } from './FamilyUI';
+import { useTopProgress } from './loading/TopProgress';
 
 /** Cabeçalho do painel: marca, atalho para os conceitos e menu da conta. */
 export function DashboardHeader() {
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { t, state, reset } = useFamily();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,7 @@ export function DashboardHeader() {
   function handleLogout() {
     setOpen(false);
     reset();
+    topProgress.startNavigation('/');
     router.push('/');
   }
 

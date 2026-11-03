@@ -59,4 +59,31 @@ describe("FamilySessionGate", () => {
     expect(getAccountView()).toBeNull();
     auth.authenticated = true;
   });
+
+  it("mostra o splash enquanto o Privy não fica pronto, sem marcar a sessão", () => {
+    sessionStorage.clear();
+    auth.ready = false;
+    render(
+      <FamilySessionGate>
+        <p>painel</p>
+      </FamilySessionGate>,
+    );
+    expect(screen.queryByText("painel")).toBeNull();
+    expect(screen.getByText("Preparando seu painel")).toBeTruthy();
+    expect(sessionStorage.getItem("y2p-splash-visto")).toBeNull();
+    auth.ready = true;
+  });
+
+  it("ao mandar para o login, o splash volta depois de entrar", () => {
+    sessionStorage.setItem("y2p-splash-visto", "1");
+    auth.ready = true;
+    auth.authenticated = false;
+    render(
+      <FamilySessionGate>
+        <p>painel</p>
+      </FamilySessionGate>,
+    );
+    expect(sessionStorage.getItem("y2p-splash-visto")).toBeNull();
+    auth.authenticated = true;
+  });
 });

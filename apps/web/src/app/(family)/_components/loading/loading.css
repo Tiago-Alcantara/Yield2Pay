@@ -1,0 +1,128 @@
+/* ============================================================================
+   Yield2Pay: estados de carregamento + espaçamento "Margem que respira"
+   Importado uma vez em apps/web/src/app/(family)/layout.tsx.
+   Tudo é prefixado com y2p-ld- (ou --y2p-) para não colidir com nada existente.
+   Usa os tokens --fx-* que já existem em app/tokens/*.css (com fallback).
+   ========================================================================== */
+
+:root {
+  /* Espaçamento 03: margem lateral que cresce com a tela (24px → 120px) */
+  --y2p-gutter: clamp(24px, 6vw, 120px);
+  --y2p-sk-dur: 2.4s;
+}
+
+/* Skeleton: derivado da cor de texto do tema. Fica em .fam-shell, e não em :root,
+   porque os temas de themes.css trocam --fx-text em .fam-shell. Em :root o var()
+   resolveria com o texto do tema escuro, e o bloco sumiria nos temas claros. */
+.fam-shell {
+  --y2p-sk-base: color-mix(in srgb, var(--fx-text, #EDEFF1) 8%, transparent);
+  --y2p-sk-shine: color-mix(in srgb, var(--fx-text, #EDEFF1) 15%, transparent);
+  --y2p-sk-grain: color-mix(in srgb, var(--fx-text, #EDEFF1) 3.5%, transparent);
+}
+
+/* Skeleton: "sincronizado + sweep metálico"
+   Camada 1: faixa de luz diagonal. background-attachment: fixed faz a faixa
+   ser uma só para a tela inteira: todos os blocos brilham em sincronia.
+   Camada 2: grão escovado (o mesmo ângulo de 118° do --fx-metal-grain).
+   Ritmo: passa, pausa (70%→100%), passa de novo, como o sweep do MetalCard. */
+.y2p-ld-sk {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  border-radius: 6px;
+  background-color: var(--y2p-sk-base);
+  background-image:
+    linear-gradient(100deg, transparent 38%, var(--y2p-sk-shine) 50%, transparent 62%),
+    repeating-linear-gradient(118deg, var(--y2p-sk-grain) 0 1px, transparent 1px 4px);
+  background-size: 200% 100%, auto;
+  background-repeat: no-repeat, repeat;
+  background-attachment: fixed, scroll;
+  animation: y2p-ld-sweep var(--y2p-sk-dur) var(--fx-ease-metal, cubic-bezier(.2,.7,.25,1)) infinite;
+}
+.y2p-ld-sk--circle { border-radius: 50%; }
+.y2p-ld-sk--pill { border-radius: 999px; }
+
+/* Dentro de um MetalCard o bloco fica um pouco mais claro para aparecer no metal */
+.y2p-ld-on-metal { --y2p-sk-base: rgba(255, 255, 255, .08); --y2p-sk-shine: rgba(255, 255, 255, .16); }
+
+@keyframes y2p-ld-sweep {
+  0% { background-position: 100% 0, 0 0; }
+  70%, 100% { background-position: -100% 0, 0 0; }
+}
+
+/* Texto só para leitor de tela ("Carregando seus gastos…") */
+.y2p-ld-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* No celular a categoria desce para a segunda linha, como .y2p-tx-cat em painel.css */
+@media (max-width: 768px) {
+  .y2p-ld-tx-cat { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
+}
+
+/* Revelação em onda (cima → baixo)
+   WaveReveal calcula --y2p-d de cada [data-reveal] pela posição na tela. */
+.y2p-ld-wave [data-reveal] {
+  animation: y2p-ld-in .45s var(--fx-ease, cubic-bezier(.2,.65,.2,1)) both;
+  animation-delay: var(--y2p-d, 0ms);
+}
+@keyframes y2p-ld-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Barra de progresso no topo */
+.y2p-ld-top {
+  position: fixed; top: 0; left: 0; z-index: 1000;
+  height: 2px; width: 0; opacity: 0; pointer-events: none;
+  background: linear-gradient(90deg, #A8AAAD, #E6E8EA);
+  box-shadow: 0 0 10px rgba(212, 214, 217, .6);
+}
+
+/* Splash ao entrar no painel */
+.y2p-ld-splash {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: var(--fx-bg, #0C0D0F);
+  transition: opacity .5s var(--fx-ease, cubic-bezier(.2,.65,.2,1));
+}
+.y2p-ld-splash[data-phase="out"] { opacity: 0; pointer-events: none; }
+.y2p-ld-splash__mark {
+  width: 26px; height: 26px; border-radius: 5px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #F2F3F4, #9A9DA1 60%, #5F6266);
+  box-shadow: 0 0 22px rgba(212, 214, 217, .35);
+  animation: y2p-ld-float 3.5s ease-in-out infinite;
+}
+.y2p-ld-splash__word {
+  font-family: var(--fx-font-display, 'Hanken Grotesk', system-ui, sans-serif);
+  font-size: 30px; font-weight: 700; letter-spacing: -.01em;
+  background: linear-gradient(100deg, var(--fx-text-4, #7E8186) 40%, var(--fx-text-strong, #F2F3F4) 50%, var(--fx-text-4, #7E8186) 60%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: y2p-ld-word 2.4s linear infinite;
+}
+.y2p-ld-splash__track { width: 140px; height: 2px; border-radius: 2px; overflow: hidden; position: relative; background: var(--y2p-sk-base); }
+.y2p-ld-splash__track i {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: 2px;
+  background: linear-gradient(180deg, #E6E8EA, #A8AAAD);
+  animation: y2p-ld-indet 1.4s var(--fx-ease, cubic-bezier(.2,.65,.2,1)) infinite;
+}
+.y2p-ld-splash__kicker {
+  font-family: var(--fx-font-mono, 'Geist Mono', monospace);
+  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--fx-text-3, #8A8D91);
+}
+@keyframes y2p-ld-float { 0%, 100% { transform: rotate(45deg) translate(0, 0); } 50% { transform: rotate(45deg) translate(-4px, -4px); } }
+@keyframes y2p-ld-word { from { background-position: 110% 0; } to { background-position: -10% 0; } }
+@keyframes y2p-ld-indet { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+/* Movimento reduzido: tudo estático, nada some.
+   A barra recebe a transição inline pelo TopProgress, daí o !important. */
+@media (prefers-reduced-motion: reduce) {
+  .y2p-ld-sk { animation: none; background-image: none; }
+  .y2p-ld-wave [data-reveal] { animation: none; }
+  .y2p-ld-top { transition: none !important; }
+  .y2p-ld-splash { transition: none; }
+  .y2p-ld-splash__mark, .y2p-ld-splash__word, .y2p-ld-splash__track i { animation: none; }
+  .y2p-ld-splash__word { color: var(--fx-text-strong, #F2F3F4); background: none; }
+}

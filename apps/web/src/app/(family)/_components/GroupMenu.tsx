@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFamily } from '../_lib/FamilyProvider';
 import { DockIcon } from './dockIcons';
+import { useTopProgress } from './loading/TopProgress';
 
 /**
  * Botão de conta da doca. Mostra só o grupo real da conta, sem saldo,
@@ -25,6 +26,7 @@ export function GroupMenu({
   householdName?: string;
 }) {
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { t } = useFamily();
   const d = t.dock;
   const [open, setOpen] = useState(false);
@@ -100,6 +102,7 @@ export function GroupMenu({
             role="menuitem"
             onClick={() => {
               close(false);
+              topProgress.startNavigation('/dashboard?conta=1');
               router.push('/dashboard?conta=1');
             }}
           >
@@ -112,6 +115,7 @@ export function GroupMenu({
             role="menuitem"
             onClick={() => {
               close(false);
+              topProgress.startNavigation('/conta');
               router.push('/conta');
             }}
           >

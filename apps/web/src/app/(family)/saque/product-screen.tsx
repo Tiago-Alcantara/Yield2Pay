@@ -15,14 +15,21 @@ import { C, CHROME_SHADOW, cardLabel } from '../_lib/familyTheme';
 import { useFamily } from '../_lib/FamilyProvider';
 import { fmtBRL, numericOnly, parseBRL } from '../_lib/familyFormat';
 import { FamilyBrand } from '../_components/FamilyUI';
+import { useTopProgress } from '../_components/loading/TopProgress';
 
 export default function FamilyWithdrawPage() {
   const router = useRouter();
+  const topProgress = useTopProgress();
   const { t, state, withdraw } = useFamily();
   const [amount, setAmount] = useState('');
   const [error, setError] = useState(false);
 
   const parsed = parseBRL(amount);
+
+  function backToDashboard() {
+    topProgress.startNavigation('/dashboard');
+    router.push('/dashboard');
+  }
 
   function handleConfirm() {
     if (parsed < 1 || parsed > state.deposit) {
@@ -30,7 +37,7 @@ export default function FamilyWithdrawPage() {
       return;
     }
     withdraw(parsed);
-    router.push('/dashboard');
+    backToDashboard();
   }
 
   return (
@@ -190,7 +197,7 @@ export default function FamilyWithdrawPage() {
           <button
             type="button"
             className="fam-quiet"
-            onClick={() => router.push('/dashboard')}
+            onClick={backToDashboard}
             style={{
               width: '100%',
               fontFamily: 'inherit',
