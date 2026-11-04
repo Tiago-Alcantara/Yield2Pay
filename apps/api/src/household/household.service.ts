@@ -21,6 +21,7 @@ import {
   type UpsertHouseholdProfile,
 } from '@yield2pay/shared';
 import type { ActiveMembership } from '../auth/authenticated-request';
+import { deleteWalletsAddedBy } from '../household-wallet/wallet-removal';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ensurePersonalHousehold,
@@ -563,10 +564,13 @@ export class HouseholdService {
     if (!target || target.role === 'owner') {
       throw new HouseholdConflictError();
     }
-    await this.prisma.householdMember.delete({
-      where: {
-        householdId_companyId: { householdId, companyId: memberCompanyId },
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await deleteWalletsAddedBy(tx, householdId, memberCompanyId);
+      await tx.householdMember.delete({
+        where: {
+          householdId_companyId: { householdId, companyId: memberCompanyId },
+        },
+      });
     });
   }
 
@@ -585,15 +589,21 @@ export class HouseholdService {
         'O último admin não pode sair. O grupo ficaria sem ninguém.',
       );
     }
-    await this.prisma.householdMember.delete({
-      where: { householdId_companyId: { householdId, companyId } },
+    await this.prisma.$transaction(async (tx) => {
+      await deleteWalletsAddedBy(tx, householdId, companyId);
+      await tx.householdMember.delete({
+        where: { householdId_companyId: { householdId, companyId } },
+      });
     });
   }
 
   async clearMyData(membership: ActiveMembership, mode: 'expenses' | 'all') {
     const { householdId, companyId } = membership;
-    await this.prisma.expense.deleteMany({
-      where: { householdId, addedByCompanyId: companyId },
+    await this.prisma.$transaction(async (tx) => {
+      await deleteWalletsAddedBy(tx, householdId, companyId);
+      await tx.expense.deleteMany({
+        where: { householdId, addedByCompanyId: companyId },
+      });
     });
     if (mode === 'all') {
       await this.prisma.lessonProgress.deleteMany({ where: { companyId } });

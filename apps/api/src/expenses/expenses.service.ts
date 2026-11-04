@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type {
   ExpenseCategory,
   ExpenseKind,
   ExpensePage,
+  ExpenseSource,
   ExpenseView,
 } from '@yield2pay/shared';
 import type { ActiveMembership } from '../auth/authenticated-request';
@@ -206,6 +208,9 @@ export class ExpensesService {
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      if (existing.source === 'wallet') {
+        return patchWalletLine(tx, existing, body);
+      }
       const wasIncome = existing.kind === 'income';
       const nextKind = body.kind ?? (wasIncome ? 'income' : 'expense');
       const changesKind = (nextKind === 'income') !== wasIncome;
@@ -280,6 +285,11 @@ export class ExpensesService {
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      // A linha sai junto com a carteira. Apagar aqui sumiria com ela para sempre,
+      // porque o sync já passou dessa operação.
+      if (existing.source === 'wallet') {
+        throw new ExpenseInvalidError('wallet line is removed with the wallet');
+      }
       await lockExpenseGroups(tx, householdId, [existing.merchant]);
       const group = existing.merchant
         ? await loadExpenseGroup(tx, householdId, [existing.merchant])
@@ -306,6 +316,31 @@ export class ExpensesService {
       where: { companyId: { in: ids } },
     });
   }
+}
+
+/**
+ * A linha da carteira troca de categoria, mas o tipo vem da rede. Ela não entra no
+ * grupo de fixos, então não recalcula nada.
+ */
+async function patchWalletLine(
+  tx: Prisma.TransactionClient,
+  existing: { id: string; kind: string; category: string | null },
+  body: PatchExpense,
+) {
+  const kind = existing.kind as ExpenseKind;
+  if (body.kind !== undefined && body.kind !== kind) {
+    throw new ExpenseInvalidError('wallet line keeps its kind');
+  }
+  const category = nextCategoryOf(kind, body, existing.category);
+  return tx.expense.update({
+    where: { id: existing.id },
+    data: {
+      category,
+      ...(body.fixed !== undefined
+        ? { fixed: body.fixed, fixedManual: true }
+        : {}),
+    },
+  });
 }
 
 /** Entrada não tem categoria; gasto tem uma das categorias conhecidas. */
@@ -405,6 +440,7 @@ function toExpenseView(
     fixed: boolean;
     amountCents: number;
     excludedFromTotals: boolean;
+    source?: string;
     addedByCompanyId: string;
   },
   names: {
@@ -424,6 +460,7 @@ function toExpenseView(
     fixed,
     amountCents: row.amountCents,
     excludedFromTotals: row.excludedFromTotals,
+    source: (row.source ?? 'manual') as ExpenseSource,
     addedBy: {
       displayName: person?.displayName?.trim() || 'Membro',
       initials: person ? initialsOf(person.fullName, person.displayName) : '?',

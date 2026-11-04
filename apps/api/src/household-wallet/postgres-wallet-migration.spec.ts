@@ -313,4 +313,52 @@ describe.skipIf(!DATABASE_URL)('migration household_wallets', () => {
     },
     TIMEOUT,
   );
+
+  it(
+    'o roteiro do docs/DEPLOY.md volta as duas migrations, na ordem',
+    async () => {
+      await withOldData(async (client, url) => {
+        prisma(['migrate', 'deploy'], url);
+        await insertWallet(client, 'w_1', null);
+        await client.query(`
+          INSERT INTO expenses (id, household_id, added_by_company_id, spent_on, merchant, kind, category, fixed, amount_cents, source, excluded_from_totals) VALUES
+            ('e_entrada', 'h_1', 'co_1', '2026-10-02', 'Salário', 'income', NULL, false, 100, 'manual', false),
+            ('e_wallet', 'h_1', 'co_1', '2026-10-02', 'Carteira', 'expense', 'shopping', false, 100, 'wallet', false),
+            ('e_fora', 'h_1', 'co_1', '2026-10-02', 'Fora', 'expense', 'shopping', false, 100, 'manual', true);
+        `);
+        const kindDown = readFileSync(
+          resolve(
+            MIGRATIONS_DIR,
+            '20261103120000_expense_kind_source',
+            'down.sql',
+          ),
+          'utf8',
+        );
+
+        // Fora de ordem, o down dos tipos aborta.
+        await expect(client.query(kindDown)).rejects.toThrow(
+          /expense_kind_source down/,
+        );
+        await client.query('ROLLBACK');
+
+        await client.query(readFileSync(DOWN_SQL, 'utf8'));
+        await client.query(
+          `DELETE FROM expenses WHERE kind = 'income' OR excluded_from_totals`,
+        );
+        await client.query(kindDown);
+        await client.query(
+          `DELETE FROM _prisma_migrations WHERE migration_name IN ('20261104120000_household_wallets', '20261103120000_expense_kind_source')`,
+        );
+
+        const kept = await client.query(`SELECT id FROM expenses`);
+        expect(kept.rows).toEqual([{ id: 'e_manual' }]);
+        expect(await tables(client)).toEqual([]);
+
+        prisma(['migrate', 'deploy'], url);
+        expect(await tables(client)).toEqual(NEW_TABLES);
+        expect(prisma(['migrate', 'status'], url)).toMatch(/up to date/i);
+      });
+    },
+    TIMEOUT,
+  );
 });

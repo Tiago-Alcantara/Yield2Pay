@@ -18,6 +18,7 @@ import { StatementsModule } from './statements/statements.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { SummaryModule } from './summary/summary.module';
 import { LessonsModule } from './lessons/lessons.module';
+import { HouseholdWalletModule } from './household-wallet/household-wallet.module';
 
 /** Cofre, carteira, depósito, saque, ramp, Stellar e ledger. Fora do grafo com a flag desligada. */
 export function financialModules(raw: Record<string, string | undefined> = process.env) {
@@ -46,6 +47,7 @@ export function appImports(raw: Record<string, string | undefined> = process.env
     ExpensesModule,
     SummaryModule,
     LessonsModule,
+    HouseholdWalletModule,
   ];
 }
 

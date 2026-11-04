@@ -114,6 +114,9 @@ export class ExpensesController {
     try {
       await this.expensesService.remove(req.membership, id);
     } catch (error) {
+      if (error instanceof ExpenseInvalidError) {
+        throw new BadRequestException();
+      }
       this.rethrow(error);
     }
   }
