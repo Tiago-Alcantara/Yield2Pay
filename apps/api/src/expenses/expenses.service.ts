@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ExpenseCategory,
+  ExpenseKind,
   ExpensePage,
   ExpenseView,
 } from '@yield2pay/shared';
@@ -307,9 +308,11 @@ function toExpenseView(
     id: string;
     spentOn: Date;
     merchant: string;
-    category: string;
+    kind: string;
+    category: string | null;
     fixed: boolean;
     amountCents: number;
+    excludedFromTotals: boolean;
     addedByCompanyId: string;
   },
   names: {
@@ -324,9 +327,11 @@ function toExpenseView(
     id: row.id,
     date: utcCalendarDay(row.spentOn),
     merchant: row.merchant,
-    category: row.category as ExpenseCategory,
+    kind: row.kind as ExpenseKind,
+    category: row.category as ExpenseCategory | null,
     fixed,
     amountCents: row.amountCents,
+    excludedFromTotals: row.excludedFromTotals,
     addedBy: {
       displayName: person?.displayName?.trim() || 'Membro',
       initials: person ? initialsOf(person.fullName, person.displayName) : '?',

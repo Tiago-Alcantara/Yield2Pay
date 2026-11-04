@@ -13,7 +13,7 @@ export type StoredExpenseKeys = {
   merchant: string;
   spentOn: string;
   amountCents: number;
-  category: string;
+  category: string | null;
   fixed: boolean;
   fixedManual?: boolean;
   merchantKey: string;

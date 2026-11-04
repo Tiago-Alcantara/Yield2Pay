@@ -6,7 +6,7 @@ export type ExpenseSnapshot = {
   merchant: string;
   spentOn: Date | string;
   amountCents: number;
-  category: string;
+  category: string | null;
   fixed?: boolean;
   fixedManual?: boolean;
   merchantKey?: string | null;

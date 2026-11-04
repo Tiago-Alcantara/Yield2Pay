@@ -91,6 +91,7 @@ describe.skipIf(!DATABASE_URL)('migration household_multi_group', () => {
   const adminUrl = DATABASE_URL;
   let tempDir = '';
   let previousConfig = '';
+  let historyThroughThis = '';
   let databaseCounter = 0;
 
   beforeAll(() => {
@@ -98,8 +99,20 @@ describe.skipIf(!DATABASE_URL)('migration household_multi_group', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'y2p-household-migration-'));
     const previous = join(tempDir, 'migrations');
     cpSync(MIGRATIONS_DIR, previous, { recursive: true });
-    rmSync(join(previous, MIGRATION_NAME), { recursive: true });
+    // Tira também as migrations mais novas: o histórico para antes desta.
+    for (const entry of readdirSync(previous)) {
+      if (/^\d/.test(entry) && entry >= MIGRATION_NAME) {
+        rmSync(join(previous, entry), { recursive: true });
+      }
+    }
     expect(readdirSync(previous)).not.toContain(MIGRATION_NAME);
+    historyThroughThis = join(tempDir, 'through');
+    cpSync(previous, historyThroughThis, { recursive: true });
+    cpSync(
+      join(MIGRATIONS_DIR, MIGRATION_NAME),
+      join(historyThroughThis, MIGRATION_NAME),
+      { recursive: true },
+    );
     previousConfig = join(tempDir, 'prisma.config.ts');
     writeFileSync(
       previousConfig,
@@ -291,10 +304,27 @@ describe.skipIf(!DATABASE_URL)('migration household_multi_group', () => {
         expect(failed).toHaveLength(1);
         expect(failed[0]?.finished_at).toBeNull();
         // O passo a passo do docs/DEPLOY.md: migrate status acusa a falha,
-        // corrige o dado, resolve e deploy.
-        expect(runExpectingFailure(['migrate', 'status'], url)).toContain(
-          MIGRATION_NAME,
+        // corrige o dado, resolve e deploy. O status lê o histórico que para
+        // nesta migration: com uma mais nova pendente, ele lista só a pendente
+        // e não cita a que falhou.
+        const throughThis = join(
+          tempDir,
+          `${databaseCounter}-through.config.ts`,
         );
+        writeFileSync(
+          throughThis,
+          `export default ${JSON.stringify({
+            schema: resolve(API_DIR, 'prisma/schema.prisma'),
+            migrations: { path: historyThroughThis },
+            datasource: { url },
+          })};\n`,
+        );
+        expect(
+          runExpectingFailure(
+            ['migrate', 'status', '--config', throughThis],
+            url,
+          ),
+        ).toContain(MIGRATION_NAME);
         await client.query(
           `UPDATE household_members SET role = 'member' WHERE id = 'm_membro'`,
         );

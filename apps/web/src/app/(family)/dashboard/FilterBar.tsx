@@ -61,7 +61,7 @@ export function matchesExpense(row: ExpenseView, filters: ExpenseFilters, month?
   } else if (month && row.date.slice(0, 7) !== month) {
     return false;
   }
-  if (filters.cats.length && !filters.cats.includes(row.category)) return false;
+  if (filters.cats.length && (row.category == null || !filters.cats.includes(row.category))) return false;
   if (filters.tipo === 'fixo' && !row.fixed) return false;
   if (filters.tipo === 'var' && row.fixed) return false;
   const value = reais(row.amountCents);

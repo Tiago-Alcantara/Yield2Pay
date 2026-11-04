@@ -223,13 +223,19 @@ model Expense {
   statementId      String?  @map("statement_id")
   spentOn          DateTime @map("spent_on") @db.Date
   merchant         String
-  category         String
+  /// Nula só quando kind = 'income'. O CHECK expenses_kind_category_check garante isso.
+  category         String?
   fixed            Boolean
   fixedManual      Boolean  @default(false) @map("fixed_manual")
   amountCents      Int      @map("amount_cents")
   fitId            String?  @map("fit_id")
   merchantKey       String @default("") @map("merchant_key")
   sharedMerchantKey String @default("") @map("shared_merchant_key")
+  /// 'expense' ou 'income', pelo CHECK expenses_kind_check.
+  kind             String   @default("expense")
+  /// 'manual', 'statement' ou 'wallet'.
+  source           String   @default("manual")
+  excludedFromTotals Boolean @default(false) @map("excluded_from_totals")
   household        Household @relation(fields: [householdId], references: [id])
   statement        Statement? @relation(fields: [statementId], references: [id])
   @@unique([householdId, fitId])

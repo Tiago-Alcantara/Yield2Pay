@@ -176,7 +176,7 @@ export function idsToMarkFixed(
     merchant: string;
     spentOn: string;
     amountCents: number;
-    category: string;
+    category: string | null;
   }>,
 ): string[] {
   const keys = rows.map((row) => merchantKey(row.merchant));

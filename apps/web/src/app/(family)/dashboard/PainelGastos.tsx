@@ -51,7 +51,9 @@ import {
 
 function categoriesOf(rows: ExpenseView[]) {
   const totals = new Map<ExpenseCategory, number>();
-  for (const row of rows) totals.set(row.category, (totals.get(row.category) ?? 0) + row.amountCents);
+  for (const row of rows) {
+    if (row.category != null) totals.set(row.category, (totals.get(row.category) ?? 0) + row.amountCents);
+  }
   return [...totals.entries()]
     .filter(([, amountCents]) => amountCents > 0)
     .map(([category, amountCents]) => ({ category, amountCents }))
@@ -748,7 +750,7 @@ function PainelScreen({
   const totals: Record<string, number> = {};
   for (const row of monthTotals) totals[row.month] = row.amountCents;
   if (partial) totals[month] = summary.monthTotalCents;
-  const present = new Set(expenses.map((row) => CATEGORY_LABEL[row.category]));
+  const present = new Set(expenses.flatMap((row) => (row.category != null ? [CATEGORY_LABEL[row.category]] : [])));
   for (const id of filters.cats) present.add(CATEGORY_LABEL[id]);
   const chips = ['Todas', ...Object.values(CATEGORY_LABEL).filter((label) => present.has(label))];
   const futureHidden = filters.mode !== 'custom' && partial
@@ -1007,7 +1009,7 @@ function PainelScreen({
                 </span>
                 <select
                   aria-label={'Categoria de ' + row.merchant}
-                  value={row.category}
+                  value={row.category ?? undefined}
                   onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
                   className="y2p-tx-cat"
                 >

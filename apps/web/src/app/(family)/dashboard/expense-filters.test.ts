@@ -14,9 +14,11 @@ const row = (partial: Partial<ExpenseView>): ExpenseView => ({
   id: 'e1',
   date: '2026-09-02',
   merchant: 'Bom Preço',
+  kind: 'expense',
   category: 'groceries',
   fixed: false,
   amountCents: 1000,
+  excludedFromTotals: false,
   addedBy: { displayName: 'Ana', initials: 'A' },
   ...partial,
 });
