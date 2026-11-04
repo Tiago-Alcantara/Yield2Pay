@@ -131,6 +131,24 @@ export interface StatementImportResult {
   skipped: number;
 }
 
+/** Uma linha do extrato antes de gravar. index é a posição dela em kinds, na confirmação. */
+export interface StatementPreviewRow {
+  index: number;
+  date: string;
+  merchant: string;
+  amountCents: number;
+  kind: ExpenseKind;
+  /** O FITID já está no grupo: a confirmação pula esta linha. */
+  alreadyImported: boolean;
+}
+
+export interface StatementPreview {
+  filename: string;
+  rows: StatementPreviewRow[];
+  /** Linhas do arquivo que não deu para ler. */
+  skipped: number;
+}
+
 export interface StatementView {
   id: string;
   filename: string;

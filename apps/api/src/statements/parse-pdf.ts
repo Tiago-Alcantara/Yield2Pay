@@ -3,7 +3,7 @@ import { normalizeDate } from './parse-csv';
 import type { ParsedStatementRow } from './statement.errors';
 
 const PDF_LINE =
-  /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+(?:R\$\s*)?(-?\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
+  /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+(?:R\$\s*)?([-+]?\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
 
 export function parsePdf(text: string): ParsedStatementRow[] {
   const rows: ParsedStatementRow[] = [];

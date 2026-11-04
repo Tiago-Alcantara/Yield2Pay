@@ -203,6 +203,75 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('expenses kind (e2e)', () => {
     expect(noCategory.status).toBe(400);
   });
 
+  it('o extrato passa pela prévia sem gravar e a confirmação grava o tipo escolhido', async () => {
+    const server = app.getHttpServer();
+    const csv = Buffer.from(
+      'data,descricao,valor\n02/01/2026,Freela,"+900,00"\n03/01/2026,Padaria,"-18,90"\n04/01/2026,Reembolso,"20,00"\n',
+    );
+    const before = await prisma.expense.count({ where: { householdId } });
+
+    const preview = await request(server)
+      .post('/statements/preview')
+      .set(as('dona'))
+      .attach('file', csv, 'extrato.csv');
+
+    expect(preview.status).toBe(201);
+    expect(
+      preview.body.rows.map((row: { merchant: string; kind: string }) => [
+        row.merchant,
+        row.kind,
+      ]),
+    ).toEqual([
+      ['Freela', 'income'],
+      ['Padaria', 'expense'],
+      ['Reembolso', 'expense'],
+    ]);
+    expect(await prisma.expense.count({ where: { householdId } })).toBe(before);
+    expect(await prisma.statement.count({ where: { householdId } })).toBe(0);
+
+    const badKinds = await request(server)
+      .post('/statements')
+      .set(as('dona'))
+      .field('kinds', JSON.stringify(['income']))
+      .attach('file', csv, 'extrato.csv');
+    expect(badKinds.status).toBe(400);
+
+    const confirmed = await request(server)
+      .post('/statements')
+      .set(as('dona'))
+      .field('kinds', JSON.stringify(['income', 'expense', 'income']))
+      .attach('file', csv, 'extrato.csv');
+    expect(confirmed.status).toBe(201);
+    expect(confirmed.body.imported).toBe(3);
+
+    const incomes = await request(server)
+      .get('/expenses?month=2026-01&kind=income')
+      .set(as('dona'));
+    expect(
+      incomes.body.items
+        .map((item: { merchant: string }) => item.merchant)
+        .sort(),
+    ).toEqual(['Freela', 'Reembolso']);
+    const stored = await prisma.expense.findMany({
+      where: { householdId, statementId: confirmed.body.statementId },
+    });
+    expect(new Set(stored.map((row) => row.source))).toEqual(
+      new Set(['statement']),
+    );
+
+    const again = await request(server)
+      .post('/statements/preview')
+      .set(as('dona'))
+      .attach('file', csv, 'extrato.csv');
+    expect(again.status).toBe(409);
+
+    const undone = await request(server)
+      .delete(`/statements/${confirmed.body.statementId}`)
+      .set(as('dona'));
+    expect(undone.status).toBe(204);
+    expect(await prisma.expense.count({ where: { householdId } })).toBe(before);
+  });
+
   it('o resumo mostra entradas e saldo sem mudar o total de gastos', async () => {
     const response = await request(app.getHttpServer())
       .get(`/household/summary?month=${month}`)

@@ -1,8 +1,9 @@
 import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { ExpenseKind, StatementPreview } from '@yield2pay/shared';
 import type { ActiveMembership } from '../auth/authenticated-request';
-import { classifyMerchant } from '../expenses/classify';
+import { classifyMerchant, merchantKey } from '../expenses/classify';
 import {
   GROUP_SELECT,
   loadExpenseGroup,
@@ -10,6 +11,7 @@ import {
   planExpenseWrite,
   writeExpensePlan,
 } from '../expenses/fixed-flags';
+import { isExpenseKind } from '../expenses/page-query';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseCsv } from './parse-csv';
 import { decodeOfx, parseOfx } from './parse-ofx';
@@ -19,50 +21,68 @@ import {
   StatementFormatError,
   StatementNotFoundError,
   StatementTooLargeError,
+  type AmountSign,
   type ParsedStatementRow,
 } from './statement.errors';
 
 const MAX_STATEMENT_BYTES = 5 * 1024 * 1024;
 
+type KindedRow = ParsedStatementRow & { kind: ExpenseKind };
+
 @Injectable()
 export class StatementsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Lê o arquivo e mostra o que entraria, com o tipo sugerido. Não grava nada. */
+  async preview(
+    membership: ActiveMembership,
+    filename: string,
+    bytes: Buffer,
+  ): Promise<StatementPreview> {
+    const { householdId } = membership;
+    const { rows } = await this.readNewStatement(householdId, filename, bytes);
+    const usable = rows.filter(isUsableRow);
+    if (usable.length === 0) {
+      throw new StatementFormatError();
+    }
+    const known = await this.knownFitIds(this.prisma, householdId, usable);
+    return {
+      filename,
+      skipped: rows.length - usable.length,
+      rows: usable.map((row, index) => ({
+        index,
+        date: row.spentOn,
+        merchant: row.merchant,
+        amountCents: row.amountCents,
+        kind: kindFromSign(row.signed),
+        alreadyImported: Boolean(row.fitId && known.has(row.fitId)),
+      })),
+    };
+  }
+
+  /**
+   * Grava o extrato. Com kinds, grava cada linha da prévia com o tipo escolhido.
+   * Sem kinds (quem ainda não usa a prévia), só os débitos entram.
+   */
   async importFile(
     membership: ActiveMembership,
     filename: string,
     bytes: Buffer,
+    kinds?: ExpenseKind[],
   ) {
-    if (bytes.length === 0) {
-      throw new StatementFormatError();
-    }
-    if (bytes.length > MAX_STATEMENT_BYTES) {
-      throw new StatementTooLargeError();
-    }
-
     const { householdId, companyId } = membership;
-    const contentHash = createHash('sha256').update(bytes).digest('hex');
-    const duplicate = await this.prisma.statement.findFirst({
-      where: { householdId, contentHash },
-      select: { id: true },
-    });
-    if (duplicate) {
-      throw new StatementDuplicateError();
-    }
-
-    const format = formatFromFilename(filename);
-    const rows = await this.parseBytes(format, bytes);
-    const hasDebit = rows.some((row) => row.signed === 'debit');
-    const debits = rows.filter(
-      (row) => isUsableRow(row) && !isIncome(row, format, hasDebit),
+    const { format, contentHash, rows } = await this.readNewStatement(
+      householdId,
+      filename,
+      bytes,
     );
-    const incomes = rows.filter(
-      (row) => isUsableRow(row) && isIncome(row, format, hasDebit),
-    );
-    if (debits.length === 0 && incomes.length === 0) {
+    const chosen = kinds
+      ? rowsWithChosenKinds(rows, kinds)
+      : rowsWithoutPreview(rows, format);
+    if (chosen === 'no-usable-row') {
       throw new StatementFormatError();
     }
-    if (debits.length === 0) {
+    if (chosen.length === 0) {
       return { statementId: '', imported: 0, skipped: rows.length };
     }
 
@@ -78,23 +98,10 @@ export class StatementsService {
           },
         });
 
-        const fitIds = [
-          ...new Set(debits.flatMap((row) => (row.fitId ? [row.fitId] : []))),
-        ];
-        const knownFits = new Set<string>();
-        if (fitIds.length > 0) {
-          const found = await tx.expense.findMany({
-            where: { householdId, fitId: { in: fitIds } },
-            select: { fitId: true },
-          });
-          for (const row of found) {
-            if (row.fitId) knownFits.add(row.fitId);
-          }
-        }
-
-        let skipped = rows.length - debits.length;
-        const fresh: ParsedStatementRow[] = [];
-        for (const row of debits) {
+        const knownFits = await this.knownFitIds(tx, householdId, chosen);
+        let skipped = rows.length - chosen.length;
+        const fresh: KindedRow[] = [];
+        for (const row of chosen) {
           if (row.fitId && knownFits.has(row.fitId)) {
             skipped += 1;
             continue;
@@ -106,32 +113,59 @@ export class StatementsService {
           throw new StatementDuplicateError();
         }
 
-        const merchants = fresh.map((row) => row.merchant);
+        // Só o gasto passa pelo grupo de fixos. A entrada não conta para ele.
+        const spending = fresh.filter((row) => row.kind === 'expense');
+        const income = fresh.filter((row) => row.kind === 'income');
+        const merchants = spending.map((row) => row.merchant);
         await lockExpenseGroups(tx, householdId, merchants);
         const existing = await loadExpenseGroup(tx, householdId, merchants);
         const plan = planExpenseWrite(
           existing,
-          fresh.map((row) => ({
+          spending.map((row) => ({
             merchant: row.merchant,
             spentOn: row.spentOn,
             amountCents: row.amountCents,
             category: classifyMerchant(row.merchant),
           })),
         );
+        const common = {
+          householdId,
+          addedByCompanyId: companyId,
+          statementId: statement.id,
+          source: 'statement',
+        };
         await tx.expense.createMany({
-          data: plan.inserts.map((row, index) => ({
-            householdId,
-            addedByCompanyId: companyId,
-            statementId: statement.id,
-            spentOn: new Date(row.spentOn),
-            merchant: row.merchant,
-            category: row.category,
-            fixed: row.fixed,
-            amountCents: row.amountCents,
-            merchantKey: row.merchantKey,
-            sharedMerchantKey: row.sharedMerchantKey,
-            ...(fresh[index]?.fitId ? { fitId: fresh[index].fitId } : {}),
-          })),
+          data: [
+            ...plan.inserts.map((row, index) => ({
+              ...common,
+              spentOn: new Date(row.spentOn),
+              merchant: row.merchant,
+              kind: 'expense',
+              category: row.category,
+              fixed: row.fixed,
+              amountCents: row.amountCents,
+              merchantKey: row.merchantKey,
+              sharedMerchantKey: row.sharedMerchantKey,
+              ...(spending[index]?.fitId
+                ? { fitId: spending[index].fitId }
+                : {}),
+            })),
+            ...income.map((row) => {
+              const key = merchantKey(row.merchant);
+              return {
+                ...common,
+                spentOn: new Date(row.spentOn),
+                merchant: row.merchant,
+                kind: 'income',
+                category: null,
+                fixed: false,
+                amountCents: row.amountCents,
+                merchantKey: key,
+                sharedMerchantKey: key,
+                ...(row.fitId ? { fitId: row.fitId } : {}),
+              };
+            }),
+          ],
         });
         await writeExpensePlan(tx, householdId, plan);
         return { statementId: statement.id, imported: fresh.length, skipped };
@@ -145,6 +179,51 @@ export class StatementsService {
       }
       throw error;
     }
+  }
+
+  /** Validação comum da prévia e da confirmação. Só lê do banco. */
+  private async readNewStatement(
+    householdId: string,
+    filename: string,
+    bytes: Buffer,
+  ) {
+    if (bytes.length === 0) {
+      throw new StatementFormatError();
+    }
+    if (bytes.length > MAX_STATEMENT_BYTES) {
+      throw new StatementTooLargeError();
+    }
+    const contentHash = createHash('sha256').update(bytes).digest('hex');
+    const duplicate = await this.prisma.statement.findFirst({
+      where: { householdId, contentHash },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new StatementDuplicateError();
+    }
+    const format = formatFromFilename(filename);
+    const rows = await this.parseBytes(format, bytes);
+    return { format, contentHash, rows };
+  }
+
+  private async knownFitIds(
+    db: Pick<Prisma.TransactionClient, 'expense'>,
+    householdId: string,
+    rows: ParsedStatementRow[],
+  ): Promise<Set<string>> {
+    const fitIds = [
+      ...new Set(rows.flatMap((row) => (row.fitId ? [row.fitId] : []))),
+    ];
+    const known = new Set<string>();
+    if (fitIds.length === 0) return known;
+    const found = await db.expense.findMany({
+      where: { householdId, fitId: { in: fitIds } },
+      select: { fitId: true },
+    });
+    for (const row of found) {
+      if (row.fitId) known.add(row.fitId);
+    }
+    return known;
   }
 
   async remove(membership: ActiveMembership, statementId: string) {
@@ -225,6 +304,54 @@ function isUsableRow(row: ParsedStatementRow): boolean {
     Number.isFinite(row.amountCents) &&
     row.amountCents > 0
   );
+}
+
+/** Crédito é entrada. Débito e valor sem sinal (CSV e PDF) são gasto. */
+export function kindFromSign(signed: AmountSign): ExpenseKind {
+  return signed === 'credit' ? 'income' : 'expense';
+}
+
+/** O campo kinds da confirmação: JSON com um tipo por linha da prévia. */
+export function parseStatementKinds(raw: unknown): ExpenseKind[] | undefined {
+  if (raw == null || raw === '') return undefined;
+  let parsed: unknown;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : null;
+  } catch {
+    throw new StatementFormatError('kinds is invalid');
+  }
+  if (!Array.isArray(parsed) || !parsed.every(isExpenseKind)) {
+    throw new StatementFormatError('kinds is invalid');
+  }
+  return parsed;
+}
+
+function rowsWithChosenKinds(
+  rows: ParsedStatementRow[],
+  kinds: ExpenseKind[],
+): KindedRow[] | 'no-usable-row' {
+  const usable = rows.filter(isUsableRow);
+  if (usable.length === 0) return 'no-usable-row';
+  if (usable.length !== kinds.length) {
+    throw new StatementFormatError('kinds does not match the file');
+  }
+  return usable.map((row, index) => ({
+    ...row,
+    kind: kinds[index] ?? kindFromSign(row.signed),
+  }));
+}
+
+/** Importação direta, sem prévia: entrada de dinheiro fica de fora, como sempre foi. */
+function rowsWithoutPreview(
+  rows: ParsedStatementRow[],
+  format: string,
+): KindedRow[] | 'no-usable-row' {
+  const hasDebit = rows.some((row) => row.signed === 'debit');
+  const usable = rows.filter(isUsableRow);
+  if (usable.length === 0) return 'no-usable-row';
+  return usable
+    .filter((row) => !isIncome(row, format, hasDebit))
+    .map((row) => ({ ...row, kind: 'expense' as const }));
 }
 
 function isIncome(

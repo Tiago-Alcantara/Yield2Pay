@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   ConflictException,
   Controller,
   Delete,
@@ -24,18 +25,41 @@ import {
   StatementNotFoundError,
   StatementTooLargeError,
 } from './statement.errors';
-import { StatementsService } from './statements.service';
+import { parseStatementKinds, StatementsService } from './statements.service';
 
 @Controller('statements')
 @UseGuards(AuthGuard, HouseholdMemberGuard)
 export class StatementsController {
   constructor(private readonly statementsService: StatementsService) {}
 
+  @Post('preview')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async preview(
+    @Req() req: HouseholdMemberRequest,
+    @UploadedFile() file?: { originalname: string; buffer: Buffer },
+  ) {
+    if (!file) {
+      throw new BadRequestException();
+    }
+    try {
+      return await this.statementsService.preview(
+        req.membership,
+        file.originalname,
+        file.buffer,
+      );
+    } catch (error) {
+      this.rethrowImport(error);
+    }
+  }
+
   @Post()
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async importFile(
     @Req() req: HouseholdMemberRequest,
     @UploadedFile() file?: { originalname: string; buffer: Buffer },
+    @Body('kinds') kinds?: unknown,
   ) {
     if (!file) {
       throw new BadRequestException();
@@ -45,21 +69,10 @@ export class StatementsController {
         req.membership,
         file.originalname,
         file.buffer,
+        parseStatementKinds(kinds),
       );
     } catch (error) {
-      if (error instanceof StatementTooLargeError) {
-        throw new BadRequestException(error.message);
-      }
-      if (error instanceof StatementDuplicateError) {
-        throw new ConflictException(error.message);
-      }
-      if (error instanceof StatementFormatError) {
-        throw new BadRequestException();
-      }
-      if (error instanceof HouseholdNotFoundError) {
-        throw new NotFoundException();
-      }
-      throw error;
+      this.rethrowImport(error);
     }
   }
 
@@ -86,5 +99,21 @@ export class StatementsController {
       }
       throw error;
     }
+  }
+
+  private rethrowImport(error: unknown): never {
+    if (error instanceof StatementTooLargeError) {
+      throw new BadRequestException(error.message);
+    }
+    if (error instanceof StatementDuplicateError) {
+      throw new ConflictException(error.message);
+    }
+    if (error instanceof StatementFormatError) {
+      throw new BadRequestException();
+    }
+    if (error instanceof HouseholdNotFoundError) {
+      throw new NotFoundException();
+    }
+    throw error;
   }
 }

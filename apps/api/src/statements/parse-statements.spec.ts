@@ -166,6 +166,17 @@ describe('parse-statements', () => {
     ]);
   });
 
+  it('reads a PDF credit with a leading plus', () => {
+    expect(parsePdf('01/10/2026 Salario +3.500,00\n')).toEqual([
+      {
+        spentOn: '2026-10-01',
+        merchant: 'Salario',
+        amountCents: 350000,
+        signed: 'credit',
+      },
+    ]);
+  });
+
   it('reads a PDF debit with a leading minus', () => {
     const text =
       '12/10/2026 Padaria Estrela -45,90\n12/10/2026 Enel R$ 89,90\n';
