@@ -13,14 +13,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { ExpenseCategory } from '@yield2pay/shared';
+import type { ExpenseCategory, ExpenseKind } from '@yield2pay/shared';
 import { AuthGuard } from '../auth/auth.guard';
 import type { HouseholdMemberRequest } from '../auth/authenticated-request';
 import { HouseholdMemberGuard } from '../household/household-member.guard';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import { ExpensesService } from './expenses.service';
-import { parseExpensePage } from './page-query';
+import { parseExpenseKind, parseExpensePage } from './page-query';
 
 @Controller('expenses')
 @UseGuards(AuthGuard, HouseholdMemberGuard)
@@ -35,7 +35,8 @@ export class ExpensesController {
       merchant?: string;
       amountCents?: number;
       spentOn?: string;
-      category?: ExpenseCategory;
+      kind?: ExpenseKind;
+      category?: ExpenseCategory | null;
     },
   ) {
     try {
@@ -58,6 +59,7 @@ export class ExpensesController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('cursor') cursor?: string | string[],
+    @Query('kind') kind?: string | string[],
   ) {
     try {
       return await this.expensesService.list(
@@ -66,6 +68,7 @@ export class ExpensesController {
         category,
         parseExpensePage({ limit, offset, cursor }),
         from || to ? { from: from ?? '', to: to ?? '' } : undefined,
+        parseExpenseKind(kind),
       );
     } catch (error) {
       if (error instanceof ExpenseInvalidError) {
@@ -88,11 +91,19 @@ export class ExpensesController {
   async patch(
     @Req() req: HouseholdMemberRequest,
     @Param('id') id: string,
-    @Body() dto: { category?: ExpenseCategory; fixed?: boolean },
+    @Body()
+    dto: {
+      kind?: ExpenseKind;
+      category?: ExpenseCategory | null;
+      fixed?: boolean;
+    },
   ) {
     try {
       return await this.expensesService.patch(req.membership, id, dto);
     } catch (error) {
+      if (error instanceof ExpenseInvalidError) {
+        throw new BadRequestException();
+      }
       this.rethrow(error);
     }
   }

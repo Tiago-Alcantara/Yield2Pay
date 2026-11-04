@@ -6,7 +6,24 @@
  * Sequência: notação científica, hexadecimal, espaço e array falham.
  */
 import { ExpenseInvalidError } from './expense.errors';
-import { parseExpensePage } from './page-query';
+import { parseExpenseKind, parseExpensePage } from './page-query';
+
+describe('parseExpenseKind', () => {
+  it.each(['expense', 'income'])('aceita %s', (value) => {
+    expect(parseExpenseKind(value)).toBe(value);
+  });
+
+  it.each([undefined, null, ''])('sem valor (%j) não filtra', (value) => {
+    expect(parseExpenseKind(value)).toBeUndefined();
+  });
+
+  it.each(['Income', 'transfer', ' income', ['income'], ['expense', 'income']])(
+    'recusa %j',
+    (value) => {
+      expect(() => parseExpenseKind(value)).toThrow(ExpenseInvalidError);
+    },
+  );
+});
 
 describe('parseExpensePage', () => {
   it('aceita inteiro decimal dentro do teto', () => {

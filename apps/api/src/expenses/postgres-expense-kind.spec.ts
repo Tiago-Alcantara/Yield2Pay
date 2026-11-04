@@ -3,7 +3,7 @@
  * Criado em: 2026-11-03
  * Última atualização: 2026-11-03
  * Intuito: A migration expense_kind_source e o down.sql rodam sobre dados que já existem, num banco descartável, e as consultas de verdade deixam entrada e gasto excluído fora das contas.
- * Sequência: com dados antigos, o backfill marca a origem e nada mais muda; os dois CHECKs recusam o tipo inválido e a categoria errada; o down.sql aborta enquanto houver entrada e, sem entrada, desfaz tudo e deixa aplicar de novo; a lista de meses só soma gasto que conta; o resumo ignora a entrada e o gasto excluído mais antigos e soma as entradas; a entrada e o gasto excluído com o mesmo nome não fazem o gasto novo virar fixo.
+ * Sequência: com dados antigos, o backfill marca a origem e nada mais muda; os dois CHECKs recusam o tipo inválido e a categoria errada; o down.sql aborta enquanto houver entrada e, sem entrada, desfaz tudo e deixa aplicar de novo; a lista de meses só soma gasto que conta; o resumo ignora a entrada e o gasto excluído mais antigos e soma as entradas; a entrada e o gasto excluído com o mesmo nome não fazem o gasto novo virar fixo; trocar o tipo recalcula o fixo do grupo e respeita os CHECKs.
  * Só roda com RUN_DB_TESTS=1 e PG_TEST_URL. Cada teste cria o próprio database no mesmo container e apaga no fim.
  */
 import { execFileSync } from 'node:child_process';
@@ -397,5 +397,49 @@ describe.skipIf(!DATABASE_URL)('entradas e gastos excluídos no banco', () => {
       where: { householdId: membership.householdId, fixed: true },
     });
     expect(flagged).toBe(0);
+  });
+
+  it('trocar o tipo recalcula o fixo do grupo e respeita os CHECKs', async () => {
+    const service = new ExpensesService(client as never);
+    const first = await service.create(membership, {
+      merchant: 'Aluguel',
+      amountCents: 1000,
+      spentOn: '2026-08-02',
+      category: 'housing',
+    });
+    const second = await service.create(membership, {
+      merchant: 'Aluguel',
+      amountCents: 1000,
+      spentOn: '2026-09-02',
+      category: 'housing',
+    });
+    expect(second.fixed).toBe(true);
+
+    const income = await service.patch(membership, second.id, {
+      kind: 'income',
+    });
+    expect(income).toMatchObject({
+      kind: 'income',
+      category: null,
+      fixed: false,
+    });
+    const alone = await client.expense.findUniqueOrThrow({
+      where: { id: first.id },
+    });
+    expect(alone.fixed).toBe(false);
+
+    const back = await service.patch(membership, second.id, {
+      kind: 'expense',
+      category: 'housing',
+    });
+    expect(back).toMatchObject({
+      kind: 'expense',
+      category: 'housing',
+      fixed: true,
+    });
+    const again = await client.expense.findUniqueOrThrow({
+      where: { id: first.id },
+    });
+    expect(again.fixed).toBe(true);
   });
 });
