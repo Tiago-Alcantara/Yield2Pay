@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import {
   cpSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -33,6 +34,17 @@ const MIGRATION_NAME = '20261103120000_expense_kind_source';
 const DOWN_SQL = resolve(MIGRATIONS_DIR, MIGRATION_NAME, 'down.sql');
 const TIMEOUT = 180_000;
 
+/** Saída de um comando que precisa falhar. */
+function prismaExpectingFailure(args: string[], databaseUrl: string): string {
+  try {
+    prisma(args, databaseUrl);
+  } catch (error) {
+    const failure = error as { stdout?: string; stderr?: string };
+    return `${failure.stdout ?? ''}${failure.stderr ?? ''}`;
+  }
+  throw new Error(`prisma ${args.join(' ')} deveria ter falhado`);
+}
+
 function prisma(args: string[], databaseUrl: string): string {
   return execFileSync('pnpm', ['exec', 'prisma', ...args], {
     cwd: API_DIR,
@@ -53,7 +65,12 @@ describe.skipIf(!DATABASE_URL)('migration expense_kind_source', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'y2p-expense-kind-'));
     previousHistory = join(tempDir, 'migrations');
     cpSync(MIGRATIONS_DIR, previousHistory, { recursive: true });
-    rmSync(join(previousHistory, MIGRATION_NAME), { recursive: true });
+    // Tira também as mais novas: o histórico para antes desta.
+    for (const entry of readdirSync(previousHistory)) {
+      if (/^\d/.test(entry) && entry >= MIGRATION_NAME) {
+        rmSync(join(previousHistory, entry), { recursive: true });
+      }
+    }
   });
 
   afterAll(() => {
@@ -249,6 +266,87 @@ describe.skipIf(!DATABASE_URL)('migration expense_kind_source', () => {
           { id: 'e_extrato', source: 'statement' },
           { id: 'e_manual', source: 'manual' },
         ]);
+      });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'o down.sql aborta com linha da carteira ou fora dos totais, que voltariam a contar',
+    async () => {
+      await withOldData(async (client, url) => {
+        prisma(['migrate', 'deploy'], url);
+        const down = readFileSync(DOWN_SQL, 'utf8');
+
+        await client.query(
+          `UPDATE expenses SET source = 'wallet' WHERE id = 'e_manual'`,
+        );
+        await expect(client.query(down)).rejects.toThrow(
+          /expense_kind_source down: há linhas da carteira ou fora dos totais/,
+        );
+        await client.query('ROLLBACK');
+
+        await client.query(
+          `UPDATE expenses SET source = 'manual', excluded_from_totals = true WHERE id = 'e_manual'`,
+        );
+        await expect(client.query(down)).rejects.toThrow(
+          /expense_kind_source down: há linhas da carteira ou fora dos totais/,
+        );
+        await client.query('ROLLBACK');
+        expect(await newColumns(client)).toHaveLength(3);
+      });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'falha no boot não deixa estado parcial; o deploy cai em P3009 até o migrate resolve',
+    async () => {
+      await withOldData(async (client, url) => {
+        const holder = new Client({ connectionString: url });
+        await holder.connect();
+        let failure = '';
+        try {
+          await holder.query('BEGIN');
+          await holder.query(
+            `SET LOCAL idle_in_transaction_session_timeout = '20s'`,
+          );
+          await holder.query('LOCK TABLE expenses IN ACCESS EXCLUSIVE MODE');
+          failure = prismaExpectingFailure(['migrate', 'deploy'], url);
+        } finally {
+          await holder.end().catch(() => undefined);
+        }
+        // O BEGIN mascara o erro real: o Prisma tenta gravar a falha na mesma conexão.
+        expect(failure).toMatch(/current transaction is aborted/);
+
+        expect(await newColumns(client)).toEqual([]);
+        expect(await constraints(client)).toEqual([]);
+        expect(await categoryIsNullable(client)).toBe(false);
+        const rows = await client.query<{
+          migration_name: string;
+          finished_at: Date | null;
+        }>(
+          `SELECT migration_name, finished_at FROM _prisma_migrations
+           WHERE migration_name >= $1 ORDER BY migration_name`,
+          [MIGRATION_NAME],
+        );
+        expect(rows.rows).toEqual([
+          { migration_name: MIGRATION_NAME, finished_at: null },
+        ]);
+
+        // Enquanto a falha está lá, nenhum deploy passa.
+        const blocked = prismaExpectingFailure(['migrate', 'deploy'], url);
+        expect(blocked).toContain('P3009');
+        expect(blocked).toContain(MIGRATION_NAME);
+        // O status lista a migration mais nova como pendente e não cita a que
+        // falhou. Quem diz a verdade é a consulta em _prisma_migrations.
+        const status = prismaExpectingFailure(['migrate', 'status'], url);
+        expect(status).not.toContain(MIGRATION_NAME);
+
+        prisma(['migrate', 'resolve', '--rolled-back', MIGRATION_NAME], url);
+        prisma(['migrate', 'deploy'], url);
+        expect(await newColumns(client)).toHaveLength(3);
+        expect(prisma(['migrate', 'status'], url)).toMatch(/up to date/i);
       });
     },
     TIMEOUT,

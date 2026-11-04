@@ -8,6 +8,10 @@ BEGIN
   IF EXISTS (SELECT 1 FROM "expenses" WHERE "kind" = 'income') THEN
     RAISE EXCEPTION 'expense_kind_source down: há entradas em expenses; apague ou reclassifique antes de voltar';
   END IF;
+  -- Sem a coluna, a linha fora dos totais voltaria a contar como gasto.
+  IF EXISTS (SELECT 1 FROM "expenses" WHERE "source" = 'wallet' OR "excluded_from_totals") THEN
+    RAISE EXCEPTION 'expense_kind_source down: há linhas da carteira ou fora dos totais em expenses; rode antes o down de 20261104120000_household_wallets e apague as restantes';
+  END IF;
 END $$;
 
 ALTER TABLE "expenses" DROP CONSTRAINT IF EXISTS "expenses_kind_category_check";
