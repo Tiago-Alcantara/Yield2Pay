@@ -108,7 +108,7 @@ describe.skipIf(!DATABASE_URL)('migration expense_kind_source', () => {
       convalidated: boolean;
     }>(
       `SELECT conname, convalidated FROM pg_constraint
-       WHERE conname LIKE 'expenses_kind%' ORDER BY conname`,
+       WHERE conname LIKE 'expenses_kind%' AND contype = 'c' ORDER BY conname`,
     );
     return result.rows;
   }
