@@ -3,9 +3,14 @@
  * Criado em: 2026-08-19
  * Última atualização: 2026-10-22
  * Intuito: Todo erro da API sai no mesmo corpo, sem stack, e a mensagem de produção não vaza detalhe interno.
- * Sequência: responds with the payload contract and the exception status; omits technicalDetails in production; includes technicalDetails in staging; reuses the incoming x-request-id as requestId; turns an unhandled throw into a 500; replaces the message of a 5xx in production so no internal detail leaks; keeps the 4xx message in production because the UI relies on it; normalizes a status outside the closed set; keeps the statuses the error screens know how to render; flattens the array of messages from the ValidationPipe; logs the errorId together with the request so the log matches the screen.
+ * Sequência: responds with the payload contract and the exception status; omits technicalDetails in production; includes technicalDetails in staging; reuses the incoming x-request-id as requestId; turns an unhandled throw into a 500; replaces the message of a 5xx in production so no internal detail leaks; keeps the 4xx message in production because the UI relies on it; normalizes a status outside the closed set; keeps the statuses the error screens know how to render; flattens the array of messages from the ValidationPipe; logs the errorId together with the request so the log matches the screen; a body parser error answers "JSON inválido" and leaves its text out of the response, the technical details and the log, whether it arrives raw or already converted by Nest; a 400 raised inside a route keeps its message; a bad path encoding keeps its message.
  */
-import { HttpException, HttpStatus, type ArgumentsHost } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  type ArgumentsHost,
+} from '@nestjs/common';
 import type { ApiErrorPayload } from '@yield2pay/shared';
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
@@ -21,6 +26,7 @@ function makeHost(
     method?: string;
     url?: string;
     headers?: Record<string, string>;
+    route?: object;
   } = {},
 ): ArgumentsHost {
   const response = {
@@ -40,6 +46,7 @@ function makeHost(
         method: request.method ?? 'GET',
         url: request.url ?? '/dashboard',
         headers: request.headers ?? {},
+        route: request.route,
       }),
     }),
   } as unknown as ArgumentsHost;
@@ -48,7 +55,12 @@ function makeHost(
 function capture(
   filter: AllExceptionsFilter,
   exception: unknown,
-  request?: { method?: string; url?: string; headers?: Record<string, string> },
+  request?: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    route?: object;
+  },
 ): Captured {
   const captured = {} as Captured;
   filter.catch(exception, makeHost(captured, request));
@@ -196,5 +208,95 @@ describe('all-exceptions.filter', () => {
     const line = logged.map((args) => args.join(' ')).join('\n');
     expect(line).toContain(body.errorId);
     expect(line).toContain('POST /deposit/build');
+  });
+
+  describe('body parser error', () => {
+    const FRAGMENT = 'SABAEAQCAI';
+    const parserText = `Unexpected token 'S', "{"address":${FRAGMENT}"... is not valid JSON`;
+    // Como o body-parser entrega: SyntaxError com type e o corpo cru.
+    const rawParserError = () =>
+      Object.assign(new SyntaxError(parserText), {
+        type: 'entity.parse.failed',
+        status: 400,
+        body: `{"address":${FRAGMENT}`,
+      });
+
+    function logged() {
+      const lines: unknown[][] = [];
+      vi.spyOn(console, 'error').mockImplementation(
+        (...args) => void lines.push(args),
+      );
+      return () =>
+        lines
+          .flat()
+          .map((arg) =>
+            arg instanceof Error
+              ? `${arg.message} ${arg.stack} ${JSON.stringify(arg)}`
+              : String(arg),
+          )
+          .join('\n');
+    }
+
+    it.each([
+      ['raw, with type', rawParserError],
+      [
+        'raw, without type',
+        () => {
+          const error = rawParserError() as unknown as { type?: string };
+          delete error.type;
+          return error;
+        },
+      ],
+      // Como o Nest entrega ao filtro: mapExternalException troca o SyntaxError.
+      ['converted by Nest', () => new BadRequestException(parserText)],
+    ])(
+      'answers "JSON inválido" and leaves its text out of everything: %s',
+      (_name, makeError) => {
+        const readLog = logged();
+        const { status, body } = capture(
+          new AllExceptionsFilter('staging'),
+          makeError(),
+          { method: 'POST', url: '/household-wallets' },
+        );
+
+        expect(status).toBe(400);
+        expect(body.message).toBe('JSON inválido');
+        expect(body.technicalDetails?.message).toBe('JSON inválido');
+        expect(JSON.stringify(body)).not.toContain(FRAGMENT);
+        const log = readLog();
+        expect(log).toContain(body.errorId);
+        expect(log).toContain('POST /household-wallets');
+        expect(log).not.toContain(FRAGMENT);
+      },
+    );
+
+    it('a 400 raised inside a route keeps its message', () => {
+      const { body } = capture(
+        new AllExceptionsFilter('production'),
+        new BadRequestException('Endereço ou apelido inválido.'),
+        { route: { path: '/household-wallets' } },
+      );
+
+      expect(body.message).toBe('Endereço ou apelido inválido.');
+    });
+
+    it('a SyntaxError from our own code is still a 500', () => {
+      const { status, body } = capture(
+        new AllExceptionsFilter('production'),
+        new SyntaxError('bad cached json'),
+      );
+
+      expect(status).toBe(500);
+      expect(body.message).not.toContain('bad cached json');
+    });
+
+    it('a bad path encoding keeps its message', () => {
+      const { body } = capture(
+        new AllExceptionsFilter('production'),
+        new BadRequestException("Failed to decode param '%FF'"),
+      );
+
+      expect(body.message).toBe("Failed to decode param '%FF'");
+    });
   });
 });

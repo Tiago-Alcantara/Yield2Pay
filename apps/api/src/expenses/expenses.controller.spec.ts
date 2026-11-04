@@ -6,6 +6,7 @@
  * Sequência: notação científica, hexadecimal, espaço e array são recusados.
  */
 import { BadRequestException } from '@nestjs/common';
+import { ExpenseInvalidError } from './expense.errors';
 import { ExpensesController } from './expenses.controller';
 
 describe('ExpensesController page query', () => {
@@ -41,4 +42,47 @@ describe('ExpensesController page query', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     },
   );
+
+  function listWithKind(target: ExpensesController, kind: unknown) {
+    return target.list(
+      req,
+      '2026-10',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      kind as never,
+    );
+  }
+
+  it.each(['transfer', 'INCOME', ['income', 'expense']])(
+    'responde 400 para ?kind=%j antes de consultar',
+    async (kind) => {
+      const list = vi.fn();
+      const target = new ExpensesController({ list } as never);
+      await expect(listWithKind(target, kind)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(list).not.toHaveBeenCalled();
+    },
+  );
+
+  it('passa o ?kind= válido para o serviço', async () => {
+    const list = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    const target = new ExpensesController({ list } as never);
+    await listWithKind(target, 'income');
+    expect(list.mock.calls[0]?.[5]).toBe('income');
+    await listWithKind(target, undefined);
+    expect(list.mock.calls[1]?.[5]).toBeUndefined();
+  });
+
+  it('o patch recusado pelo serviço vira 400, não 500', async () => {
+    const patch = vi.fn().mockRejectedValue(new ExpenseInvalidError());
+    const target = new ExpensesController({ patch } as never);
+    await expect(
+      target.patch(req, 'e1', { kind: 'income', category: 'groceries' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });

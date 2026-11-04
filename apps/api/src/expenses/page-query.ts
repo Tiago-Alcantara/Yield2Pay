@@ -5,6 +5,7 @@
  * Intuito: offset e limit só entram se forem inteiros decimais, com teto.
  * Sequência: 1e20, 0x10, 1e3, espaço e array são recusados antes da consulta.
  */
+import type { ExpenseKind } from '@yield2pay/shared';
 import { ExpenseInvalidError } from './expense.errors';
 
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
@@ -57,6 +58,17 @@ export function parseExpensePage(input: {
     throw new ExpenseInvalidError('cursor is invalid');
   }
   return { limit, offset, cursor: cursorMatch[0] };
+}
+
+export function isExpenseKind(value: unknown): value is ExpenseKind {
+  return value === 'expense' || value === 'income';
+}
+
+/** O ?kind= da lista. Sem valor, a lista traz os dois tipos. */
+export function parseExpenseKind(value: unknown): ExpenseKind | undefined {
+  if (value == null || value === '') return undefined;
+  if (!isExpenseKind(value)) throw new ExpenseInvalidError('kind is invalid');
+  return value;
 }
 
 function readDecimal(value: unknown, label: string): number | null {

@@ -36,6 +36,7 @@ model Company {
   ownedHouseholds    Household[] @relation("HouseholdOwner")
   householdMemberships HouseholdMember[]
   lessonProgress     LessonProgress[]
+  householdWallets   HouseholdWallet[]
 
   @@map("companies")
 }
@@ -174,6 +175,7 @@ model Household {
   invites              HouseholdInvite[]
   statements           Statement[]
   expenses             Expense[]
+  wallets              HouseholdWallet[]
   @@map("households")
 }
 
@@ -223,19 +225,99 @@ model Expense {
   statementId      String?  @map("statement_id")
   spentOn          DateTime @map("spent_on") @db.Date
   merchant         String
-  category         String
+  /// Nula só quando kind = 'income'. O CHECK expenses_kind_category_check garante isso.
+  category         String?
   fixed            Boolean
   fixedManual      Boolean  @default(false) @map("fixed_manual")
   amountCents      Int      @map("amount_cents")
   fitId            String?  @map("fit_id")
   merchantKey       String @default("") @map("merchant_key")
   sharedMerchantKey String @default("") @map("shared_merchant_key")
+  /// 'expense' ou 'income', pelo CHECK expenses_kind_check.
+  kind             String   @default("expense")
+  /// 'manual', 'statement' ou 'wallet'.
+  source           String   @default("manual")
+  excludedFromTotals Boolean @default(false) @map("excluded_from_totals")
   household        Household @relation(fields: [householdId], references: [id])
   statement        Statement? @relation(fields: [statementId], references: [id])
+  walletMovement   WalletMovement?
   @@unique([householdId, fitId])
   @@index([householdId, spentOn])
   @@index([householdId, sharedMerchantKey])
   @@map("expenses")
+}
+
+// Carteira Stellar só de leitura do grupo. Não tem relação com Wallet, a carteira
+// B2B custodiada. muxedId nulo acompanha a conta inteira. Um unique com coluna
+// nula não barra repetição no Postgres, então o índice parcial
+// "household_wallets_no_muxed_key" (só no SQL da migration
+// 20261104120000_household_wallets) fecha o caso sem muxedId.
+model HouseholdWallet {
+  id               String    @id @default(cuid())
+  householdId      String    @map("household_id")
+  addedByCompanyId String    @map("added_by_company_id")
+  /// 'testnet' ou 'public', pelo CHECK household_wallets_network_check.
+  network          String
+  /// Endereço G completo. Nunca sai em resposta, log ou erro.
+  accountId        String    @map("account_id")
+  /// Id da subconta (uint64 em texto) de uma carteira M.
+  muxedId          String?   @map("muxed_id")
+  label            String
+  /// paging_token da última operação gravada.
+  cursor           String?
+  lastSyncedAt     DateTime? @map("last_synced_at")
+  /// 'pending', 'ok' ou 'updating'.
+  syncStatus       String    @default("pending") @map("sync_status")
+  /// Antes desta hora o sync não chama o Horizon: intervalo mínimo ou Retry-After.
+  syncNotBefore    DateTime? @map("sync_not_before")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  household        Household @relation(fields: [householdId], references: [id])
+  addedBy          Company   @relation(fields: [addedByCompanyId], references: [id])
+  movements        WalletMovement[]
+  @@unique([householdId, network, accountId, muxedId])
+  @@index([addedByCompanyId])
+  @@map("household_wallets")
+}
+
+// Uma linha por operação da carteira, mais uma linha 'fee:<hash>' por transação
+// paga por ela. Só class 'expense' ou 'income' com preço vira linha em expenses.
+model WalletMovement {
+  id            String   @id @default(cuid())
+  walletId      String   @map("wallet_id")
+  opId          String   @map("op_id")
+  txHash        String   @map("tx_hash")
+  occurredOn    DateTime @map("occurred_on") @db.Date
+  /// Tipo da operação no Horizon, ou 'fee' na linha da taxa.
+  opType        String   @map("op_type")
+  /// 'in', 'out' ou 'none'.
+  direction     String
+  /// 'XLM', 'USDC' (da Circle) ou 'CODIGO:EMISSOR'. Nulo quando não há valor.
+  asset         String?
+  quantity      Decimal? @db.Decimal(20, 7)
+  feeStroops    BigInt?  @map("fee_stroops")
+  /// 'expense', 'income', 'conversion' ou 'info'.
+  movementClass String   @map("class")
+  /// Nulo: ainda sem preço. Zero: menos de um centavo, fica só aqui.
+  valueCents    Int?     @map("value_cents")
+  expenseId     String?  @unique @map("expense_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  wallet        HouseholdWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  @@unique([walletId, opId])
+  @@index([walletId, occurredOn])
+  @@map("wallet_movements")
+}
+
+// Preço em centavos de real por unidade, sempre da mainnet.
+model AssetPriceDaily {
+  id                String   @id @default(cuid())
+  asset             String
+  date              DateTime @db.Date
+  priceCentsPerUnit Decimal  @map("price_cents_per_unit") @db.Decimal(20, 7)
+  source            String
+  createdAt         DateTime @default(now()) @map("created_at")
+  @@unique([asset, date])
+  @@map("asset_price_daily")
 }
 
 model LessonProgress {

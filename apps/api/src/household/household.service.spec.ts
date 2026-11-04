@@ -48,6 +48,7 @@ function fakePrisma() {
       create: vi.fn(),
       update: vi.fn(),
     },
+    householdWallet: { findMany: vi.fn().mockResolvedValue([]) },
     $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
     $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) =>
       work(prisma),

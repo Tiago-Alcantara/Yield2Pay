@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Catch,
   HttpException,
   type ArgumentsHost,
@@ -28,6 +29,9 @@ const RENDERABLE_STATUS_CODES: ErrorStatusCode[] = [
 const GENERIC_SERVER_ERROR_MESSAGE =
   'Não foi possível concluir a operação. Tente novamente em alguns instantes.';
 
+const BODY_PARSE_MESSAGE = 'JSON inválido';
+const PATH_DECODE_PREFIX = 'Failed to decode param';
+
 /**
  * Traduz toda exceção da API para o mesmo corpo (ApiErrorPayload), que é o que
  * a tela cheia (ErrorPage) e o popup (ErrorDialog) consomem.
@@ -46,8 +50,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
 
-    const rawStatus =
-      exception instanceof HttpException ? exception.getStatus() : 500;
+    const bodyParseError = isBodyParseError(exception, request);
+    const rawStatus = bodyParseError
+      ? 400
+      : exception instanceof HttpException
+        ? exception.getStatus()
+        : 500;
     const statusCode = normalizeStatusCode(rawStatus);
     const errorId = generateErrorId();
     const requestId = readRequestId(request);
@@ -56,16 +64,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // O log do servidor guarda sempre o erro inteiro, independente do ambiente:
     // é o errorId que liga o print do cliente a esta linha.
-    console.error(
-      `[ERROR] ${errorId} ${requestId} ${request.method} ${request.url} -> ${statusCode}`,
-      exception,
-    );
+    // O erro do parser cita o corpo do pedido: ele não entra no log.
+    const logLine = `[ERROR] ${errorId} ${requestId} ${request.method} ${request.url} -> ${statusCode}`;
+    if (bodyParseError) console.error(logLine, BODY_PARSE_MESSAGE);
+    else console.error(logLine, exception);
 
     const payload: ApiErrorPayload = {
       statusCode,
       errorId,
       timestamp,
-      message: buildSafeMessage(exception, statusCode, isProduction),
+      message: bodyParseError
+        ? BODY_PARSE_MESSAGE
+        : buildSafeMessage(exception, statusCode, isProduction),
     };
 
     if (!isProduction) {
@@ -73,12 +83,35 @@ export class AllExceptionsFilter implements ExceptionFilter {
         method: request.method,
         endpoint: request.url,
         requestId,
-        message: describeException(exception),
+        message: bodyParseError
+          ? BODY_PARSE_MESSAGE
+          : describeException(exception),
       };
     }
 
     response.status(statusCode).json(payload);
   }
+}
+
+/**
+ * JSON malformado. O texto do parser repete um pedaço do corpo, que pode ser uma
+ * chave colada por engano, então ele não vai para a resposta nem para o log.
+ *
+ * O Nest troca o SyntaxError do parser por um BadRequestException com a mesma
+ * mensagem antes de chegar aqui, e o `type` se perde. O sinal que sobra é a origem:
+ * sem `request.route`, o erro nasceu antes de qualquer rota. Um 400 de controller,
+ * guard ou pipe sempre tem rota. O outro erro que o Nest converte assim é o de
+ * encoding inválido no caminho, que só cita a URL e mantém a mensagem.
+ */
+function isBodyParseError(exception: unknown, request: Request): boolean {
+  if (exception instanceof BadRequestException) {
+    return !request.route && !exception.message.startsWith(PATH_DECODE_PREFIX);
+  }
+  if (typeof exception !== 'object' || exception === null) return false;
+  return (
+    (exception as { type?: unknown }).type === 'entity.parse.failed' ||
+    (exception instanceof SyntaxError && 'body' in exception)
+  );
 }
 
 function normalizeStatusCode(rawStatus: number): ErrorStatusCode {

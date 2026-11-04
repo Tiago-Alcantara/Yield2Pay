@@ -295,8 +295,11 @@ describe('carregamento do painel', () => {
     nativeReplaceState(null, '', '/dashboard#s-gastos');
     renderShell();
     await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());
-    await flushFrames();
-    expect(scrollTo).toHaveBeenCalledTimes(1);
+    // A seção aparece antes do efeito que agenda o frame da rolagem.
+    await waitFor(async () => {
+      await flushFrames();
+      expect(scrollTo).toHaveBeenCalledTimes(1);
+    });
     await pickPreviousMonth('2026-09');
     gate.release();
     await waitFor(() => expect(document.getElementById('s-gastos')).not.toBeNull());

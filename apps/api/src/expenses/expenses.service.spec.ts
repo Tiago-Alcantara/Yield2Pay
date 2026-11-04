@@ -460,4 +460,187 @@ describe('ExpensesService', () => {
     expect(args.orderBy).toEqual([{ spentOn: 'desc' }, { id: 'desc' }]);
     expect(JSON.stringify(args.where)).toContain('e9');
   });
+
+  describe('tipo do lançamento', () => {
+    const stored = {
+      id: 'e1',
+      spentOn: new Date('2026-10-12T00:00:00Z'),
+      merchant: 'Salário',
+      amountCents: 500000,
+      merchantKey: 'salario',
+      sharedMerchantKey: 'salario',
+      addedByCompanyId: 'co_ana',
+      excludedFromTotals: false,
+      fixedManual: false,
+    };
+    const income = { ...stored, kind: 'income', category: null, fixed: false };
+    const expense = {
+      ...stored,
+      kind: 'expense',
+      category: 'housing',
+      fixed: true,
+    };
+
+    function serviceWith(row?: unknown) {
+      const prisma = fakePrisma();
+      membership(prisma, 'h1');
+      prisma.expense.findFirst.mockResolvedValue(row ?? null);
+      prisma.expense.findMany.mockResolvedValue([]);
+      prisma.expense.update.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({ ...(row as object), ...args.data }),
+      );
+      prisma.personName.findMany.mockResolvedValue([]);
+      return { prisma, svc: new ExpensesService(prisma as never) };
+    }
+
+    const body = {
+      merchant: 'Salário',
+      amountCents: 500000,
+      spentOn: '2026-10-12',
+    };
+
+    it('lista só o tipo pedido; sem tipo, não filtra', async () => {
+      const { prisma, svc } = serviceWith();
+      await svc.list(
+        memberOf('co_ana'),
+        '2026-10',
+        undefined,
+        undefined,
+        undefined,
+        'income',
+      );
+      expect(prisma.expense.findMany.mock.calls[0][0].where.kind).toBe(
+        'income',
+      );
+      expect(prisma.expense.count.mock.calls[0][0].where.kind).toBe('income');
+
+      await svc.list(memberOf('co_ana'), '2026-10');
+      expect(prisma.expense.findMany.mock.calls[1][0].where).not.toHaveProperty(
+        'kind',
+      );
+    });
+
+    it('cria entrada sem categoria e fora do grupo de fixos', async () => {
+      const { prisma, svc } = serviceWith();
+      prisma.expense.create.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({ ...args.data, id: 'novo' }),
+      );
+
+      const view = await svc.create(memberOf('co_ana'), {
+        ...body,
+        kind: 'income',
+      });
+
+      expect(prisma.expense.create.mock.calls[0][0].data).toMatchObject({
+        kind: 'income',
+        category: null,
+        fixed: false,
+        merchantKey: 'salario',
+        sharedMerchantKey: 'salario',
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.expense.updateMany).not.toHaveBeenCalled();
+      expect(view).toMatchObject({
+        kind: 'income',
+        category: null,
+        fixed: false,
+      });
+    });
+
+    it.each([
+      ['entrada com categoria', { kind: 'income', category: 'groceries' }],
+      ['gasto sem categoria', { kind: 'expense' }],
+      ['gasto com categoria nula', { kind: 'expense', category: null }],
+      ['gasto sem tipo nem categoria', {}],
+      ['tipo desconhecido', { kind: 'transfer', category: 'groceries' }],
+    ])('não cria %s', async (_label, extra) => {
+      const { prisma, svc } = serviceWith();
+      await expect(
+        svc.create(memberOf('co_ana'), { ...body, ...extra } as never),
+      ).rejects.toBeInstanceOf(ExpenseInvalidError);
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('sem tipo, o create continua sendo gasto', async () => {
+      const { prisma, svc } = serviceWith();
+      prisma.expense.create.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({ ...args.data, id: 'novo', kind: 'expense' }),
+      );
+      const view = await svc.create(memberOf('co_ana'), {
+        ...body,
+        category: 'groceries',
+      });
+      expect(view).toMatchObject({ kind: 'expense', category: 'groceries' });
+    });
+
+    it('gasto vira entrada: limpa categoria e fixo, e sai do grupo', async () => {
+      const { prisma, svc } = serviceWith(expense);
+      prisma.expense.findMany.mockResolvedValue([
+        { ...expense, id: 'e1' },
+        { ...expense, id: 'e2', spentOn: new Date('2026-09-12T00:00:00Z') },
+      ]);
+
+      await svc.patch(memberOf('co_ana'), 'e1', { kind: 'income' });
+
+      expect(prisma.expense.update.mock.calls[0][0].data).toEqual({
+        kind: 'income',
+        category: null,
+        fixed: false,
+        fixedManual: false,
+      });
+      // Sobrou um mês só: e2 deixa de ser fixo.
+      expect(prisma.expense.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['e2'] }, householdId: 'h1', fixedManual: false },
+        data: { fixed: false },
+      });
+    });
+
+    it('entrada vira gasto com a categoria pedida', async () => {
+      const { prisma, svc } = serviceWith(income);
+
+      await svc.patch(memberOf('co_ana'), 'e1', {
+        kind: 'expense',
+        category: 'housing',
+      });
+
+      expect(prisma.expense.update.mock.calls[0][0].data).toEqual({
+        kind: 'expense',
+        category: 'housing',
+        fixed: false,
+        fixedManual: false,
+      });
+    });
+
+    it.each([
+      ['entrada vira gasto sem categoria', income, { kind: 'expense' }],
+      ['categoria em entrada', income, { category: 'groceries' }],
+      ['fixo em entrada', income, { fixed: true }],
+      [
+        'virar entrada com categoria',
+        expense,
+        { kind: 'income', category: 'groceries' },
+      ],
+      ['virar entrada com fixo', expense, { kind: 'income', fixed: true }],
+      ['categoria nula em gasto', expense, { category: null }],
+      ['categoria desconhecida', expense, { category: 'pets' }],
+      ['tipo desconhecido', expense, { kind: 'transfer' }],
+    ])('recusa %s sem gravar', async (_label, row, patch) => {
+      const { prisma, svc } = serviceWith(row);
+      await expect(
+        svc.patch(memberOf('co_ana'), 'e1', patch as never),
+      ).rejects.toBeInstanceOf(ExpenseInvalidError);
+      expect(prisma.expense.update).not.toHaveBeenCalled();
+    });
+
+    it('um patch de categoria não mexe no tipo nem no fixo', async () => {
+      const { prisma, svc } = serviceWith(expense);
+      await svc.patch(memberOf('co_ana'), 'e1', { category: 'health' });
+      expect(prisma.expense.update.mock.calls[0][0].data).toEqual({
+        category: 'health',
+      });
+    });
+  });
 });

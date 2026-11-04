@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type {
   ExpenseCategory,
+  ExpenseKind,
   ExpensePage,
+  ExpenseSource,
   ExpenseView,
 } from '@yield2pay/shared';
 import type { ActiveMembership } from '../auth/authenticated-request';
 import { initialsOf } from '../household/household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { saoPauloToday } from '../summary/summary.math';
+import { merchantKey } from './classify';
 import { ExpenseInvalidError, ExpenseNotFoundError } from './expense.errors';
 import {
   fixedForRead,
@@ -17,10 +21,15 @@ import {
   planExpenseWrite,
   writeExpensePlan,
 } from './fixed-flags';
-import { isCalendarDay, type ExpensePageQuery } from './page-query';
+import {
+  isCalendarDay,
+  isExpenseKind,
+  type ExpensePageQuery,
+} from './page-query';
 
 type PatchExpense = {
-  category?: ExpenseCategory;
+  kind?: ExpenseKind;
+  category?: ExpenseCategory | null;
   fixed?: boolean;
 };
 
@@ -47,6 +56,7 @@ export class ExpensesService {
     category?: ExpenseCategory,
     page?: ExpensePageQuery,
     range?: { from: string; to: string },
+    kind?: ExpenseKind,
   ): Promise<ExpensePage> {
     const { limit, offset, cursor } = readPage(page);
     const { householdId } = membership;
@@ -57,6 +67,7 @@ export class ExpensesService {
       householdId,
       spentOn: { gte, lt },
       ...(category ? { category } : {}),
+      ...(kind ? { kind } : {}),
     };
     const where = cursor ? { AND: [base, cursorClause(cursor)] } : base;
     const [total, expenses, legacy] = await Promise.all([
@@ -95,6 +106,8 @@ export class ExpensesService {
              COALESCE(SUM(amount_cents), 0)::int AS "amountCents"
       FROM expenses
       WHERE household_id = ${householdId}
+        AND kind = 'expense'
+        AND NOT excluded_from_totals
       GROUP BY 1
       ORDER BY 1 DESC
     `;
@@ -110,19 +123,21 @@ export class ExpensesService {
       merchant?: string;
       amountCents?: number;
       spentOn?: string;
-      category?: ExpenseCategory;
+      kind?: ExpenseKind;
+      category?: ExpenseCategory | null;
     },
   ) {
     const { householdId, companyId } = membership;
     const merchant = body.merchant?.trim() ?? '';
+    const kind = body.kind ?? 'expense';
     if (
       !merchant ||
       !Number.isInteger(body.amountCents) ||
       (body.amountCents ?? 0) <= 0 ||
       !body.spentOn ||
       !DAY.test(body.spentOn) ||
-      !body.category ||
-      !CATEGORIES.includes(body.category) ||
+      !isExpenseKind(kind) ||
+      !isCategoryAllowed(kind, body.category) ||
       body.spentOn > saoPauloToday(new Date())
     ) {
       throw new ExpenseInvalidError(
@@ -132,8 +147,29 @@ export class ExpensesService {
       );
     }
     const amountCents = body.amountCents as number;
-    const category = body.category;
     const spentOn = body.spentOn;
+    if (kind === 'income') {
+      // Entrada não conta para o grupo de fixos: não precisa do cadeado nem do plano.
+      const key = merchantKey(merchant);
+      const income = await this.prisma.expense.create({
+        data: {
+          householdId,
+          addedByCompanyId: companyId,
+          spentOn: new Date(`${spentOn}T00:00:00.000Z`),
+          merchant,
+          kind,
+          category: null,
+          fixed: false,
+          fixedManual: false,
+          merchantKey: key,
+          sharedMerchantKey: key,
+          amountCents,
+        },
+      });
+      const incomeNames = await this.loadNames([income.addedByCompanyId]);
+      return toExpenseView(income, incomeNames, false);
+    }
+    const category = body.category as ExpenseCategory;
     const created = await this.prisma.$transaction(async (tx) => {
       await lockExpenseGroups(tx, householdId, [merchant]);
       const existing = await loadExpenseGroup(tx, householdId, [merchant]);
@@ -164,26 +200,48 @@ export class ExpensesService {
 
   async patch(membership: ActiveMembership, id: string, body: PatchExpense) {
     const { householdId } = membership;
+    if (body.kind !== undefined && !isExpenseKind(body.kind)) {
+      throw new ExpenseInvalidError('kind is invalid');
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.expense.findFirst({
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      if (existing.source === 'wallet') {
+        return patchWalletLine(tx, existing, body);
+      }
+      const wasIncome = existing.kind === 'income';
+      const nextKind = body.kind ?? (wasIncome ? 'income' : 'expense');
+      const changesKind = (nextKind === 'income') !== wasIncome;
+      const nextCategory = nextCategoryOf(nextKind, body, existing.category);
       await lockExpenseGroups(tx, householdId, [existing.merchant]);
-      const nextCategory = body.category ?? existing.category;
       const group = await loadExpenseGroup(tx, householdId, [
         existing.merchant,
       ]);
-      const snapshots = group.map((row) =>
-        row.id === existing.id
-          ? {
-              ...row,
-              category: nextCategory,
-              fixed: body.fixed ?? row.fixed,
-              fixedManual: body.fixed === undefined ? row.fixedManual : true,
-            }
-          : row,
-      );
+      const others = group.filter((row) => row.id !== existing.id);
+      // Quem virou entrada sai do grupo; quem virou gasto entra. Os dois casos
+      // recalculam o fixo das outras linhas do mesmo estabelecimento.
+      const snapshots =
+        nextKind === 'income'
+          ? others
+          : [
+              ...others,
+              {
+                id: existing.id,
+                merchant: existing.merchant,
+                spentOn: existing.spentOn,
+                amountCents: existing.amountCents,
+                merchantKey: existing.merchantKey,
+                sharedMerchantKey: existing.sharedMerchantKey,
+                excludedFromTotals: existing.excludedFromTotals,
+                category: nextCategory,
+                fixed: body.fixed ?? (changesKind ? false : existing.fixed),
+                fixedManual:
+                  body.fixed !== undefined ||
+                  (!changesKind && existing.fixedManual),
+              },
+            ];
       const plan = planExpenseWrite(snapshots, [], true);
       if (body.fixed !== undefined) {
         plan.markFixed = plan.markFixed.filter((item) => item !== existing.id);
@@ -192,18 +250,29 @@ export class ExpensesService {
         );
       }
       const data: {
-        category?: ExpenseCategory;
+        kind?: ExpenseKind;
+        category?: ExpenseCategory | null;
         fixed?: boolean;
         fixedManual?: boolean;
       } = {};
-      if (body.category !== undefined) data.category = body.category;
+      if (body.category !== undefined) data.category = nextCategory;
+      if (changesKind) {
+        data.kind = nextKind;
+        data.category = nextCategory;
+        data.fixed = false;
+        data.fixedManual = false;
+      }
       if (body.fixed !== undefined) {
         data.fixed = body.fixed;
         data.fixedManual = true;
       }
       const row = await tx.expense.update({ where: { id: existing.id }, data });
       await writeExpensePlan(tx, householdId, plan);
-      return row;
+      if (!changesKind) return row;
+      // O plano pode ter marcado esta linha como fixa depois do update acima.
+      return (
+        (await tx.expense.findFirst({ where: { id, householdId } })) ?? row
+      );
     });
     const names = await this.loadNames([updated.addedByCompanyId]);
     return toExpenseView(updated, names, updated.fixed);
@@ -216,6 +285,11 @@ export class ExpensesService {
         where: { id, householdId },
       });
       if (!existing) throw new ExpenseNotFoundError();
+      // A linha sai junto com a carteira. Apagar aqui sumiria com ela para sempre,
+      // porque o sync já passou dessa operação.
+      if (existing.source === 'wallet') {
+        throw new ExpenseInvalidError('wallet line is removed with the wallet');
+      }
       await lockExpenseGroups(tx, householdId, [existing.merchant]);
       const group = existing.merchant
         ? await loadExpenseGroup(tx, householdId, [existing.merchant])
@@ -242,6 +316,60 @@ export class ExpensesService {
       where: { companyId: { in: ids } },
     });
   }
+}
+
+/**
+ * A linha da carteira troca de categoria, mas o tipo vem da rede. Ela não entra no
+ * grupo de fixos, então não recalcula nada.
+ */
+async function patchWalletLine(
+  tx: Prisma.TransactionClient,
+  existing: { id: string; kind: string; category: string | null },
+  body: PatchExpense,
+) {
+  const kind = existing.kind as ExpenseKind;
+  if (body.kind !== undefined && body.kind !== kind) {
+    throw new ExpenseInvalidError('wallet line keeps its kind');
+  }
+  const category = nextCategoryOf(kind, body, existing.category);
+  return tx.expense.update({
+    where: { id: existing.id },
+    data: {
+      category,
+      ...(body.fixed !== undefined
+        ? { fixed: body.fixed, fixedManual: true }
+        : {}),
+    },
+  });
+}
+
+/** Entrada não tem categoria; gasto tem uma das categorias conhecidas. */
+function isCategoryAllowed(kind: ExpenseKind, category: unknown): boolean {
+  if (kind === 'income') return category == null;
+  return CATEGORIES.includes(category as ExpenseCategory);
+}
+
+/** Categoria depois do patch. Recusa aqui o que o CHECK do banco viraria em 500. */
+function nextCategoryOf(
+  kind: ExpenseKind,
+  body: PatchExpense,
+  current: string | null,
+): ExpenseCategory | null {
+  if (kind === 'income') {
+    if (body.category != null || body.fixed !== undefined) {
+      throw new ExpenseInvalidError('income has no category or fixed flag');
+    }
+    return null;
+  }
+  if (body.category !== undefined) {
+    if (!isCategoryAllowed(kind, body.category)) {
+      throw new ExpenseInvalidError('category is invalid');
+    }
+    return body.category;
+  }
+  // Entrada que vira gasto sem dizer a categoria.
+  if (current == null) throw new ExpenseInvalidError('category is required');
+  return current as ExpenseCategory;
 }
 
 function readPage(page?: ExpensePageQuery) {
@@ -307,9 +435,12 @@ function toExpenseView(
     id: string;
     spentOn: Date;
     merchant: string;
-    category: string;
+    kind: string;
+    category: string | null;
     fixed: boolean;
     amountCents: number;
+    excludedFromTotals: boolean;
+    source?: string;
     addedByCompanyId: string;
   },
   names: {
@@ -324,9 +455,12 @@ function toExpenseView(
     id: row.id,
     date: utcCalendarDay(row.spentOn),
     merchant: row.merchant,
-    category: row.category as ExpenseCategory,
+    kind: row.kind as ExpenseKind,
+    category: row.category as ExpenseCategory | null,
     fixed,
     amountCents: row.amountCents,
+    excludedFromTotals: row.excludedFromTotals,
+    source: (row.source ?? 'manual') as ExpenseSource,
     addedBy: {
       displayName: person?.displayName?.trim() || 'Membro',
       initials: person ? initialsOf(person.fullName, person.displayName) : '?',

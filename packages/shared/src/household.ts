@@ -4,6 +4,61 @@ export type ExpenseCategory =
   | 'housing' | 'health' | 'education' | 'subscriptions'
   | 'groceries' | 'restaurant' | 'transport' | 'shopping';
 
+/** Gasto ou entrada de dinheiro. A entrada não tem categoria. */
+export type ExpenseKind = 'expense' | 'income';
+/** De onde a linha veio. */
+export type ExpenseSource = 'manual' | 'statement' | 'wallet';
+
+export type WalletNetwork = 'testnet' | 'public';
+export type WalletSyncStatus = 'pending' | 'ok' | 'updating';
+/** conversion e info ficam só no movimento, fora dos totais. */
+export type WalletMovementClass = 'expense' | 'income' | 'conversion' | 'info';
+
+/** Carteira só de leitura. O endereço só sai mascarado (G...ABCD). */
+export interface HouseholdWalletView {
+  id: string;
+  label: string;
+  network: WalletNetwork;
+  maskedAddress: string;
+  syncStatus: WalletSyncStatus;
+  lastSyncedAt: string | null;
+  /** A pessoa adicionou esta carteira: só ela remove, altera e marca transferência. */
+  canManage: boolean;
+}
+
+export interface WalletMovementView {
+  id: string;
+  date: string;
+  walletId: string;
+  /** "Carteira [apelido]". */
+  origin: string;
+  /** Tipo da operação no Horizon, ou 'fee' na taxa. */
+  opType: string;
+  direction: 'in' | 'out' | 'none';
+  /** Código do ativo; outro emissor vem com o emissor mascarado. Nulo quando não há ativo. */
+  asset: string | null;
+  quantity: string | null;
+  /** Nulo: sem valor em reais. Zero: menos de um centavo. */
+  valueCents: number | null;
+  movementClass: WalletMovementClass;
+  /** Marcada como "transferência minha": a linha fica fora dos totais. */
+  ownTransfer: boolean;
+  /** Tem linha em expenses e a pessoa adicionou a carteira. */
+  canMarkTransfer: boolean;
+}
+
+export interface WalletMovementPage {
+  items: WalletMovementView[];
+  /** A lista parou no teto da resposta. */
+  truncated: boolean;
+}
+
+export interface WalletSyncResult {
+  wallets: { id: string; syncStatus: WalletSyncStatus; retryAfterSeconds: number | null }[];
+  /** Algum movimento novo foi gravado: vale recarregar a tela. */
+  changed: boolean;
+}
+
 export type HouseholdSize = 'solo' | 'two' | 'three_to_four' | 'five_or_more';
 export type GoalMonths = 6 | 12 | 24 | 60;
 export type CryptoExperience = 'beginner' | 'fund' | 'declined';
@@ -104,9 +159,15 @@ export interface ExpenseView {
   id: string;
   date: string;
   merchant: string;
-  category: ExpenseCategory;
+  kind: ExpenseKind;
+  /** Nula só em entrada. */
+  category: ExpenseCategory | null;
   fixed: boolean;
   amountCents: number;
+  /** A linha aparece na lista, mas fica fora de todos os totais. */
+  excludedFromTotals: boolean;
+  /** A linha da carteira não é apagada aqui; ela sai junto com a carteira. */
+  source?: ExpenseSource;
   addedBy: AddedBy;
 }
 
@@ -119,6 +180,24 @@ export interface ExpensePage {
 export interface StatementImportResult {
   statementId: string;
   imported: number;
+  skipped: number;
+}
+
+/** Uma linha do extrato antes de gravar. index é a posição dela em kinds, na confirmação. */
+export interface StatementPreviewRow {
+  index: number;
+  date: string;
+  merchant: string;
+  amountCents: number;
+  kind: ExpenseKind;
+  /** O FITID já está no grupo: a confirmação pula esta linha. */
+  alreadyImported: boolean;
+}
+
+export interface StatementPreview {
+  filename: string;
+  rows: StatementPreviewRow[];
+  /** Linhas do arquivo que não deu para ler. */
   skipped: number;
 }
 
@@ -136,6 +215,10 @@ export interface MonthTotal {
 
 export interface HouseholdSummary {
   monthTotalCents: number;
+  /** Soma das entradas do mês. Não é a renda informada no perfil. */
+  incomeCents: number;
+  /** Entradas menos gastos do mês. */
+  balanceCents: number;
   previousComparableCents: number;
   changePercent: number | null;
   projectedCents: number;

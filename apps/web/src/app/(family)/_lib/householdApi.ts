@@ -1,6 +1,7 @@
 import type {
   AccountView,
   ExpenseCategory,
+  ExpenseKind,
   ExpensePage,
   ExpenseView,
   HouseholdPersonView,
@@ -8,13 +9,18 @@ import type {
   HouseholdProfile,
   HouseholdRole,
   HouseholdSummary,
+  HouseholdWalletView,
   LessonProgressView,
   LessonView,
   PatchHouseholdProfile,
   MonthTotal,
   StatementImportResult,
+  StatementPreview,
   StatementView,
   UpsertHouseholdProfile,
+  WalletMovementPage,
+  WalletNetwork,
+  WalletSyncResult,
 } from '@yield2pay/shared';
 
 type GetToken = () => Promise<string | null>;
@@ -24,6 +30,9 @@ export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
 
 export const DASHBOARD_LOAD_TIMEOUT_MS = 8_000;
 
+/** Adicionar confere a conta na rede, e o sync traz páginas do Horizon. A API para antes disto. */
+export const WALLET_REQUEST_TIMEOUT_MS = 60_000;
+
 /** 20 páginas de 5.000. Acima disso a tela avisa em vez de cortar calada. */
 export const EXPENSE_PAGE_CAP = 20;
 
@@ -31,6 +40,13 @@ export const EXPENSE_PAGE_CAP_NOTE =
   'Mostramos só as primeiras 100 mil despesas. O restante ficou de fora.';
 
 export type ExpenseRows = ExpenseView[] & { truncated: boolean };
+
+/** Gasto leva categoria; entrada não. */
+export type NewExpense = {
+  merchant: string;
+  amountCents: number;
+  spentOn: string;
+} & ({ kind?: 'expense'; category: ExpenseCategory } | { kind: 'income'; category?: undefined });
 
 /** Um mês inteiro volta numa página só. A API aceita este teto. */
 export const MONTH_EXPENSE_LIMIT = '5000';
@@ -106,6 +122,26 @@ export function createHouseholdApi(
     return JSON.parse(text) as T;
   }
 
+  async function postFile<T>(path: string, file: File, kinds?: ExpenseKind[]): Promise<T> {
+    const token = await getToken();
+    const headers: Record<string, string> = {};
+    if (token != null) headers.Authorization = `Bearer ${token}`;
+    if (options?.getIdentityToken) {
+      const idToken = await options.getIdentityToken();
+      if (idToken) headers['privy-id-token'] = idToken;
+    }
+    const body = new FormData();
+    if (kinds) body.append('kinds', JSON.stringify(kinds));
+    body.append('file', file);
+    const response = await fetch(`${baseUrl}${path}`, { method: 'POST', headers, body });
+    if (!response.ok) {
+      const error = new Error(`POST ${path} failed`) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
+    return (await response.json()) as T;
+  }
+
   return {
     getAccount: () => request<AccountView>('/account'),
     patchAccount: (displayName: string) =>
@@ -165,7 +201,7 @@ export function createHouseholdApi(
         body: JSON.stringify(body),
       }),
     skipProfile: () => request<void>('/household/profile/skip', { method: 'POST' }),
-    getExpenses: async (opts?: { month?: string; from?: string; to?: string; category?: ExpenseCategory }) => {
+    getExpenses: async (opts?: { month?: string; from?: string; to?: string; category?: ExpenseCategory; kind?: ExpenseKind }) => {
       const items: ExpenseView[] = [];
       let cursor: string | undefined;
       let total = Number.POSITIVE_INFINITY;
@@ -179,6 +215,7 @@ export function createHouseholdApi(
             from: opts?.from,
             to: opts?.to,
             category: opts?.category,
+            kind: opts?.kind,
             limit: MONTH_EXPENSE_LIMIT,
             cursor,
           })}`,
@@ -203,13 +240,13 @@ export function createHouseholdApi(
         typeof row === 'string' ? { month: row, amountCents: 0 } : { month: row.month, amountCents: row.amountCents ?? 0 },
       );
     },
-    createExpense: (body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) =>
+    createExpense: (body: NewExpense) =>
       request<ExpenseView>('/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
-    patchExpense: (id: string, body: { category?: ExpenseCategory; fixed?: boolean }) =>
+    patchExpense: (id: string, body: { kind?: ExpenseKind; category?: ExpenseCategory | null; fixed?: boolean }) =>
       request<ExpenseView>(`/expenses/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -224,24 +261,11 @@ export function createHouseholdApi(
       request<HouseholdSummary>(
         `/household/summary${queryString({ month: opts?.month, category: opts?.category })}`,
       ),
-    importStatement: async (file: File) => {
-      const token = await getToken();
-      const headers: Record<string, string> = {};
-      if (token != null) headers.Authorization = `Bearer ${token}`;
-      if (options?.getIdentityToken) {
-        const idToken = await options.getIdentityToken();
-        if (idToken) headers['privy-id-token'] = idToken;
-      }
-      const body = new FormData();
-      body.append('file', file);
-      const response = await fetch(`${baseUrl}/statements`, { method: 'POST', headers, body });
-      if (!response.ok) {
-        const error = new Error('POST /statements failed') as Error & { status?: number };
-        error.status = response.status;
-        throw error;
-      }
-      return (await response.json()) as StatementImportResult;
-    },
+    /** Lê o extrato e devolve as linhas com o tipo sugerido. Não grava nada. */
+    previewStatement: (file: File) => postFile<StatementPreview>('/statements/preview', file),
+    /** kinds traz um tipo por linha da prévia. Sem ele, a API só grava os débitos. */
+    importStatement: (file: File, kinds?: ExpenseKind[]) =>
+      postFile<StatementImportResult>('/statements', file, kinds),
     getLessons: (track: 'beginner' | 'fund') =>
       request<LessonView[]>(`/lessons${queryString({ track })}`),
     getLessonProgress: () => request<LessonProgressView[]>('/lesson-progress'),
@@ -252,5 +276,25 @@ export function createHouseholdApi(
         body: JSON.stringify({ completed, answers }),
       }),
     deleteLessonProgress: () => request<void>('/lesson-progress', { method: 'DELETE' }),
+    listWallets: () => request<HouseholdWalletView[]>('/household-wallets'),
+    addWallet: (body: { address: string; label: string; network: WalletNetwork }) =>
+      request<HouseholdWalletView>('/household-wallets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    removeWallet: (id: string) =>
+      request<void>(`/household-wallets/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    syncWallets: () => request<WalletSyncResult>('/household-wallets/sync', { method: 'POST' }),
+    getWalletMovements: (opts: { month?: string; from?: string; to?: string }) =>
+      request<WalletMovementPage>(
+        `/household-wallets/movements${queryString({ month: opts.from ? undefined : opts.month, from: opts.from, to: opts.to })}`,
+      ),
+    markWalletTransfer: (id: string, ownTransfer: boolean) =>
+      request<void>(`/household-wallets/movements/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownTransfer }),
+      }),
   };
 }

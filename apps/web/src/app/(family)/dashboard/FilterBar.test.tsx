@@ -51,6 +51,47 @@ describe('modal de filtros', () => {
     expect(portal).toHaveClass('fam-shell');
     expect(portal).not.toBe(document.querySelector('.fam-shell'));
   });
+
+  it('o seletor de tipo do modal filtra e o botão fala de entradas', () => {
+    const month = '2026-10';
+    const income = {
+      id: 'e1',
+      date: '2026-10-02',
+      merchant: 'Salário',
+      kind: 'income' as const,
+      category: null,
+      fixed: false,
+      amountCents: 500000,
+      excludedFromTotals: false,
+      addedBy: { displayName: 'Ana', initials: 'A' },
+    };
+    const onApply = vi.fn();
+    render(
+      <FilterBar
+        month={month}
+        months={[month]}
+        arrowMonths={monthArrowSteps([month])}
+        totals={{}}
+        expenses={[income, { ...income, id: 'e2', kind: 'expense', category: 'groceries', merchant: 'Mercado' }]}
+        filters={EMPTY_FILTERS}
+        onFilters={() => undefined}
+        onMonth={() => undefined}
+        onApply={onApply}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const dialog = screen.getByRole('dialog', { name: 'Filtros' });
+    const kinds = within(within(dialog).getByRole('group', { name: 'Tipo de lançamento' }));
+    expect(kinds.getByRole('button', { name: 'Todos' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Mostrar 2 lançamentos' })).toBeInTheDocument();
+
+    fireEvent.click(kinds.getByRole('button', { name: 'Entradas' }));
+    expect(kinds.getByRole('button', { name: 'Entradas' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mostrar 1 entrada' }));
+
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ kind: 'income' }), month);
+  });
 });
 
 function renderBar(month: string, expenseMonths: string[], onMonth: (next: string) => void = () => undefined) {

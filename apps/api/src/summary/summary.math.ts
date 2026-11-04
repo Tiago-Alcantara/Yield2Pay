@@ -1,17 +1,29 @@
-import type { ExpenseCategory, HouseholdSummary } from '@yield2pay/shared';
+import type {
+  ExpenseCategory,
+  ExpenseKind,
+  HouseholdSummary,
+} from '@yield2pay/shared';
 
 export interface SummaryExpense {
   spentOn: string;
   merchant: string;
-  category: ExpenseCategory;
+  /** Nula só em entrada. */
+  category: ExpenseCategory | null;
   fixed: boolean;
   amountCents: number;
+  /** Sem o campo, a linha é gasto. */
+  kind?: ExpenseKind;
+  excludedFromTotals?: boolean;
 }
+
+/** Gasto que entra nas contas. O CHECK do banco garante a categoria. */
+type CountedExpense = SummaryExpense & { category: ExpenseCategory };
 
 export interface SummaryInput {
   month: string;
   today: string;
   expenses: SummaryExpense[];
+  /** Renda informada no perfil. Não é a soma das entradas do mês. */
   incomeCents: number | null;
   reserveCents: number | null;
   goalMonths: number | null;
@@ -26,6 +38,10 @@ export function saoPauloToday(now: Date): string {
     month: '2-digit',
     day: '2-digit',
   }).format(now);
+}
+
+function isCountedExpense(expense: SummaryExpense): expense is CountedExpense {
+  return expense.kind !== 'income' && expense.excludedFromTotals !== true;
 }
 
 function round1(value: number): number {
@@ -88,10 +104,10 @@ function averageOfClosedMonths(
   );
 }
 
-function fullMonth(
-  expenses: SummaryExpense[],
+function fullMonth<T extends SummaryExpense>(
+  expenses: T[],
   month: string,
-): SummaryExpense[] {
+): T[] {
   return expenses.filter((expense) => inMonth(expense.spentOn, month));
 }
 
@@ -108,8 +124,9 @@ function cumulative(expenses: SummaryExpense[], throughDay: number): number[] {
 }
 
 export function summarize(input: SummaryInput): HouseholdSummary {
-  const { month, today, expenses, incomeCents, reserveCents, goalMonths } =
-    input;
+  const { month, today, incomeCents, reserveCents, goalMonths } = input;
+  // Todos os números abaixo olham só para gastos. Entrada e linha excluída param aqui.
+  const expenses = input.expenses.filter(isCountedExpense);
   const todayDay = dayOf(today);
   const inProgress = month === today.slice(0, 7);
   const previousMonth = shiftMonth(month, -1);
@@ -118,6 +135,15 @@ export function summarize(input: SummaryInput): HouseholdSummary {
     ? monthExpenses.filter((expense) => dayOf(expense.spentOn) <= todayDay)
     : monthExpenses;
   const monthTotalCents = sum(included);
+  // Mesmo corte de dias do total de gastos, para o saldo comparar o mesmo período.
+  const monthIncomeCents = sum(
+    fullMonth(input.expenses, month).filter(
+      (expense) =>
+        expense.kind === 'income' &&
+        expense.excludedFromTotals !== true &&
+        (!inProgress || dayOf(expense.spentOn) <= todayDay),
+    ),
+  );
 
   const previousExpenses = fullMonth(expenses, previousMonth);
   const previousIncluded = inProgress
@@ -208,6 +234,8 @@ export function summarize(input: SummaryInput): HouseholdSummary {
 
   return {
     monthTotalCents,
+    incomeCents: monthIncomeCents,
+    balanceCents: monthIncomeCents - monthTotalCents,
     previousComparableCents,
     changePercent,
     projectedCents,

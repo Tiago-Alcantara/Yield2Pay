@@ -3,20 +3,21 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
+import type { AccountView, CompleteOnboarding, ExpenseCategory, ExpenseKind, ExpenseView, HouseholdProfile, HouseholdSummary, LessonProgressView, LessonView, MonthTotal } from '@yield2pay/shared';
 import { LOCAL_DEV_TOKEN } from '../_lib/localSession';
 import { Button } from '@/components/Button';
 import { MetalCard } from '@/components/MetalCard';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { isPrivyConfigured } from '@/providers/PrivyProviderWrapper';
-import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows } from '../_lib/householdApi';
+import { createHouseholdApi, DASHBOARD_LOAD_TIMEOUT_MS, EXPENSE_PAGE_CAP_NOTE, type ExpenseRows, type NewExpense } from '../_lib/householdApi';
 import { setAccountView } from '../_lib/accountStore';
 import { AppSplash } from '../_components/loading/AppSplash';
 import { PainelSkeleton } from '../_components/loading/PainelSkeleton';
 import { useTopProgress } from '../_components/loading/TopProgress';
 import { WaveReveal } from '../_components/loading/WaveReveal';
+import { WalletMovements } from './WalletMovements';
 import { Charts } from './Charts';
-import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, type ExpenseFilters } from './FilterBar';
+import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, rowsNoun, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
 import { Onboarding } from './Onboarding';
 import './painel.css';
@@ -35,6 +36,8 @@ import {
   mesNome,
   metaLabel,
   MONTH_RANGE_CAP_NOTE,
+  isIncomeRow,
+  isSpendRow,
   isValidMonth,
   monthArrowSteps,
   monthsCovering,
@@ -45,13 +48,17 @@ import {
   saoPauloDay,
   saoPauloMonth,
   saoPauloToday,
+  signedBrl,
   sortMonths,
+  sumCents,
   type ChartId,
 } from './painel-format';
 
 function categoriesOf(rows: ExpenseView[]) {
   const totals = new Map<ExpenseCategory, number>();
-  for (const row of rows) totals.set(row.category, (totals.get(row.category) ?? 0) + row.amountCents);
+  for (const row of rows) {
+    if (row.category != null) totals.set(row.category, (totals.get(row.category) ?? 0) + row.amountCents);
+  }
   return [...totals.entries()]
     .filter(([, amountCents]) => amountCents > 0)
     .map(([category, amountCents]) => ({ category, amountCents }))
@@ -72,6 +79,8 @@ function IconTrash() {
 
 const EMPTY_SUMMARY: HouseholdSummary = {
   monthTotalCents: 0,
+  incomeCents: 0,
+  balanceCents: 0,
   previousComparableCents: 0,
   changePercent: null,
   projectedCents: 0,
@@ -213,6 +222,7 @@ function PainelScreen({
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [walletsVersion, setWalletsVersion] = useState(0);
   const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
   const pendingConta = useRef(false);
   const settledHash = useRef<string | null>(null);
@@ -554,8 +564,12 @@ function PainelScreen({
     setMonths(sorted.includes(selected) ? sorted : [...sorted, selected].sort());
   }
 
-  async function importFile(file: File) {
-    const result = await api().importStatement(file);
+  function previewFile(file: File) {
+    return api().previewStatement(file);
+  }
+
+  async function importFile(file: File, kinds: ExpenseKind[]) {
+    const result = await api().importStatement(file, kinds);
     await refresh(month);
     return result;
   }
@@ -580,7 +594,7 @@ function PainelScreen({
     await refresh(month);
   }
 
-  async function createExpense(body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) {
+  async function createExpense(body: NewExpense) {
     await api().createExpense(body);
     await refresh(month);
   }
@@ -748,21 +762,37 @@ function PainelScreen({
   const totals: Record<string, number> = {};
   for (const row of monthTotals) totals[row.month] = row.amountCents;
   if (partial) totals[month] = summary.monthTotalCents;
-  const present = new Set(expenses.map((row) => CATEGORY_LABEL[row.category]));
+  const present = new Set(expenses.flatMap((row) => (row.category != null ? [CATEGORY_LABEL[row.category]] : [])));
   for (const id of filters.cats) present.add(CATEGORY_LABEL[id]);
   const chips = ['Todas', ...Object.values(CATEGORY_LABEL).filter((label) => present.has(label))];
   const futureHidden = filters.mode !== 'custom' && partial
     ? expenses.filter((row) => row.date.slice(0, 7) === month && row.date > today).length
     : 0;
-  const list = expenses.filter((row) => {
+  const matchesView = (row: ExpenseView, view: ExpenseFilters) => {
     if (filters.mode !== 'custom' && partial && row.date > today) return false;
-    return matchesExpense(row, filters, filters.mode === 'custom' ? undefined : month);
-  });
+    return matchesExpense(row, view, filters.mode === 'custom' ? undefined : month);
+  };
+  const list = expenses.filter((row) => matchesView(row, filters));
   const rows = showAll ? list : list.slice(0, 8);
-  const listCents = list.reduce((sum, row) => sum + row.amountCents, 0);
+  // Os números ignoram o filtro de tipo: escolher "Entradas" não zera os gastos.
+  const counted = expenses.filter((row) => matchesView(row, { ...filters, kind: 'todos' }));
+  const spendRows = counted.filter(isSpendRow);
+  const listCents = sumCents(spendRows);
   const narrowed = filters.mode === 'custom' || filters.cats.length > 0 || filters.tipo !== 'todos' || filters.min !== '' || filters.max !== '' || filters.q.trim() !== '';
-  const viewCategories = narrowed ? categoriesOf(list) : summary.byCategory;
+  const viewCategories = narrowed ? categoriesOf(spendRows) : summary.byCategory;
   const viewTotal = narrowed ? listCents : summary.monthTotalCents;
+  // A API publicada antes das entradas não manda estes dois campos.
+  const viewIncome = narrowed ? sumCents(counted.filter(isIncomeRow)) : summary.incomeCents ?? 0;
+  const viewBalance = narrowed ? viewIncome - viewTotal : summary.balanceCents ?? viewIncome - viewTotal;
+  const listNoun = rowsNoun(list);
+  const listSpendCents = sumCents(list.filter(isSpendRow));
+  const listIncomeCents = sumCents(list.filter(isIncomeRow));
+  const listHasIncome = list.some((row) => row.kind === 'income');
+  const listAmounts = !listHasIncome
+    ? brl(reais(listSpendCents))
+    : listNoun.many === 'entradas'
+      ? signedBrl(listIncomeCents)
+      : 'gastos ' + brl(reais(listSpendCents)) + ' · entradas ' + signedBrl(listIncomeCents);
   const top = viewCategories[0];
   const viewSummary = narrowed
     ? {
@@ -946,6 +976,23 @@ function PainelScreen({
         </div>
 
         {summaryState === 'ready' && (
+        <div data-reveal className="y2p-totals" role="group" aria-label="Totais do período">
+          <div className="y2p-totals__item">
+            <span className="y2p-totals__label">Gastos</span>
+            <span className="y2p-totals__value">{brl(reais(viewTotal))}</span>
+          </div>
+          <div className="y2p-totals__item">
+            <span className="y2p-totals__label">Entradas</span>
+            <span className="y2p-totals__value y2p-totals__value--income">{signedBrl(viewIncome)}</span>
+          </div>
+          <div className="y2p-totals__item">
+            <span className="y2p-totals__label">Saldo</span>
+            <span className={'y2p-totals__value' + (viewBalance < 0 ? ' y2p-totals__value--negative' : '')}>{signedBrl(viewBalance)}</span>
+          </div>
+        </div>
+        )}
+
+        {summaryState === 'ready' && (
         <div data-reveal className="y2p-stats">
           <StatCard title={kpis[1].label} value={kpis[1].value} label="Depois da renda da casa" sub={kpis[1].sub || 'Renda ainda não informada'} />
           <StatCard title="Gasto médio" value={brl0(reais(summary.averageCents))} label="Meses já fechados" sub={partial ? 'Projeção ' + brl0(reais(summary.projectedCents)) : 'Base da reserva'} />
@@ -962,12 +1009,12 @@ function PainelScreen({
         <div id="s-gastos" data-reveal className="y2p-dashboard__section y2p-section" data-screen-label="Gastos">
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h2 className="y2p-section-h">{filters.mode === 'custom' ? 'Gastos do período' : 'Gastos de ' + mName}</h2>
+              <h2 className="y2p-section-h">{cap(listNoun.many) + (filters.mode === 'custom' ? ' do período' : ' de ' + mName)}</h2>
               {rangeNote ? <p role="status" className="y2p-note">{rangeNote}</p> : null}
               {pageNote ? <p role="status" className="y2p-note">{pageNote}</p> : null}
               {summaryState === 'ready' && (
                 <p className="y2p-section-sub">
-                  {list.length + (list.length === 1 ? ' gasto' : ' gastos') + ' · ' + brl(reais(listCents))}
+                  {list.length + ' ' + (list.length === 1 ? listNoun.one : listNoun.many) + ' · ' + listAmounts}
                 </p>
               )}
             </div>
@@ -1002,22 +1049,35 @@ function PainelScreen({
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="y2p-ellipsis">{row.merchant}</span>
                     {row.fixed && <span className="y2p-fixo">fixo</span>}
+                    {row.source === 'wallet' && row.excludedFromTotals && <span className="y2p-fixo">transferência minha</span>}
                   </span>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-3, #8a8d91)', marginTop: 2 }}>{row.addedBy.displayName}</span>
                 </span>
-                <select
-                  aria-label={'Categoria de ' + row.merchant}
-                  value={row.category}
-                  onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
-                  className="y2p-tx-cat"
-                >
-                  {(Object.entries(CATEGORY_LABEL) as [ExpenseCategory, string][]).map(([id, label]) => (
-                    <option key={id} value={id}>{label}</option>
-                  ))}
-                </select>
-                <span className="y2p-num" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 96 }}>
-                  {brl(reais(row.amountCents))}
-                </span>
+                {row.kind === 'income' ? (
+                  <span className="y2p-tx__kind">Entrada</span>
+                ) : (
+                  <select
+                    aria-label={'Categoria de ' + row.merchant}
+                    value={row.category ?? undefined}
+                    onChange={(event) => void changeCategory(row.id, event.target.value as ExpenseCategory)}
+                    className="y2p-tx-cat"
+                  >
+                    {(Object.entries(CATEGORY_LABEL) as [ExpenseCategory, string][]).map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+                )}
+                {row.kind === 'income' ? (
+                  <span className="y2p-num y2p-tx__amount--income" style={{ textAlign: 'right', minWidth: 96 }}>
+                    {signedBrl(row.amountCents)}
+                  </span>
+                ) : (
+                  <span className="y2p-num" style={{ color: 'var(--fx-text-strong, #F2F3F4)', textAlign: 'right', minWidth: 96 }}>
+                    {brl(reais(row.amountCents))}
+                  </span>
+                )}
+                {/* A linha da carteira sai junto com a carteira, em Conta > Carteiras. */}
+                {row.source !== 'wallet' && (
                 <button
                   type="button"
                   className={'y2p-tx-delete' + (confirmId === row.id ? ' is-confirm' : '')}
@@ -1027,6 +1087,7 @@ function PainelScreen({
                 >
                   {confirmId === row.id ? 'Confirmar' : <IconTrash />}
                 </button>
+                )}
               </div>
             ))}
             {futureHidden > 0 && (
@@ -1036,11 +1097,23 @@ function PainelScreen({
             )}
             {list.length > 8 && (
               <button type="button" className="y2p-more" onClick={() => setShowAll(!showAll)}>
-                {showAll ? 'Mostrar menos' : 'Ver todos os ' + list.length + ' gastos'}
+                {showAll ? 'Mostrar menos' : (listNoun.many === 'entradas' ? 'Ver todas as ' : 'Ver todos os ') + list.length + ' ' + listNoun.many}
               </button>
             )}
           </div>
         </div>
+
+        {summaryState === 'ready' && (
+        <WalletMovements
+          month={month}
+          from={filters.mode === 'custom' ? filters.from : undefined}
+          to={filters.mode === 'custom' ? filters.to : undefined}
+          reloadKey={walletsVersion}
+          getToken={getToken}
+          getIdentityToken={getIdentityToken}
+          onExpensesChanged={() => { void refresh(month); }}
+        />
+        )}
 
         <div
           id="s-aprender"
@@ -1113,6 +1186,7 @@ function PainelScreen({
         <ImportModal
           initialMode={importManual ? 'manual' : (profile?.importMode ?? 'ofx')}
           onClose={() => setImportOpen(false)}
+          onPreviewFile={previewFile}
           onImportFile={importFile}
           onUndoImport={undoImport}
           onListStatements={() => api().listStatements()}
@@ -1148,7 +1222,8 @@ function PainelScreen({
           setAccount((prev) => (prev ? { ...prev, activeHousehold: null } : prev));
           setPhase('name');
         }}
-        onExpensesCleared={() => { void refresh(month); }}
+        onExpensesCleared={() => { void refresh(month); setWalletsVersion((version) => version + 1); }}
+        onWalletsChanged={() => { void refresh(month); setWalletsVersion((version) => version + 1); }}
       />
 
       {onbOpen && (

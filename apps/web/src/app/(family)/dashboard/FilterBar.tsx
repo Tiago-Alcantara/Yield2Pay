@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import type { ExpenseCategory, ExpenseView } from '@yield2pay/shared';
+import type { ExpenseCategory, ExpenseKind, ExpenseView } from '@yield2pay/shared';
 import { useIsMobile } from '@/lib/useIsMobile';
 import {
   CATEGORY_LABEL,
@@ -23,6 +23,8 @@ export type ExpenseFilters = {
   to: string;
   cats: ExpenseCategory[];
   tipo: 'todos' | 'fixo' | 'var';
+  /** Todos os lançamentos, só gastos ou só entradas. */
+  kind: 'todos' | ExpenseKind;
   min: string;
   max: string;
   q: string;
@@ -36,6 +38,7 @@ export const EMPTY_FILTERS: ExpenseFilters = {
   to: '',
   cats: [],
   tipo: 'todos',
+  kind: 'todos',
   min: '',
   max: '',
   q: '',
@@ -61,7 +64,12 @@ export function matchesExpense(row: ExpenseView, filters: ExpenseFilters, month?
   } else if (month && row.date.slice(0, 7) !== month) {
     return false;
   }
-  if (filters.cats.length && !filters.cats.includes(row.category)) return false;
+  const income = row.kind === 'income';
+  if (filters.kind === 'income' && !income) return false;
+  if (filters.kind === 'expense' && income) return false;
+  if (filters.cats.length && (row.category == null || !filters.cats.includes(row.category))) return false;
+  // Fixo e variável são tipos de gasto: a entrada não é nenhum dos dois.
+  if (filters.tipo !== 'todos' && income) return false;
   if (filters.tipo === 'fixo' && !row.fixed) return false;
   if (filters.tipo === 'var' && row.fixed) return false;
   const value = reais(row.amountCents);
@@ -70,6 +78,14 @@ export function matchesExpense(row: ExpenseView, filters: ExpenseFilters, month?
   const query = foldSearch(filters.q.trim());
   if (query && !foldSearch(row.merchant).includes(query)) return false;
   return true;
+}
+
+/** Como chamar um conjunto de linhas: gasto, entrada ou, misturado, lançamento. */
+export function rowsNoun(rows: ExpenseView[]): { one: string; many: string } {
+  const incomes = rows.filter((row) => row.kind === 'income').length;
+  if (incomes === 0) return { one: 'gasto', many: 'gastos' };
+  if (incomes === rows.length) return { one: 'entrada', many: 'entradas' };
+  return { one: 'lançamento', many: 'lançamentos' };
 }
 
 export function moneyFilterError(min: string, max: string): string {
@@ -130,6 +146,8 @@ export function filterChips(filters: ExpenseFilters): { key: string; label: stri
       clear: { cats: filters.cats.filter((item) => item !== category) },
     });
   });
+  if (filters.kind === 'expense') chips.push({ key: 'kind', label: 'Só gastos', clear: { kind: 'todos' } });
+  if (filters.kind === 'income') chips.push({ key: 'kind', label: 'Só entradas', clear: { kind: 'todos' } });
   if (filters.tipo === 'fixo') chips.push({ key: 'tipo', label: 'Só fixos', clear: { tipo: 'todos' } });
   if (filters.tipo === 'var') chips.push({ key: 'tipo', label: 'Só variáveis', clear: { tipo: 'todos' } });
   if (filters.min !== '' || filters.max !== '') chips.push({ key: 'valor', label: moneyLabel(filters), clear: { min: '', max: '' } });
@@ -366,11 +384,13 @@ function FiltersModal({
   onApply: (filters: ExpenseFilters, month: string) => void;
 }) {
   const [moneyError, setMoneyError] = useState('');
-  const matched = expenses.filter((row) => matchesExpense(row, draft, draft.mode === 'custom' ? undefined : draft.month)).length;
+  const matchedRows = expenses.filter((row) => matchesExpense(row, draft, draft.mode === 'custom' ? undefined : draft.month));
+  const matched = matchedRows.length;
+  const noun = rowsNoun(matchedRows);
   const monthLoaded = expenses.some((row) => row.date.slice(0, 7) === draft.month);
   const canApply = draft.mode === 'custom' ? Boolean(draft.from && draft.to) : monthLoaded ? matched > 0 : true;
   const applyLabel = matched > 0
-    ? `Mostrar ${matched} ${matched === 1 ? 'gasto' : 'gastos'}`
+    ? `Mostrar ${matched} ${matched === 1 ? noun.one : noun.many}`
     : draft.mode === 'custom' ? 'Mostrar período' : 'Mostrar mês';
   const earliest = months[0] ?? loadedMonth;
   const latestExpense = months.at(-1) ?? loadedMonth;
@@ -478,6 +498,15 @@ function FiltersModal({
           )}
         </div>
 
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '20px 24px', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fx-text-2, #9A9DA1)' }}>Tipo</div>
+          <div role="group" aria-label="Tipo de lançamento" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-2, #16181b)' }}>
+            {([['todos', 'Todos'], ['expense', 'Gastos'], ['income', 'Entradas']] as const).map(([key, text]) => (
+              <button key={key} type="button" aria-pressed={draft.kind === key} onClick={() => patch({ kind: key })} style={{ height: 32, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', ...(draft.kind === key ? chromeOn : chromeOff) }}>{text}</button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '20px 24px', borderTop: '1px solid var(--fx-border, #2A2D31)' }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fx-text-2, #9A9DA1)' }}>Categorias</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -529,7 +558,7 @@ function FiltersModal({
               {applyLabel}
             </button>
           ) : (
-            <button type="button" disabled style={{ height: 48, padding: '0 26px', borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-1, #131417)', color: 'var(--fx-text-3, #8A8D91)', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>Nenhum gasto encontrado</button>
+            <button type="button" disabled style={{ height: 48, padding: '0 26px', borderRadius: 999, border: '1px solid var(--fx-border, #2A2D31)', background: 'var(--fx-surface-1, #131417)', color: 'var(--fx-text-3, #8A8D91)', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>{draft.kind === 'income' ? 'Nenhuma entrada encontrada' : 'Nenhum gasto encontrado'}</button>
           )}
         </div>
       </div>

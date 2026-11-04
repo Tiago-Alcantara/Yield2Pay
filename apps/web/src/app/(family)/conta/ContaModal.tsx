@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation';
 import { personInitials, type AccountView, type CryptoExperience, type HouseholdPersonView, type HouseholdProfile } from '@yield2pay/shared';
 import { createHouseholdApi } from '../_lib/householdApi';
 import { readLiberdade, writeLiberdade } from '../_lib/liberdadePref';
+import { WalletsSection } from './WalletsSection';
 import './conta.css';
 
 type GetToken = () => Promise<string | null>;
 type Level = 'zero' | 'fundo';
 type Confirm = 'leave' | 'logout' | 'delete';
-type Tab = 'perfil' | 'aulas' | 'grupo' | 'conta';
+type Tab = 'perfil' | 'aulas' | 'grupo' | 'carteiras' | 'conta';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'perfil', label: 'Perfil' },
   { id: 'aulas', label: 'Aulas' },
   { id: 'grupo', label: 'Grupo' },
+  { id: 'carteiras', label: 'Carteiras' },
   { id: 'conta', label: 'Conta e dados' },
 ];
 
@@ -39,6 +41,7 @@ export function ContaModal({
   onProfile,
   onLeft,
   onExpensesCleared,
+  onWalletsChanged,
 }: {
   open: boolean;
   onClose: () => void;
@@ -49,6 +52,7 @@ export function ContaModal({
   onProfile?: (profile: HouseholdProfile) => void;
   onLeft?: () => void;
   onExpensesCleared?: () => void;
+  onWalletsChanged?: () => void;
 }) {
   const router = useRouter();
   const getTokenRef = useRef(getToken);
@@ -454,6 +458,14 @@ export function ContaModal({
                 </div>
               </div>
             )}
+            {phase === 'ready' && account && tab === 'carteiras' && (
+              <WalletsSection
+                getToken={getToken}
+                getIdentityToken={getIdentityToken}
+                onChanged={onWalletsChanged}
+                onToast={setToast}
+              />
+            )}
             {phase === 'ready' && account && tab === 'conta' && (
               <div data-screen-label="Conta">
                 <div className="conta-row">
@@ -466,7 +478,7 @@ export function ContaModal({
                 <div className="conta-row">
                   <div className="conta-copy">
                     <h2 style={{ color: 'var(--danger)' }}>Apagar gastos importados</h2>
-                    <p>Remove os gastos que você trouxe de extrato. A conta e o grupo continuam.</p>
+                    <p>Remove os gastos que você trouxe de extrato e as carteiras que você adicionou. A conta e o grupo continuam.</p>
                   </div>
                   <button type="button" className="conta-danger" onClick={() => { setDelTxt(''); setConfirm('delete'); }}>Apagar gastos</button>
                 </div>

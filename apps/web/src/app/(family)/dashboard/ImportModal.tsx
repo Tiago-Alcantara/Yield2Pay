@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
-import type { ExpenseCategory, StatementImportResult, StatementView } from '@yield2pay/shared';
-import { brl, reais, saoPauloToday } from './painel-format';
+import type { ExpenseCategory, ExpenseKind, StatementImportResult, StatementPreview, StatementView } from '@yield2pay/shared';
+import type { NewExpense } from '../_lib/householdApi';
+import { brl, reais, saoPauloToday, signedBrl } from './painel-format';
 
 type Mode = 'ofx' | 'nfe' | 'manual';
 
@@ -64,8 +65,26 @@ function CategoryChips({ value, onChange }: { value: ExpenseCategory; onChange: 
   );
 }
 
+/** Gasto ou entrada, no lançamento manual e na nota. A entrada não tem categoria. */
+function KindChips({ value, onChange }: { value: ExpenseKind; onChange: (kind: ExpenseKind) => void }) {
+  return (
+    <div role="group" aria-label="Tipo do lançamento" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {([['expense', 'Gasto'], ['income', 'Entrada']] as const).map(([id, label]) => (
+        <button key={id} type="button" aria-pressed={value === id} onClick={() => onChange(id)} style={chipStyle(value === id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function dayMonth(iso: string) {
+  return iso.slice(8, 10) + '/' + iso.slice(5, 7);
+}
+
 export function ImportModal({
   onClose,
+  onPreviewFile,
   onImportFile,
   onUndoImport,
   onListStatements,
@@ -74,10 +93,11 @@ export function ImportModal({
   initialMode = 'ofx',
 }: {
   onClose: () => void;
-  onImportFile: (file: File) => Promise<StatementImportResult>;
+  onPreviewFile: (file: File) => Promise<StatementPreview>;
+  onImportFile: (file: File, kinds: ExpenseKind[]) => Promise<StatementImportResult>;
   onUndoImport: (statementId: string) => Promise<void>;
   onListStatements?: () => Promise<StatementView[]>;
-  onCreateExpense: (body: { merchant: string; amountCents: number; spentOn: string; category: ExpenseCategory }) => Promise<void>;
+  onCreateExpense: (body: NewExpense) => Promise<void>;
   onDone: () => void;
   initialMode?: Mode;
 }) {
@@ -90,14 +110,18 @@ export function ImportModal({
   const [fileError, setFileError] = useState('');
   const [keyDigits, setKeyDigits] = useState('');
   const [note, setNote] = useState<typeof EXAMPLE_NOTE | null>(null);
+  const [noteKind, setNoteKind] = useState<ExpenseKind>('expense');
   const [noteCategory, setNoteCategory] = useState<ExpenseCategory>('groceries');
   const [noteError, setNoteError] = useState('');
   const [where, setWhere] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => saoPauloToday());
+  const [manualKind, setManualKind] = useState<ExpenseKind>('expense');
   const [manualCategory, setManualCategory] = useState<ExpenseCategory>('groceries');
   const [manualError, setManualError] = useState('');
   const [confirmHuge, setConfirmHuge] = useState(false);
+  // O arquivo fica aqui até a confirmação: a API não guarda nada na prévia.
+  const [preview, setPreview] = useState<{ file: File; data: StatementPreview; kinds: ExpenseKind[] } | null>(null);
   const [statements, setStatements] = useState<StatementView[]>([]);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -127,13 +151,42 @@ export function ImportModal({
     };
   }, []);
 
+  function showFileError(error: unknown) {
+    const status = (error as { status?: number }).status;
+    setFileError(status === 409
+      ? 'Esse extrato já foi importado.'
+      : 'Não conseguimos ler esse arquivo. Use OFX, CSV ou PDF exportado pelo banco.');
+  }
+
   async function importFile(file: File) {
     setBusy(true);
     setFileError('');
     try {
-      const result = await onImportFile(file);
+      const data = await onPreviewFile(file);
+      setPreview({ file, data, kinds: data.rows.map((row) => row.kind) });
+    } catch (error) {
+      showFileError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function changeRowKind(index: number, kind: ExpenseKind) {
+    setPreview((current) => (current
+      ? { ...current, kinds: current.kinds.map((item, position) => (position === index ? kind : item)) }
+      : current));
+  }
+
+  async function confirmPreview() {
+    if (!preview || busy) return;
+    const { file, kinds } = preview;
+    setBusy(true);
+    setFileError('');
+    try {
+      const result = await onImportFile(file, kinds);
+      setPreview(null);
       if (result.imported === 0) {
-        setFileError('Nenhum gasto novo nesse arquivo. Entradas de dinheiro não entram na lista.');
+        setFileError('Nada novo nesse arquivo.');
         return;
       }
       setLoaded((current) => current + result.imported);
@@ -141,10 +194,7 @@ export function ImportModal({
       setLastStatementId(result.statementId);
       setStatements((current) => [{ id: result.statementId, filename: file.name, importedAt: new Date().toISOString(), expenseCount: result.imported }, ...current.filter((item) => item.id !== result.statementId)]);
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      setFileError(status === 409
-        ? 'Esse extrato já foi importado.'
-        : 'Não conseguimos ler esse arquivo. Use OFX, CSV ou PDF exportado pelo banco.');
+      showFileError(error);
     } finally {
       setBusy(false);
     }
@@ -167,6 +217,7 @@ export function ImportModal({
     setNote(null);
     if (keyDigits === EXAMPLE_KEY) {
       setNote(EXAMPLE_NOTE);
+      setNoteKind('expense');
       setNoteCategory('groceries');
       return;
     }
@@ -178,12 +229,10 @@ export function ImportModal({
     setBusy(true);
     setNoteError('');
     try {
-      await onCreateExpense({
-        merchant: note.merchant,
-        amountCents: note.amountCents,
-        spentOn: note.spentOn,
-        category: noteCategory,
-      });
+      const row = { merchant: note.merchant, amountCents: note.amountCents, spentOn: note.spentOn };
+      await onCreateExpense(noteKind === 'income'
+        ? { ...row, kind: 'income' }
+        : { ...row, kind: 'expense', category: noteCategory });
       setLoaded((current) => current + 1);
       setNote(null);
       setKeyDigits('');
@@ -214,17 +263,15 @@ export function ImportModal({
     setConfirmHuge(false);
     setBusy(true);
     try {
-      await onCreateExpense({
-        merchant: where.trim(),
-        amountCents,
-        spentOn,
-        category: manualCategory,
-      });
+      const row = { merchant: where.trim(), amountCents, spentOn };
+      await onCreateExpense(manualKind === 'income'
+        ? { ...row, kind: 'income' }
+        : { ...row, kind: 'expense', category: manualCategory });
       setLoaded((current) => current + 1);
       setWhere('');
       setAmount('');
     } catch {
-      setManualError('Não conseguimos adicionar esse gasto agora.');
+      setManualError(manualKind === 'income' ? 'Não conseguimos adicionar essa entrada agora.' : 'Não conseguimos adicionar esse gasto agora.');
     } finally {
       setBusy(false);
     }
@@ -233,8 +280,11 @@ export function ImportModal({
   const options: { id: Mode; kicker: string; title: string; detail: string }[] = [
     { id: 'ofx', kicker: 'Mais completo', title: 'Extrato do banco', detail: 'Arquivo OFX, CSV ou PDF' },
     { id: 'nfe', kicker: 'Uma compra', title: 'Nota fiscal', detail: 'Pela chave de acesso' },
-    { id: 'manual', kicker: 'Do seu jeito', title: 'Manual', detail: 'Digite um gasto' },
+    { id: 'manual', kicker: 'Do seu jeito', title: 'Manual', detail: 'Digite um gasto ou uma entrada' },
   ];
+
+  const newRows = preview ? preview.data.rows.filter((row) => !row.alreadyImported) : [];
+  const newIncomes = preview ? newRows.filter((row) => preview.kinds[row.index] === 'income').length : 0;
 
   return (
     <div
@@ -280,7 +330,59 @@ export function ImportModal({
         </div>
 
         <div style={{ marginTop: 14, borderRadius: 18, border: '1px solid #3a3d42', background: 'linear-gradient(160deg,#1e2024,#131417)', padding: 26 }}>
-          {mode === 'ofx' && (
+          {mode === 'ofx' && preview && (
+            <div role="region" aria-label="Prévia do extrato" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{preview.data.filename}</div>
+                <div style={{ fontSize: 14, color: '#9A9DA1', marginTop: 4, lineHeight: 1.5 }}>
+                  Confira o tipo de cada linha. Nada foi gravado ainda.
+                  {preview.data.skipped > 0 && (preview.data.skipped === 1 ? ' 1 linha não pôde ser lida.' : ` ${preview.data.skipped} linhas não puderam ser lidas.`)}
+                </div>
+              </div>
+              <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 12, border: '1px solid #2A2D31' }}>
+                {preview.data.rows.map((row) => {
+                  const kind = preview.kinds[row.index] ?? row.kind;
+                  return (
+                    <div key={row.index} style={{ display: 'grid', gridTemplateColumns: '48px minmax(0, 1fr) auto auto', gap: 12, alignItems: 'center', padding: '8px 12px', borderTop: row.index === 0 ? 'none' : '1px solid #2A2D31', opacity: row.alreadyImported ? 0.55 : 1 }}>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: '#8a8d91' }}>{dayMonth(row.date)}</span>
+                      <span style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.merchant}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, textAlign: 'right' }}>{kind === 'income' ? signedBrl(row.amountCents) : brl(reais(row.amountCents))}</span>
+                      {row.alreadyImported ? (
+                        <span style={{ fontSize: 13, color: '#8a8d91' }}>Já importada</span>
+                      ) : (
+                        <select
+                          aria-label={`Tipo de ${row.merchant} em ${dayMonth(row.date)}`}
+                          value={kind}
+                          disabled={busy}
+                          onChange={(event) => changeRowKind(row.index, event.target.value as ExpenseKind)}
+                          style={{ height: 32, padding: '0 8px', borderRadius: 8, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 13 }}
+                        >
+                          <option value="expense">Gasto</option>
+                          <option value="income">Entrada</option>
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button type="button" disabled={busy || newRows.length === 0} onClick={() => void confirmPreview()} style={{ height: 46, padding: '0 22px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                  Confirmar importação
+                </button>
+                <button type="button" disabled={busy} onClick={() => { setPreview(null); setFileError(''); }} style={{ height: 46, padding: '0 18px', borderRadius: 999, border: '1px solid #3a3d42', background: '#16181b', color: '#EDEFF1', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+                  Escolher outro arquivo
+                </button>
+                <span style={{ fontSize: 14, color: '#9A9DA1' }}>
+                  {newRows.length === 0
+                    ? 'Todas as linhas já foram importadas.'
+                    : `${newRows.length - newIncomes} ${newRows.length - newIncomes === 1 ? 'gasto' : 'gastos'} · ${newIncomes} ${newIncomes === 1 ? 'entrada' : 'entradas'}`}
+                </span>
+              </div>
+              {fileError && <div style={{ fontSize: 14, color: '#EDEFF1' }}>{fileError}</div>}
+            </div>
+          )}
+
+          {mode === 'ofx' && !preview && (
             <div
               onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -353,9 +455,10 @@ export function ImportModal({
                     </div>
                     <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 24, fontWeight: 600, color: '#F2F3F4' }}>{brl(reais(note.amountCents))}</div>
                   </div>
-                  <CategoryChips value={noteCategory} onChange={setNoteCategory} />
+                  <KindChips value={noteKind} onChange={setNoteKind} />
+                  {noteKind === 'expense' && <CategoryChips value={noteCategory} onChange={setNoteCategory} />}
                   <button type="button" disabled={busy} onClick={() => void addNote()} style={{ alignSelf: 'flex-start', height: 46, padding: '0 22px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                    Adicionar aos gastos
+                    {noteKind === 'income' ? 'Adicionar às entradas' : 'Adicionar aos gastos'}
                   </button>
                 </div>
               )}
@@ -376,12 +479,13 @@ export function ImportModal({
                 <label htmlFor="gasto-data" style={{ display: 'block', fontFamily: "'Geist Mono', monospace", fontSize: 13, letterSpacing: 0, color: '#8a8d91', marginBottom: 8 }}>Data</label>
                 <input id="gasto-data" type="date" max={saoPauloToday()} value={date} onChange={(event) => setDate(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid #2A2D31', background: '#0c0d0f', color: '#EDEFF1', fontFamily: "'Geist Mono', monospace", fontSize: 14, outline: 'none' }} />
               </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <CategoryChips value={manualCategory} onChange={setManualCategory} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <KindChips value={manualKind} onChange={setManualKind} />
+                {manualKind === 'expense' && <CategoryChips value={manualCategory} onChange={setManualCategory} />}
               </div>
               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <button type="button" disabled={busy} onClick={() => void addManual()} style={{ height: 46, padding: '0 22px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                  {confirmHuge ? 'Confirmar valor' : 'Adicionar gasto'}
+                  {confirmHuge ? 'Confirmar valor' : manualKind === 'income' ? 'Adicionar entrada' : 'Adicionar gasto'}
                 </button>
                 {manualError && <span style={{ fontSize: 14, color: '#EDEFF1' }}>{manualError}</span>}
               </div>
@@ -419,7 +523,7 @@ export function ImportModal({
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', padding: '16px 20px', borderRadius: 16, border: '1px solid #2A2D31', background: '#131417' }}>
             <span style={{ fontSize: 15 }}>
               <b style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>{loaded}</b>
-              {loaded === 1 ? ' gasto carregado. Pode juntar outros jeitos.' : ' gastos carregados. Pode juntar outros jeitos.'}
+              {loaded === 1 ? ' lançamento carregado. Pode juntar outros jeitos.' : ' lançamentos carregados. Pode juntar outros jeitos.'}
             </span>
             <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button type="button" onClick={onDone} style={{ height: 44, padding: '0 20px', borderRadius: 999, border: 'none', background: 'linear-gradient(180deg,#E6E8EA,#A8AAAD)', color: '#0E0F11', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
