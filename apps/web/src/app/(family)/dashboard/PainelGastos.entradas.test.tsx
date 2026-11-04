@@ -3,7 +3,7 @@
  * Criado em: 2026-11-03
  * Última atualização: 2026-11-03
  * Intuito: O painel mostra Gastos, Entradas e Saldo, e a entrada aparece na lista sem categoria e fora dos números de gasto.
- * Sequência: mostra os três totais, com o sinal e a classe própria da entrada; o saldo negativo usa a classe própria; a API antiga, sem os campos, não vira NaN; a entrada aparece na lista com sinal e sem seletor de categoria; os gráficos e o maior gasto continuam só com gastos; filtrar por Entradas não zera os gastos; com filtro de texto, os totais saem das linhas do mês e ignoram a entrada na soma de gastos; o lançamento manual de entrada chama a API sem categoria.
+ * Sequência: mostra os três totais, com o sinal e a classe própria da entrada; o saldo negativo usa a classe própria; a API antiga, sem os campos, não vira NaN; a entrada aparece na lista com sinal e sem seletor de categoria; os gráficos e o maior gasto continuam só com gastos; filtrar por Entradas não zera os gastos; com filtro de texto, os totais saem das linhas do mês e ignoram a entrada na soma de gastos; Entradas junto com outro filtro também não zera os gastos; o lançamento manual de entrada chama a API sem categoria.
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -212,6 +212,24 @@ describe('entradas no painel', () => {
     await waitFor(() => expect(totalOf(group, 'Gastos')).toHaveTextContent('R$ 0,00'));
     expect(totalOf(group, 'Entradas')).toHaveTextContent('+ R$ 5.000,00');
     expect(totalOf(group, 'Saldo')).toHaveTextContent('+ R$ 5.000,00');
+  });
+
+  it('Entradas junto com outro filtro também não zera os gastos', async () => {
+    installFetch();
+    await openTotals();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const dialog = screen.getByRole('dialog', { name: 'Filtros' });
+    fireEvent.click(within(within(dialog).getByRole('group', { name: 'Tipo de lançamento' })).getByRole('button', { name: 'Entradas' }));
+    // O texto casa com as duas linhas: "Mercado Central" e "Salário da Ana".
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Buscar estabelecimento' }), { target: { value: 'a' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mostrar 1 entrada' }));
+
+    expect(await screen.findByRole('heading', { name: 'Entradas de outubro' })).toBeInTheDocument();
+    const group = screen.getByRole('group', { name: 'Totais do período' });
+    expect(totalOf(group, 'Gastos')).toHaveTextContent('R$ 55,90');
+    expect(totalOf(group, 'Entradas')).toHaveTextContent('+ R$ 5.000,00');
+    expect(totalOf(group, 'Saldo')).toHaveTextContent('+ R$ 4.944,10');
   });
 
   it('o lançamento manual de entrada chama a API sem categoria', async () => {
