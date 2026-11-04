@@ -171,6 +171,29 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('carteiras (e2e)', () => {
     expect(logs.text()).not.toContain(address);
   });
 
+  it.each([
+    ['chave sem aspas', `{"address":${SECRET_S},"label":"X"}`],
+    ['string sem fechar', `{"address":"${SECRET_S}`],
+    ['chave depois de vírgula', `{"label":"X",${SECRET_S}}`],
+  ])(
+    'JSON malformado responde 400 sem a chave na resposta nem no log: %s',
+    async (_name, body) => {
+      const fragment = SECRET_S.slice(0, 10);
+      const before = logs.count();
+      const response = await api()
+        .post('/household-wallets')
+        .set(as('dona'))
+        .set('Content-Type', 'application/json')
+        .send(body);
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('JSON inválido');
+      expect(JSON.stringify(response.body)).not.toContain(fragment);
+      expect(logs.count()).toBeGreaterThan(before);
+      expect(logs.text()).not.toContain(fragment);
+    },
+  );
+
   it('recusa rede desconhecida', async () => {
     const response = await addWallet('dona', {
       address: WALLET_G,
