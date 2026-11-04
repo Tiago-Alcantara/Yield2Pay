@@ -297,6 +297,34 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
 }
 .y2p-stat-l { margin-top: 8px; font-size: 13px; line-height: 20px; color: var(--fx-text-2, #9A9DA1); }
 .y2p-stat-s { margin-top: 4px; font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; color: var(--fx-text-3, #8a8d91); }
+/* Gastos, Entradas e Saldo. O color-mix clareia no tema escuro e escurece no claro. */
+.y2p-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.y2p-totals__item {
+  min-width: 0;
+  background: var(--fam-card, #1A1C1F);
+  border: 1px solid var(--fx-border, #2A2D31);
+  border-radius: 16px;
+  padding: 16px 24px;
+}
+.y2p-totals__label { display: block; font-size: 13px; line-height: 16px; font-weight: 500; color: var(--fx-text-2, #9A9DA1); }
+.y2p-totals__value {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--fx-text-strong, #F2F3F4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.y2p-totals__value--income { color: color-mix(in srgb, var(--fx-text-strong, #F2F3F4) 62%, #2fa36b); }
+.y2p-totals__value--negative { color: #e08a7e; }
 .y2p-section { margin-top: 16px; }
 .y2p-section-h { margin: 0; font-size: 20px; line-height: 28px; font-weight: 500; letter-spacing: -.01em; color: var(--fx-text-strong, #F2F3F4); }
 .y2p-section-sub { margin: 4px 0 0; font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; color: var(--fx-text-2, #9A9DA1); }
@@ -576,6 +604,8 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
   font-family: inherit;
   font-size: 13px;
 }
+.y2p-tx__kind { font-size: 13px; line-height: 16px; color: var(--fx-text-2, #9A9DA1); }
+.y2p-tx__amount--income { color: color-mix(in srgb, var(--fx-text-strong, #F2F3F4) 62%, #2fa36b); }
 .y2p-tx-delete {
   display: inline-flex;
   align-items: center;
@@ -787,6 +817,9 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
   .y2p-stat { padding: 16px; }
   .y2p-stat-v { font-size: 22px; line-height: 28px; }
   .y2p-stat--wide { grid-column: 1 / -1; }
+  .y2p-totals { gap: 8px; }
+  .y2p-totals__item { padding: 12px; }
+  .y2p-totals__value { font-size: 15px; line-height: 20px; }
   .y2p-card-plain { padding: 20px 16px; }
   .y2p-figure, .y2p-lib-hero b { font-size: 36px; line-height: 40px; }
   .y2p-list { padding: 0; }
@@ -797,5 +830,6 @@ body { margin: 0; background: var(--fam-page, #0E0F11); }
     padding: 12px 8px 12px 16px;
   }
   .y2p-tx-cat { grid-column: 2 / 4; grid-row: 2; justify-self: start; height: 28px; }
+  .y2p-tx__kind { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
   .y2p-cat { display: none; }
 }
