@@ -399,3 +399,143 @@ Nenhuma variável nova. Duas regras ficaram mais fechadas:
   `test`. Qualquer outro valor, ou `APP_ENV` ausente, impede a API de subir.
 - Sem `CORS_ORIGIN` e sem `APP_ENV`, o CORS só libera o localhost do web em dev,
   em vez de qualquer origem.
+
+---
+
+## 6. Entradas, gastos e carteira — `20261103120000_expense_kind_source` e `20261104120000_household_wallets`
+
+As duas migrations vão no mesmo deploy, nessa ordem. Nenhuma variável nova.
+
+- `20261103120000_expense_kind_source`: `expenses` ganha `kind`, `source` e
+  `excluded_from_totals`, e `category` passa a aceitar nulo. O backfill marca
+  `source = 'statement'` em quem tem `statement_id`.
+- `20261104120000_household_wallets`: cria `household_wallets`, `wallet_movements`
+  e `asset_price_daily`. Não muda nenhuma linha que já existe. Depois do deploy,
+  o sync sob demanda grava linhas em `expenses` com `source = 'wallet'`.
+
+### Ordem do deploy
+
+1. **Backup** do banco.
+2. Nenhuma transação longa nem lock em `expenses`, `households` ou `companies`
+   (consultas da seção 5). As duas usam `lock_timeout` de 4 s.
+3. **API primeiro.** Espere a instância antiga sair antes de publicar o web.
+4. Conferir `GET /health` e um `GET /household/summary`.
+5. **Web depois.** Só o web novo cria entrada e carteira. O web novo na API antiga
+   não consegue importar extrato nem abrir as carteiras, porque as rotas não existem
+   nela.
+
+### Compatibilidade: não pode existir entrada enquanto a API antiga roda
+
+A API anterior a estas migrations sobe com o schema novo, mas não conhece `kind` e
+`excluded_from_totals`:
+
+- ela **soma toda entrada como gasto**: resumo, gráficos, meses e fixos saem errados;
+- ela responde **500 no `PATCH /expenses/:id` com `category` numa entrada**, porque o
+  CHECK `expenses_kind_category_check` recusa a escrita;
+- ela conta como gasto a linha marcada "transferência minha" e as linhas de gasto
+  da carteira.
+
+Por isso a API sobe antes do web, e **o rollback do código exige apagar essas linhas
+antes**.
+
+### Rollback do código
+
+Faça nesta ordem. O passo 3 apaga dados que só voltam com o backup.
+
+1. **Web primeiro.** Sem o web novo, ninguém cria entrada nem carteira, e o sync
+   sob demanda para. Aba antiga ainda aberta pode gravar até a API voltar, então
+   confira de novo no passo 3.
+2. Conte o que será apagado e guarde o número:
+
+   ```sql
+   SELECT source, kind, excluded_from_totals, count(*)
+   FROM expenses
+   WHERE kind = 'income' OR source = 'wallet' OR excluded_from_totals
+   GROUP BY 1, 2, 3;
+   ```
+
+3. Apague, numa transação só, imediatamente antes de trocar a imagem da API:
+
+   ```sql
+   BEGIN;
+   DELETE FROM expenses WHERE kind = 'income';
+   DELETE FROM expenses WHERE source = 'wallet' OR excluded_from_totals;
+   COMMIT;
+   ```
+
+4. **API antiga.** O schema pode ficar como está: a API antiga ignora as tabelas
+   novas, e as colunas novas têm padrão.
+5. O schema só precisa voltar se a migration for removida do histórico. Nesse caso,
+   siga "Rollback do schema", abaixo.
+
+### Rollback do schema
+
+Primeiro a carteira, depois os tipos. O `down.sql` de `expense_kind_source` **aborta**
+enquanto houver entrada, linha `source = 'wallet'` ou linha fora dos totais. O da
+carteira apaga as linhas `source = 'wallet'`, as carteiras e os movimentos. Os dois
+são manuais e rodam numa transação só:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/prisma/migrations/20261104120000_household_wallets/down.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DELETE FROM expenses WHERE kind = 'income' OR excluded_from_totals;"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/prisma/migrations/20261103120000_expense_kind_source/down.sql
+```
+
+Depois dos dois `down.sql`, apague as linhas das migrations para a imagem antiga:
+
+```sql
+DELETE FROM _prisma_migrations
+WHERE migration_name IN (
+  '20261104120000_household_wallets',
+  '20261103120000_expense_kind_source'
+);
+```
+
+**Não confie no `prisma migrate status` antes desse `DELETE`.** Depois do `down.sql` e
+antes do `DELETE`, ele diz `up to date`, porque só lê `_prisma_migrations` e não confere
+o schema. O banco já voltou, e o `status` só fica certo depois do `DELETE`.
+
+`prisma migrate resolve --rolled-back` **não** serve aqui: o Prisma só aceita em
+migration que falhou. Numa migration aplicada ele recusa com `not in a failed state`.
+Ele é o comando de "Se a migration falhar no boot", abaixo.
+
+### Se a migration falhar no boot
+
+O contêiner não sobe e reinicia em `P3009`. Nada da migration que falhou fica aplicado:
+as duas rodam entre `BEGIN` e `COMMIT`. Se a falha for na da carteira, a de tipos já
+terminou e continua aplicada.
+
+Como a falha aparece:
+
+- **Lock preso** ou outra falha dentro do `BEGIN`: o `BEGIN` mascara o erro. O deploy
+  mostra só `current transaction is aborted`, porque o Prisma tenta gravar o log da
+  falha na mesma conexão. Olhe o **primeiro** erro no log do Postgres.
+- **Próximo deploy:** `P3009`, citando a migration que falhou.
+
+**O `prisma migrate status` não basta para achar qual falhou.** Com uma migration mais
+nova pendente, ele lista só a pendente: se `expense_kind_source` falhar, o `status` cita
+`household_wallets` e não diz nada da que falhou. Quem responde é a tabela:
+
+```sql
+SELECT migration_name, started_at, finished_at, rolled_back_at
+FROM _prisma_migrations
+WHERE finished_at IS NULL AND rolled_back_at IS NULL;
+```
+
+Corrija a causa, em geral o lock preso. Depois marque a falha com o nome que a consulta
+devolveu e faça um novo deploy:
+
+```bash
+pnpm --filter @yield2pay/api exec prisma migrate resolve --rolled-back 20261103120000_expense_kind_source
+pnpm --filter @yield2pay/api exec prisma migrate deploy
+```
+
+```bash
+pnpm --filter @yield2pay/api exec prisma migrate resolve --rolled-back 20261104120000_household_wallets
+pnpm --filter @yield2pay/api exec prisma migrate deploy
+```
+
+Toda linha nova de `_prisma_migrations` precisa terminar com `finished_at` preenchido.
+
+Os dois caminhos estão cobertos em `postgres-expense-kind.spec.ts` e
+`postgres-wallet-migration.spec.ts`.
