@@ -61,7 +61,12 @@ async function main(): Promise<void> {
   const pending: ReturnType<typeof previewHouseholdBackfill> = [];
   for (const household of households) {
     const rows = await prisma.expense.findMany({
-      where: { householdId: household.id },
+      // Entrada e gasto excluído não têm flag de fixo para calcular.
+      where: {
+        householdId: household.id,
+        kind: 'expense',
+        excludedFromTotals: false,
+      },
       select: {
         id: true,
         merchant: true,

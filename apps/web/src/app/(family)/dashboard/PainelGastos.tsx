@@ -74,6 +74,8 @@ function IconTrash() {
 
 const EMPTY_SUMMARY: HouseholdSummary = {
   monthTotalCents: 0,
+  incomeCents: 0,
+  balanceCents: 0,
   previousComparableCents: 0,
   changePercent: null,
   projectedCents: 0,

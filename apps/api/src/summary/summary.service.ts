@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ExpenseCategory } from '@yield2pay/shared';
+import type { ExpenseCategory, ExpenseKind } from '@yield2pay/shared';
 import type { ActiveMembership } from '../auth/authenticated-request';
 import { HouseholdNotFoundError } from '../household/household.errors';
 import { PrismaService } from '../prisma/prisma.service';
@@ -35,7 +35,7 @@ export class SummaryService {
     const [rows, first, legacy] = await Promise.all([
       this.prisma.expense.findMany({ where: window }),
       this.prisma.expense.findFirst({
-        where: { householdId },
+        where: { householdId, kind: 'expense', excludedFromTotals: false },
         orderBy: { spentOn: 'asc' },
         select: { spentOn: true },
       }),
@@ -49,9 +49,11 @@ export class SummaryService {
       expenses: rows.map((row) => ({
         spentOn: row.spentOn.toISOString().slice(0, 10),
         merchant: row.merchant,
-        category: row.category as ExpenseCategory,
+        category: row.category as ExpenseCategory | null,
         fixed: fixedForRead(row, legacy),
         amountCents: row.amountCents,
+        kind: row.kind as ExpenseKind,
+        excludedFromTotals: row.excludedFromTotals,
       })),
       incomeCents: profile.monthlyIncomeCents,
       reserveCents: profile.reserveCents,

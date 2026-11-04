@@ -8,9 +8,11 @@
 import {
   clearLegacyKeyCache,
   expenseGroupWhere,
+  fixedForRead,
   loadLegacyFixedIds,
   planExpenseWrite,
   rowsInMerchantGroup,
+  type ExpenseSnapshot,
 } from './fixed-flags';
 
 describe('planExpenseWrite', () => {
@@ -186,6 +188,112 @@ describe('planExpenseWrite', () => {
     expect(encoded).toContain('"merchantKey":""');
     expect(encoded).toContain('netflix');
     expect(encoded).toContain('netflix ');
+  });
+});
+
+describe('entrada e gasto excluído ficam fora dos flags', () => {
+  const rent = {
+    id: 'rent',
+    merchant: 'Aluguel',
+    spentOn: '2026-09-05',
+    amountCents: 250000,
+    fixed: false,
+    merchantKey: 'aluguel',
+    sharedMerchantKey: 'aluguel',
+  };
+  const october = {
+    merchant: 'Aluguel',
+    spentOn: '2026-10-05',
+    amountCents: 250000,
+    category: 'housing',
+  };
+  const cases: [string, ExpenseSnapshot][] = [
+    ['a entrada', { ...rent, category: null, kind: 'income' }],
+    [
+      'o gasto excluído',
+      {
+        ...rent,
+        category: 'housing',
+        kind: 'expense',
+        excludedFromTotals: true,
+      },
+    ],
+  ];
+
+  it.each(cases)('%s não faz o mês seguinte virar fixo', (_label, row) => {
+    const plan = planExpenseWrite([row], [october]);
+
+    expect(plan.inserts[0]?.fixed).toBe(false);
+    expect(plan.markFixed).toEqual([]);
+    expect(plan.keyUpdates).toEqual([]);
+  });
+
+  it.each(cases)('%s não é tocada ao recalcular o grupo', (_label, row) => {
+    const stale = { ...row, fixed: true, merchantKey: '' };
+    const plan = planExpenseWrite([stale], [], true);
+
+    expect(plan.unmarkFixed).toEqual([]);
+    expect(plan.keyUpdates).toEqual([]);
+  });
+
+  it.each(cases)('%s não entra no grupo do estabelecimento', (_label, row) => {
+    expect(rowsInMerchantGroup([row], ['Aluguel'])).toEqual([]);
+  });
+
+  it.each(cases)('%s nunca aparece como fixa na leitura', (_label, row) => {
+    expect(fixedForRead({ ...row, fixed: true }, null)).toBe(false);
+    expect(
+      fixedForRead(
+        { ...row, fixed: true, fixedManual: true, merchantKey: '' },
+        new Set(['rent']),
+      ),
+    ).toBe(false);
+  });
+
+  it('o gasto comum continua contando, com ou sem os campos novos', () => {
+    const plan = planExpenseWrite(
+      [
+        {
+          ...rent,
+          category: 'housing',
+          kind: 'expense',
+          excludedFromTotals: false,
+        },
+      ],
+      [october],
+    );
+
+    expect(plan.inserts[0]?.fixed).toBe(true);
+    expect(plan.markFixed).toEqual(['rent']);
+    expect(fixedForRead({ id: 'x', fixed: true, merchantKey: 'x' }, null)).toBe(
+      true,
+    );
+  });
+
+  it('o filtro do grupo só traz gasto que conta', () => {
+    expect(expenseGroupWhere('h1', ['Netflix'])).toMatchObject({
+      householdId: 'h1',
+      kind: 'expense',
+      excludedFromTotals: false,
+    });
+  });
+
+  it('a busca de chave vazia só olha gasto que conta', async () => {
+    clearLegacyKeyCache();
+    const findFirst = vi.fn().mockResolvedValue({ id: 'probe' });
+    const findMany = vi.fn().mockResolvedValue([]);
+    await loadLegacyFixedIds(
+      { expense: { findFirst, findMany } } as never,
+      'casa-filtro',
+    );
+    const where = {
+      householdId: 'casa-filtro',
+      merchantKey: '',
+      kind: 'expense',
+      excludedFromTotals: false,
+    };
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
   });
 });
 

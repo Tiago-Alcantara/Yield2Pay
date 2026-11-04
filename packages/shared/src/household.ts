@@ -145,6 +145,10 @@ export interface MonthTotal {
 
 export interface HouseholdSummary {
   monthTotalCents: number;
+  /** Soma das entradas do mês. Não é a renda informada no perfil. */
+  incomeCents: number;
+  /** Entradas menos gastos do mês. */
+  balanceCents: number;
   previousComparableCents: number;
   changePercent: number | null;
   projectedCents: number;

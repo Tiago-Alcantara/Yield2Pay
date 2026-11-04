@@ -11,6 +11,9 @@ export type ExpenseSnapshot = {
   fixedManual?: boolean;
   merchantKey?: string | null;
   sharedMerchantKey?: string | null;
+  /** Sem o campo, a linha é gasto. */
+  kind?: string;
+  excludedFromTotals?: boolean;
 };
 
 export type IncomingExpense = {
@@ -39,6 +42,17 @@ export type ExpenseWritePlan = {
   sharedKeyUpdates: Map<string, string[]>;
   keyUpdates: KeyUpdate[];
 };
+
+/** Filtro das consultas de grupo: só gasto fora da lista de excluídos conta. */
+const COUNTED_EXPENSE = { kind: 'expense', excludedFromTotals: false } as const;
+
+/** Entrada e gasto excluído não contam para saber o que se repete. */
+function countsForFlags(row: {
+  kind?: string;
+  excludedFromTotals?: boolean;
+}): boolean {
+  return row.kind !== 'income' && row.excludedFromTotals !== true;
+}
 
 function calendarDay(spentOn: Date | string): string {
   if (spentOn instanceof Date) return spentOn.toISOString().slice(0, 10);
@@ -92,6 +106,7 @@ export function expenseGroupWhere(
   if (keys.length === 0) return null;
   return {
     householdId,
+    ...COUNTED_EXPENSE,
     OR: [
       { merchantKey: '' },
       { sharedMerchantKey: '' },
@@ -105,9 +120,10 @@ export function expenseGroupWhere(
 
 /** Linhas que a classificação global poria no mesmo grupo destes estabelecimentos. */
 export function rowsInMerchantGroup(
-  existing: ExpenseSnapshot[],
+  rows: ExpenseSnapshot[],
   merchants: readonly string[],
 ): ExpenseSnapshot[] {
+  const existing = rows.filter(countsForFlags);
   const incomingKeys = merchants.map((merchant) => merchantKey(merchant));
   const existingKeys = existing.map((row) => merchantKey(row.merchant));
   const keySet = new Set(
@@ -131,10 +147,11 @@ export function rowsInMerchantGroup(
  * fixed manual, true ou false, não é reescrito.
  */
 export function planExpenseWrite(
-  existing: ExpenseSnapshot[],
+  rows: ExpenseSnapshot[],
   incoming: IncomingExpense[],
   recompute = false,
 ): ExpenseWritePlan {
+  const existing = rows.filter(countsForFlags);
   const existingDays = existing.map((row) => ({
     id: row.id,
     merchant: row.merchant,
@@ -213,9 +230,12 @@ export function fixedForRead(
     fixed: boolean;
     fixedManual?: boolean;
     merchantKey?: string | null;
+    kind?: string;
+    excludedFromTotals?: boolean;
   },
   legacyFixed: ReadonlySet<string> | null,
 ): boolean {
+  if (!countsForFlags(row)) return false;
   if ((row.merchantKey ?? '') !== '') return row.fixed;
   if (row.fixedManual === true) return row.fixed;
   if (!legacyFixed) return row.fixed;
@@ -232,6 +252,8 @@ const GROUP_SELECT = {
   fixedManual: true,
   merchantKey: true,
   sharedMerchantKey: true,
+  kind: true,
+  excludedFromTotals: true,
 } as const;
 
 const householdsWithoutLegacyKeys = new Set<string>();
@@ -247,7 +269,7 @@ export async function loadLegacyFixedIds(
 ): Promise<ReadonlySet<string> | null> {
   if (householdsWithoutLegacyKeys.has(householdId)) return null;
   const probe = await db.expense.findFirst({
-    where: { householdId, merchantKey: '' },
+    where: { householdId, merchantKey: '', ...COUNTED_EXPENSE },
     select: { id: true },
   });
   if (!probe) {
@@ -255,7 +277,7 @@ export async function loadLegacyFixedIds(
     return null;
   }
   const rows = await db.expense.findMany({
-    where: { householdId, merchantKey: '' },
+    where: { householdId, merchantKey: '', ...COUNTED_EXPENSE },
     select: {
       id: true,
       merchant: true,

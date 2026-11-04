@@ -96,6 +96,8 @@ export class ExpensesService {
              COALESCE(SUM(amount_cents), 0)::int AS "amountCents"
       FROM expenses
       WHERE household_id = ${householdId}
+        AND kind = 'expense'
+        AND NOT excluded_from_totals
       GROUP BY 1
       ORDER BY 1 DESC
     `;

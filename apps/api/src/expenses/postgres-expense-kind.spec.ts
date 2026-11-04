@@ -2,8 +2,8 @@
  * Módulo: postgres-expense-kind
  * Criado em: 2026-11-03
  * Última atualização: 2026-11-03
- * Intuito: A migration expense_kind_source e o down.sql rodam sobre dados que já existem, num banco descartável.
- * Sequência: com dados antigos, o backfill marca a origem e nada mais muda; os dois CHECKs recusam o tipo inválido e a categoria errada; o down.sql aborta enquanto houver entrada e, sem entrada, desfaz tudo e deixa aplicar de novo.
+ * Intuito: A migration expense_kind_source e o down.sql rodam sobre dados que já existem, num banco descartável, e as consultas de verdade deixam entrada e gasto excluído fora das contas.
+ * Sequência: com dados antigos, o backfill marca a origem e nada mais muda; os dois CHECKs recusam o tipo inválido e a categoria errada; o down.sql aborta enquanto houver entrada e, sem entrada, desfaz tudo e deixa aplicar de novo; a lista de meses só soma gasto que conta; o resumo ignora a entrada e o gasto excluído mais antigos e soma as entradas; a entrada e o gasto excluído com o mesmo nome não fazem o gasto novo virar fixo.
  * Só roda com RUN_DB_TESTS=1 e PG_TEST_URL. Cada teste cria o próprio database no mesmo container e apaga no fim.
  */
 import { execFileSync } from 'node:child_process';
@@ -16,7 +16,14 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
 import { Client } from 'pg';
+import type { ActiveMembership } from '../auth/authenticated-request';
+import { saoPauloToday } from '../summary/summary.math';
+import { SummaryService } from '../summary/summary.service';
+import { ExpensesService } from './expenses.service';
+import { clearLegacyKeyCache } from './fixed-flags';
 
 const DATABASE_URL =
   process.env.RUN_DB_TESTS === '1' ? process.env.PG_TEST_URL : undefined;
@@ -246,4 +253,149 @@ describe.skipIf(!DATABASE_URL)('migration expense_kind_source', () => {
     },
     TIMEOUT,
   );
+});
+
+describe.skipIf(!DATABASE_URL)('entradas e gastos excluídos no banco', () => {
+  if (!DATABASE_URL) return;
+  const client = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+  });
+  const stamp = `kind-${Date.now()}`;
+  let membership: ActiveMembership;
+
+  const row = (
+    spentOn: string,
+    merchant: string,
+    amountCents: number,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    householdId: membership.householdId,
+    addedByCompanyId: membership.companyId,
+    spentOn: new Date(`${spentOn}T00:00:00.000Z`),
+    merchant,
+    category: 'housing',
+    fixed: false,
+    amountCents,
+    merchantKey: merchant.toLowerCase(),
+    sharedMerchantKey: merchant.toLowerCase(),
+    ...extra,
+  });
+  const income = (spentOn: string, merchant: string, amountCents: number) =>
+    row(spentOn, merchant, amountCents, { kind: 'income', category: null });
+  const excluded = (spentOn: string, merchant: string, amountCents: number) =>
+    row(spentOn, merchant, amountCents, { excludedFromTotals: true });
+
+  beforeAll(async () => {
+    prisma(['migrate', 'deploy'], DATABASE_URL);
+    const company = await client.company.create({
+      data: { privyUserId: stamp },
+    });
+    const household = await client.household.create({
+      data: { name: 'Casa', ownerCompanyId: company.id, priorities: [] },
+    });
+    await client.householdMember.create({
+      data: {
+        householdId: household.id,
+        companyId: company.id,
+        role: 'owner',
+      },
+    });
+    membership = {
+      householdId: household.id,
+      companyId: company.id,
+      role: 'owner',
+      personal: false,
+    };
+  }, TIMEOUT);
+
+  beforeEach(async () => {
+    clearLegacyKeyCache();
+    await client.expense.deleteMany({
+      where: { householdId: membership.householdId },
+    });
+  });
+
+  afterAll(async () => {
+    await client.expense.deleteMany({
+      where: { householdId: membership.householdId },
+    });
+    await client.householdMember.deleteMany({
+      where: { householdId: membership.householdId },
+    });
+    await client.household.delete({ where: { id: membership.householdId } });
+    await client.company.delete({ where: { id: membership.companyId } });
+    await client.$disconnect();
+  });
+
+  it('a lista de meses só soma gasto que conta', async () => {
+    await client.expense.createMany({
+      data: [
+        row('2026-08-02', 'Aluguel', 1000),
+        income('2026-08-03', 'Salário', 900000),
+        income('2026-07-03', 'Salário', 900000),
+        excluded('2026-06-03', 'Transferência', 900000),
+        excluded('2026-08-04', 'Transferência', 900000),
+      ],
+    });
+    const service = new ExpensesService(client as never);
+
+    await expect(service.months(membership)).resolves.toEqual([
+      { month: '2026-08', amountCents: 1000 },
+    ]);
+  });
+
+  it('o resumo ignora a entrada e o gasto excluído mais antigos e soma as entradas', async () => {
+    const today = saoPauloToday(new Date()).slice(0, 7);
+    const shift = (delta: number) => {
+      const [year, month] = today.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1 + delta, 1))
+        .toISOString()
+        .slice(0, 7);
+    };
+    await client.expense.createMany({
+      data: [
+        // Fora da janela da média: mudaria o primeiro mês se contasse.
+        income(`${shift(-4)}-01`, 'Salário', 900000),
+        excluded(`${shift(-3)}-01`, 'Transferência', 900000),
+        row(`${shift(-1)}-01`, 'Aluguel', 3000),
+        income(`${today}-01`, 'Salário', 500000),
+        row(`${today}-01`, 'Aluguel', 2000),
+        excluded(`${today}-01`, 'Transferência', 900000),
+      ],
+    });
+    const service = new SummaryService(client as never);
+
+    const summary = await service.summary(membership, today);
+
+    expect(summary.monthTotalCents).toBe(2000);
+    expect(summary.averageCents).toBe(3000);
+    expect(summary.incomeCents).toBe(500000);
+    expect(summary.balanceCents).toBe(498000);
+    expect(summary.byCategory).toEqual([
+      { category: 'housing', amountCents: 2000 },
+    ]);
+  });
+
+  it('a entrada e o gasto excluído com o mesmo nome não fazem o gasto novo virar fixo', async () => {
+    await client.expense.createMany({
+      data: [
+        income('2026-08-02', 'Aluguel', 1000),
+        excluded('2026-07-02', 'Aluguel', 1000),
+      ],
+    });
+    const service = new ExpensesService(client as never);
+
+    const created = await service.create(membership, {
+      merchant: 'Aluguel',
+      amountCents: 1000,
+      spentOn: '2026-09-02',
+      category: 'housing',
+    });
+
+    expect(created.fixed).toBe(false);
+    const flagged = await client.expense.count({
+      where: { householdId: membership.householdId, fixed: true },
+    });
+    expect(flagged).toBe(0);
+  });
 });
