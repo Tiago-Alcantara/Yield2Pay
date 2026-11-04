@@ -9,6 +9,7 @@ import type {
   HouseholdProfile,
   HouseholdRole,
   HouseholdSummary,
+  HouseholdWalletView,
   LessonProgressView,
   LessonView,
   PatchHouseholdProfile,
@@ -17,6 +18,9 @@ import type {
   StatementPreview,
   StatementView,
   UpsertHouseholdProfile,
+  WalletMovementPage,
+  WalletNetwork,
+  WalletSyncResult,
 } from '@yield2pay/shared';
 
 type GetToken = () => Promise<string | null>;
@@ -25,6 +29,9 @@ type GetToken = () => Promise<string | null>;
 export const HOUSEHOLD_REQUEST_TIMEOUT_MS = 8_000;
 
 export const DASHBOARD_LOAD_TIMEOUT_MS = 8_000;
+
+/** Adicionar confere a conta na rede, e o sync traz páginas do Horizon. A API para antes disto. */
+export const WALLET_REQUEST_TIMEOUT_MS = 60_000;
 
 /** 20 páginas de 5.000. Acima disso a tela avisa em vez de cortar calada. */
 export const EXPENSE_PAGE_CAP = 20;
@@ -269,5 +276,25 @@ export function createHouseholdApi(
         body: JSON.stringify({ completed, answers }),
       }),
     deleteLessonProgress: () => request<void>('/lesson-progress', { method: 'DELETE' }),
+    listWallets: () => request<HouseholdWalletView[]>('/household-wallets'),
+    addWallet: (body: { address: string; label: string; network: WalletNetwork }) =>
+      request<HouseholdWalletView>('/household-wallets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    removeWallet: (id: string) =>
+      request<void>(`/household-wallets/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    syncWallets: () => request<WalletSyncResult>('/household-wallets/sync', { method: 'POST' }),
+    getWalletMovements: (opts: { month?: string; from?: string; to?: string }) =>
+      request<WalletMovementPage>(
+        `/household-wallets/movements${queryString({ month: opts.from ? undefined : opts.month, from: opts.from, to: opts.to })}`,
+      ),
+    markWalletTransfer: (id: string, ownTransfer: boolean) =>
+      request<void>(`/household-wallets/movements/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownTransfer }),
+      }),
   };
 }

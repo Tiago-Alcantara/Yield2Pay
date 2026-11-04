@@ -15,6 +15,7 @@ import { AppSplash } from '../_components/loading/AppSplash';
 import { PainelSkeleton } from '../_components/loading/PainelSkeleton';
 import { useTopProgress } from '../_components/loading/TopProgress';
 import { WaveReveal } from '../_components/loading/WaveReveal';
+import { WalletMovements } from './WalletMovements';
 import { Charts } from './Charts';
 import { EMPTY_FILTERS, FilterBar, categoryId, matchesExpense, rowsNoun, type ExpenseFilters } from './FilterBar';
 import { ImportModal } from './ImportModal';
@@ -221,6 +222,7 @@ function PainelScreen({
   const [liberdadeOn, setLiberdadeOn] = useState(true);
   const [summaryState, setSummaryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [walletsVersion, setWalletsVersion] = useState(0);
   const pendingAcao = useRef<'importar' | 'novo' | 'convidar' | null>(null);
   const pendingConta = useRef(false);
   const settledHash = useRef<string | null>(null);
@@ -1047,6 +1049,7 @@ function PainelScreen({
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="y2p-ellipsis">{row.merchant}</span>
                     {row.fixed && <span className="y2p-fixo">fixo</span>}
+                    {row.source === 'wallet' && row.excludedFromTotals && <span className="y2p-fixo">transferência minha</span>}
                   </span>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--fx-text-3, #8a8d91)', marginTop: 2 }}>{row.addedBy.displayName}</span>
                 </span>
@@ -1073,6 +1076,8 @@ function PainelScreen({
                     {brl(reais(row.amountCents))}
                   </span>
                 )}
+                {/* A linha da carteira sai junto com a carteira, em Conta > Carteiras. */}
+                {row.source !== 'wallet' && (
                 <button
                   type="button"
                   className={'y2p-tx-delete' + (confirmId === row.id ? ' is-confirm' : '')}
@@ -1082,6 +1087,7 @@ function PainelScreen({
                 >
                   {confirmId === row.id ? 'Confirmar' : <IconTrash />}
                 </button>
+                )}
               </div>
             ))}
             {futureHidden > 0 && (
@@ -1096,6 +1102,18 @@ function PainelScreen({
             )}
           </div>
         </div>
+
+        {summaryState === 'ready' && (
+        <WalletMovements
+          month={month}
+          from={filters.mode === 'custom' ? filters.from : undefined}
+          to={filters.mode === 'custom' ? filters.to : undefined}
+          reloadKey={walletsVersion}
+          getToken={getToken}
+          getIdentityToken={getIdentityToken}
+          onExpensesChanged={() => { void refresh(month); }}
+        />
+        )}
 
         <div
           id="s-aprender"
@@ -1204,7 +1222,8 @@ function PainelScreen({
           setAccount((prev) => (prev ? { ...prev, activeHousehold: null } : prev));
           setPhase('name');
         }}
-        onExpensesCleared={() => { void refresh(month); }}
+        onExpensesCleared={() => { void refresh(month); setWalletsVersion((version) => version + 1); }}
+        onWalletsChanged={() => { void refresh(month); setWalletsVersion((version) => version + 1); }}
       />
 
       {onbOpen && (

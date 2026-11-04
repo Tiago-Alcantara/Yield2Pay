@@ -322,6 +322,7 @@
 .conta-danger { border-color: var(--danger); color: var(--danger); background: transparent; }
 .conta-danger:hover { background: var(--danger-bg); }
 .conta-count { font-family: 'Geist Mono', monospace; font-size: 13px; color: var(--mut2); }
+.conta-select { height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--fx-border, #2A2D31); background: var(--well); color: var(--txs); font: inherit; font-size: 14px; }
 .conta-subhead {
   display: flex;
   justify-content: space-between;
