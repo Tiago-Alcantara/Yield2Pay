@@ -49,6 +49,64 @@ describe('householdApi request', () => {
     expect((error as { timeout?: boolean }).timeout).toBeUndefined();
   });
 
+  describe('entradas e prévia do extrato', () => {
+    function okFetch(body: unknown = { items: [], total: 0 }) {
+      const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify(body), { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    }
+    const api = () => createHouseholdApi(async () => 'tok', { timeoutMs: 1000 });
+    const file = () => new File(['conteudo'], 'extrato.csv');
+
+    it('getExpenses manda o kind só quando pedido', async () => {
+      const fetchMock = okFetch();
+      await api().getExpenses({ month: '2026-10', kind: 'income' });
+      expect(new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://x').searchParams.get('kind')).toBe('income');
+      await api().getExpenses({ month: '2026-10' });
+      expect(new URL(String(fetchMock.mock.calls[1]?.[0]), 'http://x').searchParams.has('kind')).toBe(false);
+    });
+
+    it('createExpense e patchExpense mandam o kind no corpo', async () => {
+      const fetchMock = okFetch({});
+      await api().createExpense({ merchant: 'Salário', amountCents: 100, spentOn: '2026-10-02', kind: 'income' });
+      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+        merchant: 'Salário',
+        amountCents: 100,
+        spentOn: '2026-10-02',
+        kind: 'income',
+      });
+      await api().patchExpense('e1', { kind: 'expense', category: 'housing' });
+      expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ kind: 'expense', category: 'housing' });
+    });
+
+    it('a prévia manda o arquivo para /statements/preview, sem kinds', async () => {
+      const preview = { filename: 'extrato.csv', skipped: 0, rows: [] };
+      const fetchMock = okFetch(preview);
+      await expect(api().previewStatement(file())).resolves.toEqual(preview);
+      const [url, init] = fetchMock.mock.calls[0] ?? [];
+      expect(String(url)).toMatch(/\/statements\/preview$/);
+      expect(init?.method).toBe('POST');
+      const form = init?.body as FormData;
+      expect(form.get('kinds')).toBeNull();
+      expect((form.get('file') as File).name).toBe('extrato.csv');
+    });
+
+    it('a confirmação manda kinds em JSON junto com o arquivo', async () => {
+      const fetchMock = okFetch({ statementId: 's1', imported: 2, skipped: 0 });
+      await api().importStatement(file(), ['income', 'expense']);
+      const [url, init] = fetchMock.mock.calls[0] ?? [];
+      expect(String(url)).toMatch(/\/statements$/);
+      const form = init?.body as FormData;
+      expect(form.get('kinds')).toBe('["income","expense"]');
+      expect((form.get('file') as File).name).toBe('extrato.csv');
+    });
+
+    it('o erro do upload leva o status', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 409 })));
+      await expect(api().previewStatement(file())).rejects.toMatchObject({ status: 409 });
+    });
+  });
+
   it('loads a month with one /expenses call', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
       items: [{ id: 'e1', date: '2026-10-02', merchant: 'Netflix', category: 'subscriptions', fixed: true, amountCents: 5590, addedBy: { displayName: 'Ana', initials: 'A' } }],
